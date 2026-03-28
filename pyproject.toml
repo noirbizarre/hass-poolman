@@ -124,3 +124,6 @@ test.cmd = "pytest"
 
 cover.help = "Run the test suite with coverage"
 cover.ref = "test --cov-report term-missing --cov-report=xml:coverage.xml --cov=commitizen  --junitxml=junit.xml -o junit_family=legacy"
+
+brand.help = "Render the brand logo and icon from the SVGs"
+brand.cmd = "uv run scripts/brand.py"
