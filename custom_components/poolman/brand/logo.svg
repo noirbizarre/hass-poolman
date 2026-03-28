@@ -1,0 +1,14 @@
+<svg width="512" height="200" viewBox="0 0 512 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Icon -->
+  <g transform="translate(20,20) scale(0.6)">
+    <circle cx="128" cy="128" r="120" fill="#03A9F4"/>
+    <polygon points="128,50 60,110 60,190 196,190 196,110" fill="white"/>
+    <rect x="80" y="130" width="96" height="40" rx="8" fill="#03A9F4"/>
+    <path d="M80 150 Q100 140 120 150 T160 150 T176 150" stroke="white" stroke-width="4" fill="none"/>
+  </g>
+
+  <!-- Text -->
+  <text x="180" y="120" font-family="Arial, sans-serif" font-size="48" fill="#03A9F4">
+    Pool Manager
+  </text>
+</svg>
