@@ -1,13 +1,12 @@
 {
   "domain": "poolman",
   "name": "Pool Manager",
-  "version": "0.1.0",
-  "documentation": "https://github.com/noirbizarre/hass-poolman",
-  "issue_tracker": "https://github.com/noirbizarre/hass-poolman/issues",
   "codeowners": ["@noirbizarre"],
-  "dependencies": [],
-  "requirements": ["pydantic>=2.0"],
   "config_flow": true,
+  "documentation": "https://github.com/noirbizarre/hass-poolman#readme",
   "integration_type": "device",
-  "iot_class": "calculated"
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/noirbizarre/hass-poolman/issues",
+  "requirements": ["pydantic>=2.0"],
+  "version": "0.1.0"
 }

@@ -80,10 +80,9 @@ repo = "local"
 
 [[repos.hooks]]
 id = "ty-check"
-name = "type checking"
+name = "Type checking"
 language = "python"
-entry = "ty check"
-# files = '\\.rs$'
-# exclude: ^(docs/.*\.pyi?|packages/.*|scripts/.*)$
+entry = ".venv/bin/ty check"
+exclude = '^(docs/.*\.pyi?|scripts/.*)$'
 pass_filenames = false
-args = ["--python=.venv/"]
+args = ["--python=.venv"]
