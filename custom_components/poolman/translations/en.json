@@ -1,0 +1,87 @@
+{
+  "title": "Pool Manager",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Pool Manager",
+        "description": "Configure your pool monitoring and management system.",
+        "data": {
+          "pool_name": "Pool name",
+          "volume_m3": "Volume",
+          "shape": "Pool shape",
+          "pump_flow_m3h": "Pump flow rate",
+          "temperature_entity": "Water temperature sensor",
+          "ph_entity": "pH sensor",
+          "orp_entity": "ORP sensor",
+          "tac_entity": "Total alkalinity (TAC) sensor",
+          "cya_entity": "Cyanuric acid (stabilizer) sensor",
+          "hardness_entity": "Calcium hardness sensor",
+          "pump_entity": "Pump switch"
+        },
+        "data_description": {
+          "volume_m3": "Total water volume of the pool.",
+          "pump_flow_m3h": "Pump flow rate in cubic meters per hour.",
+          "tac_entity": "Optional. Total alkalinity sensor.",
+          "cya_entity": "Optional. Cyanuric acid (stabilizer) sensor.",
+          "hardness_entity": "Optional. Calcium hardness sensor.",
+          "pump_entity": "Optional. Switch entity to control the pump."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "temperature": {
+        "name": "Water temperature"
+      },
+      "ph": {
+        "name": "pH"
+      },
+      "orp": {
+        "name": "ORP"
+      },
+      "filtration_duration": {
+        "name": "Recommended filtration"
+      },
+      "water_quality_score": {
+        "name": "Water quality"
+      },
+      "recommendations": {
+        "name": "Recommendations"
+      }
+    },
+    "binary_sensor": {
+      "water_ok": {
+        "name": "Water quality"
+      },
+      "action_required": {
+        "name": "Action required"
+      }
+    },
+    "select": {
+      "mode": {
+        "name": "Pool mode",
+        "state": {
+          "running": "Running",
+          "winter_active": "Active wintering",
+          "winter_passive": "Passive wintering"
+        }
+      }
+    }
+  },
+  "selector": {
+    "pool_shape": {
+      "options": {
+        "rectangular": "Rectangular",
+        "round": "Round",
+        "freeform": "Freeform"
+      }
+    }
+  }
+}

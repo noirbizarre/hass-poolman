@@ -1,0 +1,87 @@
+{
+  "title": "Pool Manager",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurer Pool Manager",
+        "description": "Configurez votre système de surveillance et de gestion de piscine.",
+        "data": {
+          "pool_name": "Nom de la piscine",
+          "volume_m3": "Volume",
+          "shape": "Forme de la piscine",
+          "pump_flow_m3h": "Débit de la pompe",
+          "temperature_entity": "Capteur de température de l'eau",
+          "ph_entity": "Capteur de pH",
+          "orp_entity": "Capteur ORP",
+          "tac_entity": "Capteur d'alcalinité totale (TAC)",
+          "cya_entity": "Capteur d'acide cyanurique (stabilisant)",
+          "hardness_entity": "Capteur de dureté calcique",
+          "pump_entity": "Interrupteur de la pompe"
+        },
+        "data_description": {
+          "volume_m3": "Volume total d'eau de la piscine.",
+          "pump_flow_m3h": "Débit de la pompe en mètres cubes par heure.",
+          "tac_entity": "Optionnel. Capteur d'alcalinité totale.",
+          "cya_entity": "Optionnel. Capteur d'acide cyanurique (stabilisant).",
+          "hardness_entity": "Optionnel. Capteur de dureté calcique.",
+          "pump_entity": "Optionnel. Interrupteur pour contrôler la pompe."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Échec de la connexion"
+    },
+    "abort": {
+      "already_configured": "L'appareil est déjà configuré"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "temperature": {
+        "name": "Température de l'eau"
+      },
+      "ph": {
+        "name": "pH"
+      },
+      "orp": {
+        "name": "ORP"
+      },
+      "filtration_duration": {
+        "name": "Filtration recommandée"
+      },
+      "water_quality_score": {
+        "name": "Qualité de l'eau"
+      },
+      "recommendations": {
+        "name": "Recommandations"
+      }
+    },
+    "binary_sensor": {
+      "water_ok": {
+        "name": "Qualité de l'eau"
+      },
+      "action_required": {
+        "name": "Action requise"
+      }
+    },
+    "select": {
+      "mode": {
+        "name": "Mode piscine",
+        "state": {
+          "running": "En fonctionnement",
+          "winter_active": "Hivernage actif",
+          "winter_passive": "Hivernage passif"
+        }
+      }
+    }
+  },
+  "selector": {
+    "pool_shape": {
+      "options": {
+        "rectangular": "Rectangulaire",
+        "round": "Ronde",
+        "freeform": "Forme libre"
+      }
+    }
+  }
+}
