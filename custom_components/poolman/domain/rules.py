@@ -1,0 +1,301 @@
+"""Extensible rule engine for pool management.
+
+Provides a base Rule class and built-in rules for pH, chlorine, and filtration.
+New rules can be added by subclassing Rule and registering in the engine.
+No Home Assistant dependencies.
+"""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+
+from .chemistry import (
+    ORP_MAX,
+    ORP_MIN_ACCEPTABLE,
+    PH_MAX,
+    PH_MIN,
+    PH_TARGET,
+    PH_TOLERANCE,
+    TAC_MAX,
+    TAC_MIN,
+    compute_chlorine_status,
+    compute_ph_adjustment,
+    compute_tac_adjustment,
+)
+from .filtration import compute_filtration_duration
+from .model import (
+    Pool,
+    PoolMode,
+    PoolReading,
+    Recommendation,
+    RecommendationPriority,
+    RecommendationType,
+)
+
+
+class Rule(ABC):
+    """Base class for pool management rules.
+
+    Each rule evaluates the current pool state and returns zero or more
+    recommendations. Rules should be stateless and side-effect free.
+    """
+
+    @abstractmethod
+    def evaluate(
+        self,
+        pool: Pool,
+        reading: PoolReading,
+        mode: PoolMode,
+    ) -> list[Recommendation]:
+        """Evaluate the rule and return recommendations.
+
+        Args:
+            pool: Pool physical characteristics.
+            reading: Current sensor readings.
+            mode: Current operational mode.
+
+        Returns:
+            List of recommendations (empty if the rule doesn't apply).
+        """
+
+
+class PhRule(Rule):
+    """Rule for pH level adjustments."""
+
+    def evaluate(
+        self,
+        pool: Pool,
+        reading: PoolReading,
+        mode: PoolMode,
+    ) -> list[Recommendation]:
+        """Evaluate pH level and recommend adjustments."""
+        if mode == PoolMode.WINTER_PASSIVE or reading.ph is None:
+            return []
+
+        result = compute_ph_adjustment(pool, reading)
+        if result is None:
+            return []
+
+        product = result["product"]
+        quantity = result["quantity_g"]
+
+        # Determine priority based on how far from target
+        delta = abs(reading.ph - PH_TARGET)
+        if reading.ph < PH_MIN or reading.ph > PH_MAX:
+            priority = RecommendationPriority.HIGH
+        elif delta > PH_TOLERANCE * 3:
+            priority = RecommendationPriority.MEDIUM
+        else:
+            priority = RecommendationPriority.LOW
+
+        product_str = str(product)
+        quantity_f = float(quantity)  # type: ignore[arg-type]
+        return [
+            Recommendation(
+                type=RecommendationType.CHEMICAL,
+                priority=priority,
+                message=f"Add {quantity_f:.0f}g of {product_str}",
+                product=product_str,
+                quantity_g=quantity_f,
+            )
+        ]
+
+
+class ChlorineRule(Rule):
+    """Rule for chlorine/ORP level evaluation."""
+
+    def evaluate(
+        self,
+        pool: Pool,
+        reading: PoolReading,
+        mode: PoolMode,
+    ) -> list[Recommendation]:
+        """Evaluate chlorine via ORP and recommend treatment."""
+        if mode == PoolMode.WINTER_PASSIVE or reading.orp is None:
+            return []
+
+        result = compute_chlorine_status(reading)
+        if result is None:
+            return []
+
+        product = result["product"]
+        severity = result["severity"]
+
+        if severity == "critical":
+            priority = RecommendationPriority.CRITICAL
+            message = "Shock chlorination required (ORP critically low)"
+        elif reading.orp > ORP_MAX:
+            priority = RecommendationPriority.MEDIUM
+            message = "ORP too high, reduce chlorine dosage"
+        else:
+            priority = RecommendationPriority.MEDIUM
+            message = f"Add {product} (ORP below {ORP_MIN_ACCEPTABLE} mV)"
+
+        return [
+            Recommendation(
+                type=RecommendationType.CHEMICAL,
+                priority=priority,
+                message=message,
+                product=product,
+            )
+        ]
+
+
+class FiltrationRule(Rule):
+    """Rule for filtration duration recommendation."""
+
+    def evaluate(
+        self,
+        pool: Pool,
+        reading: PoolReading,
+        mode: PoolMode,
+    ) -> list[Recommendation]:
+        """Recommend filtration duration."""
+        hours = compute_filtration_duration(pool, reading, mode)
+        if hours is None:
+            return []
+
+        if mode in (PoolMode.WINTER_ACTIVE, PoolMode.WINTER_PASSIVE):
+            priority = RecommendationPriority.LOW
+        elif hours >= 12:
+            priority = RecommendationPriority.MEDIUM
+        else:
+            priority = RecommendationPriority.LOW
+
+        return [
+            Recommendation(
+                type=RecommendationType.FILTRATION,
+                priority=priority,
+                message=f"Run filtration for {hours:.1f} hours today",
+            )
+        ]
+
+
+class TacRule(Rule):
+    """Rule for total alkalinity (TAC) adjustment."""
+
+    def evaluate(
+        self,
+        pool: Pool,
+        reading: PoolReading,
+        mode: PoolMode,
+    ) -> list[Recommendation]:
+        """Evaluate TAC and recommend adjustments."""
+        if mode == PoolMode.WINTER_PASSIVE or reading.tac is None:
+            return []
+
+        result = compute_tac_adjustment(pool, reading)
+        if result is None:
+            return []
+
+        product = result["product"]
+        quantity = result["quantity_g"]
+
+        product_str = str(product)
+
+        if reading.tac < TAC_MIN:
+            priority = RecommendationPriority.MEDIUM
+            quantity_f = float(quantity)  # type: ignore[arg-type]
+            message = f"Add {quantity_f:.0f}g of TAC+ (alkalinity too low)"
+        elif reading.tac > TAC_MAX:
+            priority = RecommendationPriority.LOW
+            quantity_f = None
+            message = "Alkalinity too high, pH- treatments will help lower it"
+        else:
+            return []
+
+        return [
+            Recommendation(
+                type=RecommendationType.CHEMICAL,
+                priority=priority,
+                message=message,
+                product=product_str,
+                quantity_g=quantity_f,
+            )
+        ]
+
+
+class AlgaeRiskRule(Rule):
+    """Rule for algae risk detection based on temperature and ORP."""
+
+    def evaluate(
+        self,
+        pool: Pool,
+        reading: PoolReading,
+        mode: PoolMode,
+    ) -> list[Recommendation]:
+        """Evaluate algae risk from warm water and low ORP."""
+        if mode == PoolMode.WINTER_PASSIVE:
+            return []
+
+        if reading.temp_c is None or reading.orp is None:
+            return []
+
+        if reading.temp_c > 28 and reading.orp < ORP_MIN_ACCEPTABLE:
+            return [
+                Recommendation(
+                    type=RecommendationType.ALERT,
+                    priority=RecommendationPriority.HIGH,
+                    message="High algae risk (warm water + low ORP)",
+                )
+            ]
+
+        return []
+
+
+class RuleEngine:
+    """Engine that evaluates all registered rules against pool state.
+
+    Rules are evaluated in registration order. All applicable recommendations
+    are collected and returned.
+    """
+
+    def __init__(self, rules: list[Rule] | None = None) -> None:
+        """Initialize the rule engine with optional rules.
+
+        Args:
+            rules: List of rules to register. If None, uses default rules.
+        """
+        self.rules = rules if rules is not None else self._default_rules()
+
+    @staticmethod
+    def _default_rules() -> list[Rule]:
+        """Return the default set of built-in rules."""
+        return [
+            PhRule(),
+            ChlorineRule(),
+            FiltrationRule(),
+            TacRule(),
+            AlgaeRiskRule(),
+        ]
+
+    def evaluate(
+        self,
+        pool: Pool,
+        reading: PoolReading,
+        mode: PoolMode,
+    ) -> list[Recommendation]:
+        """Run all rules and collect recommendations.
+
+        Args:
+            pool: Pool physical characteristics.
+            reading: Current sensor readings.
+            mode: Current operational mode.
+
+        Returns:
+            All recommendations from all rules, sorted by priority (highest first).
+        """
+        recommendations: list[Recommendation] = []
+        for rule in self.rules:
+            recommendations.extend(rule.evaluate(pool, reading, mode))
+
+        # Sort by priority (critical first)
+        priority_order = {
+            RecommendationPriority.CRITICAL: 0,
+            RecommendationPriority.HIGH: 1,
+            RecommendationPriority.MEDIUM: 2,
+            RecommendationPriority.LOW: 3,
+        }
+        recommendations.sort(key=lambda r: priority_order.get(r.priority, 99))
+
+        return recommendations

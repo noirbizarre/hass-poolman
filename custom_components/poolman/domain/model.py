@@ -1,0 +1,117 @@
+"""Domain models for pool management.
+
+Pure Python models with no Home Assistant dependency.
+"""
+
+from __future__ import annotations
+
+from enum import StrEnum
+
+from pydantic import BaseModel, Field
+
+
+class PoolShape(StrEnum):
+    """Pool shape types."""
+
+    RECTANGULAR = "rectangular"
+    ROUND = "round"
+    FREEFORM = "freeform"
+
+
+class PoolMode(StrEnum):
+    """Operational mode of the pool."""
+
+    RUNNING = "running"
+    WINTER_ACTIVE = "winter_active"
+    WINTER_PASSIVE = "winter_passive"
+
+
+class RecommendationType(StrEnum):
+    """Types of pool recommendations."""
+
+    CHEMICAL = "chemical"
+    FILTRATION = "filtration"
+    ALERT = "alert"
+    MAINTENANCE = "maintenance"
+
+
+class RecommendationPriority(StrEnum):
+    """Priority levels for recommendations."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class Pool(BaseModel):
+    """Physical characteristics of a pool."""
+
+    name: str = "Pool"
+    volume_m3: float = Field(gt=0, description="Pool volume in cubic meters")
+    shape: PoolShape = PoolShape.RECTANGULAR
+    pump_flow_m3h: float = Field(gt=0, description="Pump flow rate in m3/h")
+
+    @property
+    def turnovers_per_day(self) -> float:
+        """Calculate how many full water turnovers per day at 24h operation."""
+        return (self.pump_flow_m3h * 24) / self.volume_m3
+
+
+class PoolReading(BaseModel):
+    """Current sensor readings from the pool.
+
+    All values are optional since sensors may be unavailable.
+    """
+
+    ph: float | None = Field(None, ge=0, le=14, description="pH level")
+    orp: float | None = Field(None, description="ORP in millivolts")
+    temp_c: float | None = Field(None, description="Water temperature in Celsius")
+    tac: float | None = Field(None, ge=0, description="Total alkalinity in ppm")
+    cya: float | None = Field(None, ge=0, description="Cyanuric acid (stabilizer) in ppm")
+    hardness: float | None = Field(None, ge=0, description="Calcium hardness in ppm")
+
+
+class Recommendation(BaseModel):
+    """A pool treatment or maintenance recommendation."""
+
+    type: RecommendationType
+    priority: RecommendationPriority
+    message: str
+    product: str | None = None
+    quantity_g: float | None = Field(None, ge=0, description="Quantity in grams")
+
+    def __str__(self) -> str:
+        """Return human-readable recommendation."""
+        if self.quantity_g and self.product:
+            return f"{self.message} ({self.quantity_g:.0f}g of {self.product})"
+        return self.message
+
+
+class PoolState(BaseModel):
+    """Computed state of the pool combining readings, mode, and recommendations."""
+
+    mode: PoolMode = PoolMode.RUNNING
+    reading: PoolReading = Field(default_factory=PoolReading)
+    recommendations: list[Recommendation] = Field(default_factory=list)
+    filtration_hours: float | None = None
+    water_quality_score: int | None = Field(None, ge=0, le=100)
+
+    @property
+    def water_ok(self) -> bool:
+        """Return True if water parameters are within acceptable ranges."""
+        return len(self.critical_recommendations) == 0
+
+    @property
+    def action_required(self) -> bool:
+        """Return True if any recommendation exists."""
+        return len(self.recommendations) > 0
+
+    @property
+    def critical_recommendations(self) -> list[Recommendation]:
+        """Return only high/critical priority recommendations."""
+        return [
+            r
+            for r in self.recommendations
+            if r.priority in (RecommendationPriority.HIGH, RecommendationPriority.CRITICAL)
+        ]

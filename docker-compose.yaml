@@ -1,0 +1,10 @@
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    volumes:
+      - ./custom_components/poolman:/config/custom_components/poolman:ro
+      - ./test_config:/config
+    ports:
+      - "8123:8123"
+    environment:
+      TZ: ${TZ:-"Europe/Paris"}
