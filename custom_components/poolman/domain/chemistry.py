@@ -6,7 +6,14 @@ No Home Assistant dependencies.
 
 from __future__ import annotations
 
-from .model import Pool, PoolReading
+from .model import (
+    ChemicalProduct,
+    ChlorineStatus,
+    DosageAdjustment,
+    Pool,
+    PoolReading,
+    Severity,
+)
 
 # Target ranges for pool chemistry
 PH_TARGET: float = 7.2
@@ -36,18 +43,17 @@ PH_DOSAGE_PER_10M3: float = 150.0
 PH_DOSAGE_STEP: float = 0.2
 
 
-def compute_ph_adjustment(pool: Pool, reading: PoolReading) -> dict[str, object] | None:
+def compute_ph_adjustment(pool: Pool, reading: PoolReading) -> DosageAdjustment | None:
     """Compute pH adjustment recommendation.
 
-    Returns a dict with product type and quantity, or None if pH is in range.
+    Returns a dosage adjustment with product type and quantity, or None if pH is in range.
 
     Args:
         pool: Pool physical characteristics.
         reading: Current sensor readings.
 
     Returns:
-        Dict with 'product' ('ph_minus' or 'ph_plus') and 'quantity_g',
-        or None if no adjustment needed.
+        DosageAdjustment with product and quantity, or None if no adjustment needed.
     """
     if reading.ph is None:
         return None
@@ -58,36 +64,34 @@ def compute_ph_adjustment(pool: Pool, reading: PoolReading) -> dict[str, object]
         return None
 
     quantity = abs(delta / PH_DOSAGE_STEP) * PH_DOSAGE_PER_10M3 * (pool.volume_m3 / 10)
+    product = ChemicalProduct.PH_MINUS if delta > 0 else ChemicalProduct.PH_PLUS
 
-    return {
-        "product": "ph_minus" if delta > 0 else "ph_plus",
-        "quantity_g": round(quantity, 0),
-    }
+    return DosageAdjustment(product=product, quantity_g=round(quantity, 0))
 
 
-def compute_chlorine_status(reading: PoolReading) -> dict[str, str] | None:
+def compute_chlorine_status(reading: PoolReading) -> ChlorineStatus | None:
     """Evaluate chlorine status from ORP reading.
 
     Args:
         reading: Current sensor readings.
 
     Returns:
-        Dict with 'product' and 'severity', or None if ORP is acceptable.
+        ChlorineStatus with product and severity, or None if ORP is acceptable.
     """
     if reading.orp is None:
         return None
 
     if reading.orp < ORP_MIN_CRITICAL:
-        return {"product": "chlore_choc", "severity": "critical"}
+        return ChlorineStatus(product=ChemicalProduct.CHLORE_CHOC, severity=Severity.CRITICAL)
     if reading.orp < ORP_MIN_ACCEPTABLE:
-        return {"product": "galet_chlore", "severity": "medium"}
+        return ChlorineStatus(product=ChemicalProduct.GALET_CHLORE, severity=Severity.MEDIUM)
     if reading.orp > ORP_MAX:
-        return {"product": "neutralizer", "severity": "medium"}
+        return ChlorineStatus(product=ChemicalProduct.NEUTRALIZER, severity=Severity.MEDIUM)
 
     return None
 
 
-def compute_tac_adjustment(pool: Pool, reading: PoolReading) -> dict[str, object] | None:
+def compute_tac_adjustment(pool: Pool, reading: PoolReading) -> DosageAdjustment | None:
     """Compute total alkalinity adjustment recommendation.
 
     Args:
@@ -95,7 +99,7 @@ def compute_tac_adjustment(pool: Pool, reading: PoolReading) -> dict[str, object
         reading: Current sensor readings.
 
     Returns:
-        Dict with product and quantity, or None if TAC is in range.
+        DosageAdjustment with product and quantity, or None if TAC is in range.
     """
     if reading.tac is None:
         return None
@@ -104,10 +108,11 @@ def compute_tac_adjustment(pool: Pool, reading: PoolReading) -> dict[str, object
         # Roughly 18g of sodium bicarbonate per m3 to raise TAC by 10 ppm
         delta_ppm = TAC_TARGET - reading.tac
         quantity = (delta_ppm / 10) * 18 * pool.volume_m3
-        return {"product": "tac_plus", "quantity_g": round(quantity, 0)}
+        return DosageAdjustment(product=ChemicalProduct.TAC_PLUS, quantity_g=round(quantity, 0))
 
     if reading.tac > TAC_MAX:
-        return {"product": "ph_minus", "quantity_g": None}  # pH- lowers TAC indirectly
+        # pH- lowers TAC indirectly, no specific dosage
+        return DosageAdjustment(product=ChemicalProduct.PH_MINUS)
 
     return None
 

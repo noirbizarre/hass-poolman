@@ -12,20 +12,54 @@ dependencies = [
 [dependency-groups]
 dev = [
     "homeassistant",
-    "pytest>=9.0",
+    "poethepoet",
+    "prek",
     "pytest-asyncio>=0.24",
     "pytest-homeassistant-custom-component",
+    "pytest>=9.0",
     "ruff>=0.9",
-    "prek",
+    "sync-pre-commit-lock",
+    "ty",
 ]
 
-[tool.pytest.options]
-testpaths = ["tests"]
+[tool.commitizen]
+name = "emotional"
+github = "noirbizarre/hass-poolman"
+order_by_scope = true
+version_provider = "scm"
+update_changelog_on_bump = true
+changelog_merge_prerelease = true
+
+
+[tool.codespell]
+ignore-words = ".codespellignore"
+skip = "./reports,*.lock,CHANGELOG.md"
+
+
+[tool.pytest]
+minversion = "9.0"
+addopts = ["-ra"]
+norecursedirs = [".git", "build", "dist"]
+testpaths = [
+    "tests/",
+]
 asyncio_mode = "auto"
+
+
+[tool.coverage.run]
+source_pkgs = ["custom_components/poolman"]
+branch = true
+omit = [
+    "tests/*",
+]
+relative_files = true
+
 
 [tool.ruff]
 target-version = "py313"
-line-length = 99
+line-length = 100
+respect-gitignore = true
+show-fixes = true
 
 [tool.ruff.lint]
 select = [
@@ -52,9 +86,41 @@ ignore = [
     "D100",  # Missing docstring in public module
     "D104",  # Missing docstring in public package
 ]
+extend-safe-fixes = ["C", "UP"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
 "tests/**" = ["D", "S101"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["poolman"]
+known-third-party = ["pytest"]
+lines-between-types = 1
+
+
+[tool.poe]
+verbosity = -1
+
+[tool.poe.executor]
+type = "uv"
+no-sync = true
+frozen = true
+
+[tool.poe.tasks]
+format.help = "Format the code"
+format.sequence = [
+  { cmd = "ruff check --fix" },
+  { cmd = "ruff format" },
+]
+
+lint.help = "Run the test suite"
+lint.cmd = "prek run -a"
+
+test.help = "Run the test suite"
+test.cmd = "pytest"
+
+cover.help = "Run the test suite with coverage"
+cover.ref = "test --cov-report term-missing --cov-report=xml:coverage.xml --cov=commitizen  --junitxml=junit.xml -o junit_family=legacy"

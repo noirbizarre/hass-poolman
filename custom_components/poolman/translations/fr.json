@@ -29,7 +29,7 @@
       }
     },
     "error": {
-      "cannot_connect": "Échec de la connexion"
+      "cannot_connect": "Échec de la connection"
     },
     "abort": {
       "already_configured": "L'appareil est déjà configuré"
@@ -53,7 +53,7 @@
         "name": "Qualité de l'eau"
       },
       "recommendations": {
-        "name": "Recommandations"
+        "name": "Recommendations"
       }
     },
     "binary_sensor": {

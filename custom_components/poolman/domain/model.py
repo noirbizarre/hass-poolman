@@ -26,6 +26,24 @@ class PoolMode(StrEnum):
     WINTER_PASSIVE = "winter_passive"
 
 
+class ChemicalProduct(StrEnum):
+    """Chemical products for pool treatment."""
+
+    PH_MINUS = "ph_minus"
+    PH_PLUS = "ph_plus"
+    CHLORE_CHOC = "chlore_choc"
+    GALET_CHLORE = "galet_chlore"
+    NEUTRALIZER = "neutralizer"
+    TAC_PLUS = "tac_plus"
+
+
+class Severity(StrEnum):
+    """Severity levels for chemistry status."""
+
+    MEDIUM = "medium"
+    CRITICAL = "critical"
+
+
 class RecommendationType(StrEnum):
     """Types of pool recommendations."""
 
@@ -42,6 +60,20 @@ class RecommendationPriority(StrEnum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+
+
+class DosageAdjustment(BaseModel, frozen=True):
+    """A chemical dosage adjustment recommendation."""
+
+    product: ChemicalProduct
+    quantity_g: float | None = Field(None, ge=0, description="Quantity in grams")
+
+
+class ChlorineStatus(BaseModel, frozen=True):
+    """Chlorine/ORP evaluation result."""
+
+    product: ChemicalProduct
+    severity: Severity
 
 
 class Pool(BaseModel):

@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD033 -->
+<!-- markdownlint-disable MD041 -->
 <p align="center">
   <img src="custom_components/poolman/brand/logo.svg" alt="Pool Manager logo" />
 </p>
@@ -17,22 +19,25 @@
 
 # Pool Manager for Home Assistant
 
-**Pool Manager** is a Home Assistant custom integration that aggregates readings from your existing sensor entities (pH, ORP, temperature, etc.) and turns them into actionable pool management insights. It computes recommended filtration duration, a water quality score, and chemical dosage recommendations -- all locally, with no cloud service or specific hardware required.
+**Pool Manager** is a Home Assistant custom integration that aggregates readings from your existing sensor entities
+(pH, ORP, temperature, etc.) and turns them into actionable pool management insights.
+It computes recommended filtration duration, a water quality score, and chemical dosage recommendations,
+all locally, with no cloud service or specific hardware required.
 
 ## Features
 
-- **Computed analytics** -- recommended daily filtration duration and a 0-100% water quality score
-- **Rule engine** -- actionable recommendations with chemical product and dosage (pH adjustment, chlorine, TAC, algae risk alerts)
-- **3 operational modes** -- Running, Active Wintering, and Passive Wintering, each with adapted rules and filtration logic
-- **No external dependency** -- works entirely from existing Home Assistant entities, no cloud API or dedicated hardware needed
-- **Multi-language** -- English and French translations included
+- **Computed analytics**: recommended daily filtration duration and a 0-100% water quality score
+- **Rule engine**: actionable recommendations with chemical product and dosage
+- **3 operational modes**: Running, Active Wintering, and Passive Wintering, each with adapted rules and filtration logic
+- **No external dependency**: works entirely from existing Home Assistant entities, no cloud API or dedicated hardware needed
+- **Multi-language**: English and French translations included
 
 ## Entities
 
 ### Sensors
 
 | Entity | Name | Unit | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `sensor.{pool}_temperature` | Water temperature | °C | Water temperature reading |
 | `sensor.{pool}_ph` | pH | -- | pH level reading |
 | `sensor.{pool}_orp` | ORP | mV | Oxidation-reduction potential reading |
@@ -43,14 +48,14 @@
 ### Binary Sensors
 
 | Entity | Name | Device Class | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `binary_sensor.{pool}_water_ok` | Water quality | Safety | ON when water chemistry has no high/critical issues |
 | `binary_sensor.{pool}_action_required` | Action required | Problem | ON when any recommendation is active |
 
 ### Select
 
 | Entity | Name | Options | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `select.{pool}_mode` | Pool mode | Running, Active Wintering, Passive Wintering | Controls the current operational mode |
 
 ## Screenshots
@@ -74,7 +79,8 @@ Optionally, for more accurate recommendations:
 - **Calcium Hardness** sensor (ppm)
 - **Pump switch** entity (for future pump control features)
 
-These can come from any source -- dedicated pool probes (e.g. Flipr, iopool, Sutro), ESPHome DIY sensors, or manual input helpers.
+These can come from any source -- dedicated pool probes (e.g. Flipr, iopool, Sutro),
+ESPHome DIY sensors, or manual input helpers.
 
 ## Installation
 
@@ -105,7 +111,7 @@ Or go to **Settings > Devices & Services > Add Integration** and search for **Po
 ### Required parameters
 
 | Parameter | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Pool name | text | My Pool | Name for your pool (used as unique identifier) |
 | Volume | number (m³) | 50.0 | Pool water volume |
 | Shape | select | Rectangular | Pool shape: Rectangular, Round, or Freeform |
@@ -117,7 +123,7 @@ Or go to **Settings > Devices & Services > Add Integration** and search for **Po
 ### Optional parameters
 
 | Parameter | Type | Description |
-|---|---|---|
+| --- | --- | --- |
 | TAC entity | entity | Total Alkalinity sensor |
 | CYA entity | entity | Cyanuric Acid / Stabilizer sensor |
 | Hardness entity | entity | Calcium Hardness sensor |
@@ -127,13 +133,18 @@ Or go to **Settings > Devices & Services > Add Integration** and search for **Po
 
 The integration supports three operational modes, selectable via the **Pool mode** entity:
 
-- **Running** -- Normal season operation. Filtration duration is computed from water temperature (temp / 2 rule, with a minimum ensuring at least one full water volume turnover). All chemistry rules are active.
-- **Active Wintering** -- Reduced operation during cold months. Fixed 4-hour daily filtration. Chemistry rules remain active.
-- **Passive Wintering** -- Pool fully shut down. No filtration. Chemistry rules are disabled.
+- **Running**: Normal season operation. Filtration duration is computed from water temperature
+  (temp / 2 rule, with a minimum ensuring at least one full water volume turnover).
+  All chemistry rules are active.
+- **Active Wintering**: Reduced operation during cold months. Fixed 4-hour daily filtration. Chemistry rules remain active.
+- **Passive Wintering**: Pool fully shut down. No filtration. Chemistry rules are disabled.
 
 ## Contributing
 
-Contributions are welcome. Please open an [issue](https://github.com/noirbizarre/hass-poolman/issues) for bug reports or feature requests, and submit [pull requests](https://github.com/noirbizarre/hass-poolman/pulls) for improvements.
+Contributions are welcome. Please read the [Contribution guide](CONTRIBUTING.md) before.
+
+Please open an [issue](https://github.com/noirbizarre/hass-poolman/issues) for bug reports or feature requests,
+and submit [pull requests](https://github.com/noirbizarre/hass-poolman/pulls) for improvements.
 
 ## License
 

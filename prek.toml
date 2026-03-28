@@ -1,0 +1,89 @@
+# Built-in fast hooks (no network, no setup)
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace" },
+  { id = "end-of-file-fixer" },
+  { id = "check-toml" },
+  { id = "check-yaml" },
+  { id = "check-merge-conflict" },
+  { id = "check-added-large-files", args = ["--maxkb=500"] },
+]
+
+[[repos]]
+repo = "https://github.com/GabDug/sync-pre-commit-lock"
+rev = "v0.9.0"
+hooks = [
+  { id = "sync-pre-commit-uv" },
+]
+
+[[repos]]
+repo = "https://github.com/commitizen-tools/commitizen"
+rev = "v4.13.9"
+hooks = [
+  { id = "commitizen", additional_dependencies = ["emotional==0.5.1"] },
+]
+
+[[repos]]
+repo = "https://github.com/python-jsonschema/check-jsonschema"
+rev = "0.37.1"
+hooks = [
+  { id = "check-github-workflows" },
+  { id = "check-dependabot" },
+]
+
+[[repos]]
+repo = "https://github.com/iamthefij/docker-pre-commit"
+rev = "v3.0.1"
+hooks = [{ id = "docker-compose-check" }]
+
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.15.8"
+hooks = [
+  { id = "ruff", args = ["--fix"] },
+  { id = "ruff-format" },
+]
+
+[[repos]]
+repo = "https://github.com/codespell-project/codespell"
+rev = "v2.4.2"
+hooks = [
+  {
+    id = "codespell",
+    additional_dependencies = ["tomli"],
+    args = ["--write-changes"],
+    exclude = "^pdm\\.lock$"
+  },
+]
+
+[[repos]]
+repo = "https://github.com/DavidAnson/markdownlint-cli2"
+rev = "v0.22.0"
+hooks = [
+  {
+    id = "markdownlint-cli2",
+    args = ["--fix"],
+    additional_dependencies = ["markdownlint-cli2-formatter-pretty"]
+  },
+]
+
+[[repos]]
+repo = "https://github.com/editorconfig-checker/editorconfig-checker.python"
+rev = "3.6.1"
+hooks = [
+  { id = "editorconfig-checker", exclude = ".+\\.(py|md)$" },  # Already linted
+]
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "ty-check"
+name = "type checking"
+language = "python"
+entry = "ty check"
+# files = '\\.rs$'
+# exclude: ^(docs/.*\.pyi?|packages/.*|scripts/.*)$
+pass_filenames = false
+args = ["--python=.venv/"]

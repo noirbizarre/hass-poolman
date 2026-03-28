@@ -11,7 +11,12 @@ from custom_components.poolman.domain.chemistry import (
     compute_tac_adjustment,
     compute_water_quality_score,
 )
-from custom_components.poolman.domain.model import Pool, PoolReading
+from custom_components.poolman.domain.model import (
+    ChemicalProduct,
+    Pool,
+    PoolReading,
+    Severity,
+)
 
 
 class TestPhAdjustment:
@@ -29,15 +34,17 @@ class TestPhAdjustment:
         reading = PoolReading(ph=7.8)
         result = compute_ph_adjustment(pool, reading)
         assert result is not None
-        assert result["product"] == "ph_minus"
-        assert result["quantity_g"] > 0
+        assert result.product == ChemicalProduct.PH_MINUS
+        assert result.quantity_g is not None
+        assert result.quantity_g > 0
 
     def test_ph_too_low_recommends_ph_plus(self, pool: Pool) -> None:
         reading = PoolReading(ph=6.8)
         result = compute_ph_adjustment(pool, reading)
         assert result is not None
-        assert result["product"] == "ph_plus"
-        assert result["quantity_g"] > 0
+        assert result.product == ChemicalProduct.PH_PLUS
+        assert result.quantity_g is not None
+        assert result.quantity_g > 0
 
     def test_ph_none_returns_none(self, pool: Pool) -> None:
         reading = PoolReading(ph=None)
@@ -53,7 +60,9 @@ class TestPhAdjustment:
 
         assert small_result is not None
         assert large_result is not None
-        assert large_result["quantity_g"] > small_result["quantity_g"]
+        assert large_result.quantity_g is not None
+        assert small_result.quantity_g is not None
+        assert large_result.quantity_g > small_result.quantity_g
 
     def test_quantity_scales_with_delta(self, pool: Pool) -> None:
         slight = PoolReading(ph=PH_TARGET + 0.2)
@@ -64,7 +73,9 @@ class TestPhAdjustment:
 
         assert slight_result is not None
         assert severe_result is not None
-        assert severe_result["quantity_g"] > slight_result["quantity_g"]
+        assert severe_result.quantity_g is not None
+        assert slight_result.quantity_g is not None
+        assert severe_result.quantity_g > slight_result.quantity_g
 
 
 class TestChlorineStatus:
@@ -78,21 +89,21 @@ class TestChlorineStatus:
         reading = PoolReading(orp=600.0)
         result = compute_chlorine_status(reading)
         assert result is not None
-        assert result["product"] == "chlore_choc"
-        assert result["severity"] == "critical"
+        assert result.product == ChemicalProduct.CHLORE_CHOC
+        assert result.severity == Severity.CRITICAL
 
     def test_orp_low(self) -> None:
         reading = PoolReading(orp=700.0)
         result = compute_chlorine_status(reading)
         assert result is not None
-        assert result["product"] == "galet_chlore"
-        assert result["severity"] == "medium"
+        assert result.product == ChemicalProduct.GALET_CHLORE
+        assert result.severity == Severity.MEDIUM
 
     def test_orp_too_high(self) -> None:
         reading = PoolReading(orp=950.0)
         result = compute_chlorine_status(reading)
         assert result is not None
-        assert result["product"] == "neutralizer"
+        assert result.product == ChemicalProduct.NEUTRALIZER
 
     def test_orp_none_returns_none(self) -> None:
         reading = PoolReading(orp=None)
@@ -110,14 +121,15 @@ class TestTacAdjustment:
         reading = PoolReading(tac=60.0)
         result = compute_tac_adjustment(pool, reading)
         assert result is not None
-        assert result["product"] == "tac_plus"
-        assert result["quantity_g"] > 0
+        assert result.product == ChemicalProduct.TAC_PLUS
+        assert result.quantity_g is not None
+        assert result.quantity_g > 0
 
     def test_tac_too_high_recommends_ph_minus(self, pool: Pool) -> None:
         reading = PoolReading(tac=180.0)
         result = compute_tac_adjustment(pool, reading)
         assert result is not None
-        assert result["product"] == "ph_minus"
+        assert result.product == ChemicalProduct.PH_MINUS
 
     def test_tac_none_returns_none(self, pool: Pool) -> None:
         reading = PoolReading(tac=None)

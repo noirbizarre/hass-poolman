@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import voluptuous as vol
+
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.helpers.selector import (
     EntitySelector,
@@ -76,9 +77,7 @@ class PoolmanConfigFlow(ConfigFlow, domain=DOMAIN):
                             translation_key="pool_shape",
                         )
                     ),
-                    vol.Required(
-                        CONF_PUMP_FLOW_M3H, default=DEFAULT_PUMP_FLOW_M3H
-                    ): NumberSelector(
+                    vol.Required(CONF_PUMP_FLOW_M3H, default=DEFAULT_PUMP_FLOW_M3H): NumberSelector(
                         NumberSelectorConfig(
                             min=1,
                             max=50,

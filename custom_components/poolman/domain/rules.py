@@ -30,6 +30,7 @@ from .model import (
     Recommendation,
     RecommendationPriority,
     RecommendationType,
+    Severity,
 )
 
 
@@ -76,9 +77,6 @@ class PhRule(Rule):
         if result is None:
             return []
 
-        product = result["product"]
-        quantity = result["quantity_g"]
-
         # Determine priority based on how far from target
         delta = abs(reading.ph - PH_TARGET)
         if reading.ph < PH_MIN or reading.ph > PH_MAX:
@@ -88,15 +86,13 @@ class PhRule(Rule):
         else:
             priority = RecommendationPriority.LOW
 
-        product_str = str(product)
-        quantity_f = float(quantity)  # type: ignore[arg-type]
         return [
             Recommendation(
                 type=RecommendationType.CHEMICAL,
                 priority=priority,
-                message=f"Add {quantity_f:.0f}g of {product_str}",
-                product=product_str,
-                quantity_g=quantity_f,
+                message=f"Add {result.quantity_g:.0f}g of {result.product}",
+                product=result.product,
+                quantity_g=result.quantity_g,
             )
         ]
 
@@ -118,10 +114,7 @@ class ChlorineRule(Rule):
         if result is None:
             return []
 
-        product = result["product"]
-        severity = result["severity"]
-
-        if severity == "critical":
+        if result.severity == Severity.CRITICAL:
             priority = RecommendationPriority.CRITICAL
             message = "Shock chlorination required (ORP critically low)"
         elif reading.orp > ORP_MAX:
@@ -129,14 +122,14 @@ class ChlorineRule(Rule):
             message = "ORP too high, reduce chlorine dosage"
         else:
             priority = RecommendationPriority.MEDIUM
-            message = f"Add {product} (ORP below {ORP_MIN_ACCEPTABLE} mV)"
+            message = f"Add {result.product} (ORP below {ORP_MIN_ACCEPTABLE} mV)"
 
         return [
             Recommendation(
                 type=RecommendationType.CHEMICAL,
                 priority=priority,
                 message=message,
-                product=product,
+                product=result.product,
             )
         ]
 
@@ -188,18 +181,11 @@ class TacRule(Rule):
         if result is None:
             return []
 
-        product = result["product"]
-        quantity = result["quantity_g"]
-
-        product_str = str(product)
-
         if reading.tac < TAC_MIN:
             priority = RecommendationPriority.MEDIUM
-            quantity_f = float(quantity)  # type: ignore[arg-type]
-            message = f"Add {quantity_f:.0f}g of TAC+ (alkalinity too low)"
+            message = f"Add {result.quantity_g:.0f}g of TAC+ (alkalinity too low)"
         elif reading.tac > TAC_MAX:
             priority = RecommendationPriority.LOW
-            quantity_f = None
             message = "Alkalinity too high, pH- treatments will help lower it"
         else:
             return []
@@ -209,8 +195,8 @@ class TacRule(Rule):
                 type=RecommendationType.CHEMICAL,
                 priority=priority,
                 message=message,
-                product=product_str,
-                quantity_g=quantity_f,
+                product=result.product,
+                quantity_g=result.quantity_g,
             )
         ]
 
