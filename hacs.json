@@ -1,5 +1,5 @@
 {
   "name": "Pool Manager",
-  "country": "FR",
-  "homeassistant": "2026.3.0"
+  "homeassistant": "2026.3.2",
+  "hacs": "2.0.5"
 }

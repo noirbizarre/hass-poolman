@@ -17,6 +17,7 @@ dev = [
     "pytest-asyncio>=0.24",
     "pytest-homeassistant-custom-component",
     "pytest>=9.0",
+    "pytest-cov",
     "ruff>=0.9",
     "sync-pre-commit-lock",
     "ty",
@@ -112,8 +113,8 @@ frozen = true
 [tool.poe.tasks]
 format.help = "Format the code"
 format.sequence = [
-  { cmd = "ruff check --fix" },
-  { cmd = "ruff format" },
+    { cmd = "ruff check --fix" },
+    { cmd = "ruff format" },
 ]
 
 lint.help = "Run the test suite"
@@ -123,7 +124,14 @@ test.help = "Run the test suite"
 test.cmd = "pytest"
 
 cover.help = "Run the test suite with coverage"
-cover.ref = "test --cov-report term-missing --cov-report=xml:coverage.xml --cov=commitizen  --junitxml=junit.xml -o junit_family=legacy"
+cover.ref = """
+test
+    --cov=custom_components/poolman
+    --cov-report term-missing
+    --cov-report=xml:reports/coverage.xml
+    --cov-report=html:reports/coverage/
+    --junitxml=reports/junit.xml
+"""
 
 brand.help = "Render the brand logo and icon from the SVGs"
 brand.cmd = "uv run scripts/brand.py"
