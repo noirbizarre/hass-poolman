@@ -11,7 +11,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v6
       - run: uv sync
       - uses: j178/prek-action@v2
@@ -20,7 +20,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v6
       - run: uv sync
       - name: Run tests with coverage
@@ -42,7 +42,7 @@ jobs:
     name: Hassfest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: home-assistant/actions/hassfest@master
 
   # TODO: uncomment when the repository is public
@@ -50,7 +50,7 @@ jobs:
   #   name: HACS
   #   runs-on: ubuntu-latest
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v6
   #     - uses: hacs/action@main
   #       with:
   #         category: integration
