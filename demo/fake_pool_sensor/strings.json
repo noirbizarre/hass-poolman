@@ -1,0 +1,14 @@
+{
+  "title": "Fake Pool Sensor",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Fake Pool Sensor",
+        "description": "Create a simulated pool sensor device for testing.",
+        "data": {
+          "device_name": "Device name"
+        }
+      }
+    }
+  }
+}

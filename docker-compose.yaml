@@ -2,9 +2,28 @@ services:
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant:stable
     volumes:
+      - ha-config:/config
       - ./custom_components/poolman:/config/custom_components/poolman:ro
-      - ./test_config:/config
+      - ./demo/fake_pool_sensor:/config/custom_components/fake_pool_sensor:ro
     ports:
       - "8123:8123"
     environment:
       TZ: ${TZ:-"Europe/Paris"}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8123/"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  setup:
+    image: python:3.14-alpine
+    volumes:
+      - ./demo/setup.py:/demo/setup.py:ro
+    command: python /demo/setup.py
+    depends_on:
+      homeassistant:
+        condition: service_healthy
+
+volumes:
+  ha-config:
