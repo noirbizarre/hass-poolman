@@ -22,13 +22,18 @@ USERNAME = "admin"
 PASSWORD = "admin"  # noqa: S105
 
 # Expected entity IDs created by the Fake Pool Sensor integration
-FAKE_SENSOR_ENTITY_MAP = {
-    "temperature_entity": "sensor.fake_pool_sensor_water_temperature",
+# Chemistry sensors (used in step 1: pool & sensors)
+FAKE_CHEMISTRY_SENSORS = {
     "ph_entity": "sensor.fake_pool_sensor_ph",
     "orp_entity": "sensor.fake_pool_sensor_orp",
     "tac_entity": "sensor.fake_pool_sensor_total_alkalinity",
     "cya_entity": "sensor.fake_pool_sensor_cyanuric_acid",
     "hardness_entity": "sensor.fake_pool_sensor_calcium_hardness",
+}
+
+# Filtration sensors (used in step 2: filtration settings)
+FAKE_FILTRATION_SENSORS = {
+    "temperature_entity": "sensor.fake_pool_sensor_water_temperature",
 }
 
 
@@ -249,8 +254,11 @@ def has_integration(entries: list[dict], domain: str) -> bool:
     return any(e["domain"] == domain for e in entries)
 
 
-def create_config_entry(token: str, handler: str, data: dict) -> dict:
-    """Create a config entry via the config flow API (single-step flows)."""
+def create_config_entry(token: str, handler: str, steps: list[dict]) -> dict:
+    """Create a config entry via the config flow API.
+
+    Supports multi-step flows by submitting each step's data sequentially.
+    """
     # Start flow
     resp = post(
         f"{HA_URL}/api/config/config_entries/flow",
@@ -264,18 +272,23 @@ def create_config_entry(token: str, handler: str, data: dict) -> dict:
 
     flow_id = resp["flow_id"]
 
-    # Submit data
-    resp = post(
-        f"{HA_URL}/api/config/config_entries/flow/{flow_id}",
-        token=token,
-        json_data=data,
-    )
+    # Submit each step
+    for step_data in steps:
+        resp = post(
+            f"{HA_URL}/api/config/config_entries/flow/{flow_id}",
+            token=token,
+            json_data=step_data,
+        )
 
-    if resp.get("type") == "create_entry":
-        log(f"  Created config entry: {resp['title']}")
-    else:
-        log(f"  Unexpected flow result for {handler}: {resp}")
+        if resp.get("type") == "create_entry":
+            log(f"  Created config entry: {resp['title']}")
+            return resp
 
+        if resp.get("type") == "abort":
+            log(f"  Config flow for {handler} aborted at step: {resp.get('reason')}")
+            return resp
+
+    log(f"  Unexpected flow result for {handler}: {resp}")
     return resp
 
 
@@ -331,13 +344,13 @@ def main() -> None:
         create_config_entry(
             token,
             "fake_pool_sensor",
-            {"device_name": "Fake Pool Sensor"},
+            [{"device_name": "Fake Pool Sensor"}],
         )
 
     # Wait for fake sensor entities to appear
     wait_for_entities(token, "sensor.fake_pool_sensor_", expected_count=6)
 
-    # Set up Pool Manager
+    # Set up Pool Manager (two-step flow: pool & sensors, then filtration)
     if has_integration(entries, "poolman"):
         log("Pool Manager already configured, skipping.")
     else:
@@ -345,13 +358,21 @@ def main() -> None:
         create_config_entry(
             token,
             "poolman",
-            {
-                "pool_name": "Demo Pool",
-                "volume_m3": 50.0,
-                "shape": "rectangular",
-                "pump_flow_m3h": 10.0,
-                **FAKE_SENSOR_ENTITY_MAP,
-            },
+            [
+                # Step 1: Pool basics + chemistry sensors
+                {
+                    "pool_name": "Demo Pool",
+                    "volume_m3": 50.0,
+                    "shape": "rectangular",
+                    **FAKE_CHEMISTRY_SENSORS,
+                },
+                # Step 2: Filtration settings
+                {
+                    "filtration_kind": "sand",
+                    "pump_flow_m3h": 10.0,
+                    **FAKE_FILTRATION_SENSORS,
+                },
+            ],
         )
 
     log("All done! HA is ready at http://localhost:8123 (admin/admin)")

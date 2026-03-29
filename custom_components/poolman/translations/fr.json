@@ -4,41 +4,72 @@
     "step": {
       "user": {
         "title": "Configurer Pool Manager",
-        "description": "Configurez votre système de surveillance et de gestion de piscine.",
+        "description": "Configurez votre piscine et vos capteurs de chimie de l'eau.",
         "data": {
           "pool_name": "Nom de la piscine",
           "volume_m3": "Volume",
           "shape": "Forme de la piscine",
-          "pump_flow_m3h": "Débit de la pompe",
-          "temperature_entity": "Capteur de température de l'eau",
           "ph_entity": "Capteur de pH",
           "orp_entity": "Capteur ORP",
-          "tac_entity": "Capteur d'alcalinité totale (TAC)",
+          "tac_entity": "Capteur d'alcalinit\u00e9 totale (TAC)",
           "cya_entity": "Capteur d'acide cyanurique (stabilisant)",
-          "hardness_entity": "Capteur de dureté calcique",
-          "pump_entity": "Interrupteur de la pompe"
+          "hardness_entity": "Capteur de duret\u00e9 calcique"
         },
         "data_description": {
           "volume_m3": "Volume total d'eau de la piscine.",
-          "pump_flow_m3h": "Débit de la pompe en mètres cubes par heure.",
-          "tac_entity": "Optionnel. Capteur d'alcalinité totale.",
+          "tac_entity": "Optionnel. Capteur d'alcalinit\u00e9 totale.",
           "cya_entity": "Optionnel. Capteur d'acide cyanurique (stabilisant).",
-          "hardness_entity": "Optionnel. Capteur de dureté calcique.",
-          "pump_entity": "Optionnel. Interrupteur pour contrôler la pompe."
+          "hardness_entity": "Optionnel. Capteur de duret\u00e9 calcique."
+        }
+      },
+      "filtration": {
+        "title": "Param\u00e8tres de filtration",
+        "description": "Configurez votre syst\u00e8me de filtration, pompe et capteur de temp\u00e9rature.",
+        "data": {
+          "filtration_kind": "Type de filtration",
+          "pump_flow_m3h": "D\u00e9bit de la pompe",
+          "temperature_entity": "Capteur de temp\u00e9rature de l'eau",
+          "pump_entity": "Interrupteur de la pompe"
+        },
+        "data_description": {
+          "filtration_kind": "Type de syst\u00e8me de filtration install\u00e9.",
+          "pump_flow_m3h": "D\u00e9bit de la pompe en m\u00e8tres cubes par heure.",
+          "temperature_entity": "Capteur utilis\u00e9 pour mesurer la temp\u00e9rature de l'eau pour les calculs de filtration.",
+          "pump_entity": "Optionnel. Interrupteur pour contr\u00f4ler la pompe."
         }
       }
     },
     "error": {
-      "cannot_connect": "Échec de la connection"
+      "cannot_connect": "\u00c9chec de la connection"
     },
     "abort": {
-      "already_configured": "L'appareil est déjà configuré"
+      "already_configured": "L'appareil est d\u00e9j\u00e0 configur\u00e9"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Param\u00e8tres de filtration",
+        "description": "Modifiez les param\u00e8tres de votre syst\u00e8me de filtration.",
+        "data": {
+          "filtration_kind": "Type de filtration",
+          "pump_flow_m3h": "D\u00e9bit de la pompe",
+          "temperature_entity": "Capteur de temp\u00e9rature de l'eau",
+          "pump_entity": "Interrupteur de la pompe"
+        },
+        "data_description": {
+          "filtration_kind": "Type de syst\u00e8me de filtration install\u00e9.",
+          "pump_flow_m3h": "D\u00e9bit de la pompe en m\u00e8tres cubes par heure.",
+          "temperature_entity": "Capteur utilis\u00e9 pour mesurer la temp\u00e9rature de l'eau pour les calculs de filtration.",
+          "pump_entity": "Optionnel. Interrupteur pour contr\u00f4ler la pompe."
+        }
+      }
     }
   },
   "entity": {
     "sensor": {
       "temperature": {
-        "name": "Température de l'eau"
+        "name": "Temp\u00e9rature de l'eau"
       },
       "ph": {
         "name": "pH"
@@ -47,10 +78,10 @@
         "name": "ORP"
       },
       "filtration_duration": {
-        "name": "Filtration recommandée"
+        "name": "Filtration recommand\u00e9e"
       },
       "water_quality_score": {
-        "name": "Qualité de l'eau"
+        "name": "Qualit\u00e9 de l'eau"
       },
       "recommendations": {
         "name": "Recommendations"
@@ -58,7 +89,7 @@
     },
     "binary_sensor": {
       "water_ok": {
-        "name": "Qualité de l'eau"
+        "name": "Qualit\u00e9 de l'eau"
       },
       "action_required": {
         "name": "Action requise"
@@ -81,6 +112,14 @@
         "rectangular": "Rectangulaire",
         "round": "Ronde",
         "freeform": "Forme libre"
+      }
+    },
+    "filtration_kind": {
+      "options": {
+        "sand": "Sable",
+        "cartridge": "Cartouche",
+        "diatomaceous_earth": "Terre diatom\u00e9es",
+        "glass": "Verre"
       }
     }
   }

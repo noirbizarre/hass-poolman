@@ -42,7 +42,7 @@ changelog_merge_prerelease = true
 
 [tool.codespell]
 ignore-words = ".codespellignore"
-skip = "./reports,*.lock,CHANGELOG.md"
+skip = "reports/*,*.lock,CHANGELOG.md,custom_components/poolman/translations/*.json"
 
 
 [tool.pytest]

@@ -10,6 +10,7 @@ PLATFORMS: Final = ["sensor", "binary_sensor", "select"]
 CONF_POOL_NAME: Final = "pool_name"
 CONF_VOLUME_M3: Final = "volume_m3"
 CONF_SHAPE: Final = "shape"
+CONF_FILTRATION_KIND: Final = "filtration_kind"
 CONF_PUMP_FLOW_M3H: Final = "pump_flow_m3h"
 
 # Sensor entity config keys
@@ -29,6 +30,18 @@ SHAPE_ROUND: Final = "round"
 SHAPE_FREEFORM: Final = "freeform"
 SHAPES: Final = [SHAPE_RECTANGULAR, SHAPE_ROUND, SHAPE_FREEFORM]
 
+# Filtration kinds
+FILTRATION_KIND_SAND: Final = "sand"
+FILTRATION_KIND_CARTRIDGE: Final = "cartridge"
+FILTRATION_KIND_DIATOMACEOUS_EARTH: Final = "diatomaceous_earth"
+FILTRATION_KIND_GLASS: Final = "glass"
+FILTRATION_KINDS: Final = [
+    FILTRATION_KIND_SAND,
+    FILTRATION_KIND_CARTRIDGE,
+    FILTRATION_KIND_DIATOMACEOUS_EARTH,
+    FILTRATION_KIND_GLASS,
+]
+
 # Pool modes
 MODE_RUNNING: Final = "running"
 MODE_WINTER_ACTIVE: Final = "winter_active"
@@ -37,5 +50,6 @@ MODES: Final = [MODE_RUNNING, MODE_WINTER_ACTIVE, MODE_WINTER_PASSIVE]
 
 # Default values
 DEFAULT_VOLUME_M3: Final = 50.0
+DEFAULT_FILTRATION_KIND: Final = FILTRATION_KIND_SAND
 DEFAULT_PUMP_FLOW_M3H: Final = 10.0
 DEFAULT_UPDATE_INTERVAL_MINUTES: Final = 5

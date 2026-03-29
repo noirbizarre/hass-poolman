@@ -1,6 +1,7 @@
 ---
 icon: lucide/rocket
 ---
+<!-- markdownlint-disable MD024 -->
 
 # Getting Started
 
@@ -27,7 +28,12 @@ These sensors enable additional recommendations and improve the water quality sc
 | TAC (Total Alkalinity) | ppm | Alkalinity level |
 | CYA (Cyanuric Acid) | ppm | Stabilizer level |
 | Calcium Hardness | ppm | Water hardness |
-| Pump switch | -- | Pump on/off entity (reserved for future use) |
+
+### Optional actuators
+
+| Entity | Type | Description |
+| --- | --- | --- |
+| Pump switch | switch | Pump on/off entity (reserved for future use) |
 
 ### Compatible sensor sources
 
@@ -70,33 +76,63 @@ Or manually add as a custom repository:
 
 Or go to **Settings > Devices & Services > Add Integration** and search for **Pool Manager**.
 
-The integration is configured through a single-step UI flow. No YAML configuration is needed.
+The integration is configured through a two-step UI flow. No YAML configuration is needed.
 
-### Required parameters
+### Step 1: Pool & sensors
+
+The first step collects your pool's physical characteristics and chemistry sensor entities.
+
+#### Required parameters
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | Pool name | text | My Pool | Name for your pool (used as device name and unique identifier) |
 | Volume | number (m³) | 50.0 | Pool water volume (1--500 m³) |
 | Shape | select | Rectangular | Pool shape: Rectangular, Round, or Freeform |
-| Pump flow rate | number (m³/h) | 10.0 | Pump flow rate (1--50 m³/h) |
-| Temperature entity | entity | -- | Water temperature sensor entity |
-| pH entity | entity | -- | pH sensor entity |
-| ORP entity | entity | -- | ORP sensor entity |
+| pH entity | entity (sensor) | -- | pH sensor entity |
+| ORP entity | entity (sensor) | -- | ORP sensor entity |
 
-### Optional parameters
+#### Optional parameters
 
 | Parameter | Type | Description |
 | --- | --- | --- |
 | TAC entity | entity (sensor) | Total Alkalinity sensor |
 | CYA entity | entity (sensor) | Cyanuric Acid / Stabilizer sensor |
 | Hardness entity | entity (sensor) | Calcium Hardness sensor |
+
+### Step 2: Filtration
+
+The second step configures your filtration system.
+
+#### Required parameters
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| Filtration type | select | Sand | Filter type: Sand, Cartridge, Diatomaceous Earth, or Glass |
+| Pump flow rate | number (m³/h) | 10.0 | Pump flow rate (1--50 m³/h) |
+| Temperature entity | entity (sensor) | -- | Water temperature sensor entity |
+
+#### Optional parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
 | Pump entity | entity (switch) | Pump switch (reserved for future use) |
 
 !!! note "Multiple pools"
 
     You can add the integration multiple times to manage several pools.
     Each pool is identified by its name, which must be unique.
+
+## Reconfiguring filtration settings
+
+After initial setup, you can modify your filtration settings at any time
+through the integration's options:
+
+1. Go to **Settings > Devices & Services**
+2. Find **Pool Manager** and click **Configure**
+3. Update the filtration type, pump flow rate, temperature sensor, or pump entity
+
+Changes take effect immediately -- the integration reloads automatically.
 
 ## Update interval
 

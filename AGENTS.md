@@ -11,6 +11,7 @@ The general contribution guidelines are outlined in `CONTRIBUTING.md` and should
 - Scripts are located in the `scripts/` directory for tasks and `pyproject.toml` `tool.poe.tasks` section.
 - CI and release workflows are defined in the `.github/workflows/` directory.
 - A demonstration with fake sensors is maintained in `demo/` and `docker-compose.yaml`
+- The user documentation written with Zensical lives in `docs/`
 
 ## Coding Conventions
 
@@ -54,3 +55,5 @@ The general contribution guidelines are outlined in `CONTRIBUTING.md` and should
 - Update documentation in parallel with code changes, including API changes, new features, and configuration updates.
 - Maintain consistency in formatting and section organization across all documentation files.
 - `AGENTS.md` and `CONTRIBUTING.md` should be updated with any new guidelines or changes to existing rules.
+- Documentation in `docs/` should be kept up to date and reflect any changes in functionality or usage.
+- The demonstration in `demo/` should be updated to reflect any changes that may affect it.

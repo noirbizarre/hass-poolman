@@ -4,26 +4,37 @@
     "step": {
       "user": {
         "title": "Set up Pool Manager",
-        "description": "Configure your pool monitoring and management system.",
+        "description": "Configure your pool and water chemistry sensors.",
         "data": {
           "pool_name": "Pool name",
           "volume_m3": "Volume",
           "shape": "Pool shape",
-          "pump_flow_m3h": "Pump flow rate",
-          "temperature_entity": "Water temperature sensor",
           "ph_entity": "pH sensor",
           "orp_entity": "ORP sensor",
           "tac_entity": "Total alkalinity (TAC) sensor",
           "cya_entity": "Cyanuric acid (stabilizer) sensor",
-          "hardness_entity": "Calcium hardness sensor",
-          "pump_entity": "Pump switch"
+          "hardness_entity": "Calcium hardness sensor"
         },
         "data_description": {
           "volume_m3": "Total water volume of the pool.",
-          "pump_flow_m3h": "Pump flow rate in cubic meters per hour.",
           "tac_entity": "Optional. Total alkalinity sensor.",
           "cya_entity": "Optional. Cyanuric acid (stabilizer) sensor.",
-          "hardness_entity": "Optional. Calcium hardness sensor.",
+          "hardness_entity": "Optional. Calcium hardness sensor."
+        }
+      },
+      "filtration": {
+        "title": "Filtration settings",
+        "description": "Configure your filtration system, pump and temperature sensor.",
+        "data": {
+          "filtration_kind": "Filtration type",
+          "pump_flow_m3h": "Pump flow rate",
+          "temperature_entity": "Water temperature sensor",
+          "pump_entity": "Pump switch"
+        },
+        "data_description": {
+          "filtration_kind": "Type of filtration system installed.",
+          "pump_flow_m3h": "Pump flow rate in cubic meters per hour.",
+          "temperature_entity": "Sensor used to measure water temperature for filtration calculations.",
           "pump_entity": "Optional. Switch entity to control the pump."
         }
       }
@@ -33,6 +44,26 @@
     },
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Filtration settings",
+        "description": "Update your filtration system settings.",
+        "data": {
+          "filtration_kind": "Filtration type",
+          "pump_flow_m3h": "Pump flow rate",
+          "temperature_entity": "Water temperature sensor",
+          "pump_entity": "Pump switch"
+        },
+        "data_description": {
+          "filtration_kind": "Type of filtration system installed.",
+          "pump_flow_m3h": "Pump flow rate in cubic meters per hour.",
+          "temperature_entity": "Sensor used to measure water temperature for filtration calculations.",
+          "pump_entity": "Optional. Switch entity to control the pump."
+        }
+      }
     }
   },
   "entity": {
@@ -81,6 +112,14 @@
         "rectangular": "Rectangular",
         "round": "Round",
         "freeform": "Freeform"
+      }
+    },
+    "filtration_kind": {
+      "options": {
+        "sand": "Sand",
+        "cartridge": "Cartridge",
+        "diatomaceous_earth": "Diatomaceous earth",
+        "glass": "Glass media"
       }
     }
   }

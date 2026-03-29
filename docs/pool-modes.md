@@ -30,6 +30,12 @@ The final recommendation is the **greater** of the temperature-based
 duration and the turnover time, clamped between **2 hours minimum** and
 **24 hours maximum**.
 
+!!! info "Filtration type"
+
+    The filtration type (sand, cartridge, diatomaceous earth, glass)
+    configured during setup is stored for informational purposes.
+    It does not currently affect the filtration duration calculation.
+
 ??? example "Calculation example"
 
     For a 60 m³ pool with a 10 m³/h pump at 24°C:

@@ -18,6 +18,15 @@ class PoolShape(StrEnum):
     FREEFORM = "freeform"
 
 
+class FiltrationKind(StrEnum):
+    """Type of pool filtration system."""
+
+    SAND = "sand"
+    CARTRIDGE = "cartridge"
+    DIATOMACEOUS_EARTH = "diatomaceous_earth"
+    GLASS = "glass"
+
+
 class PoolMode(StrEnum):
     """Operational mode of the pool."""
 
@@ -82,6 +91,7 @@ class Pool(BaseModel):
     name: str = "Pool"
     volume_m3: float = Field(gt=0, description="Pool volume in cubic meters")
     shape: PoolShape = PoolShape.RECTANGULAR
+    filtration_kind: FiltrationKind = FiltrationKind.SAND
     pump_flow_m3h: float = Field(gt=0, description="Pump flow rate in m3/h")
 
     @property
