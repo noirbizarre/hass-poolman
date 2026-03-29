@@ -5,6 +5,7 @@ Pure Python models with no Home Assistant dependency.
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -58,6 +59,13 @@ class ChemicalProduct(StrEnum):
     BROMINE_SHOCK = "bromine_shock"
     ACTIVE_OXYGEN_TABLET = "active_oxygen_tablet"
     ACTIVE_OXYGEN_ACTIVATOR = "active_oxygen_activator"
+    FLOCCULANT = "flocculant"
+    ANTI_ALGAE = "anti_algae"
+    STABILIZER = "stabilizer"
+    CLARIFIER = "clarifier"
+    METAL_SEQUESTRANT = "metal_sequestrant"
+    CALCIUM_HARDNESS_INCREASER = "calcium_hardness_increaser"
+    WINTERIZING_PRODUCT = "winterizing_product"
 
 
 class ChemistryStatus(StrEnum):
@@ -182,6 +190,24 @@ class Recommendation(BaseModel):
         return self.message
 
 
+class ActiveTreatment(BaseModel, frozen=True):
+    """A chemical treatment that is currently active or within its safety window.
+
+    Attributes:
+        product: The chemical product applied.
+        applied_at: When the treatment was applied.
+        active_until: When the product stops being active.
+        safe_at: When swimming becomes safe again.
+        quantity_g: Amount of product used in grams, if known.
+    """
+
+    product: ChemicalProduct
+    applied_at: datetime
+    active_until: datetime
+    safe_at: datetime
+    quantity_g: float | None = Field(None, ge=0)
+
+
 class PoolState(BaseModel):
     """Computed state of the pool combining readings, mode, and recommendations."""
 
@@ -191,11 +217,18 @@ class PoolState(BaseModel):
     filtration_hours: float | None = None
     water_quality_score: int | None = Field(None, ge=0, le=100)
     chemistry_report: ChemistryReport = Field(default_factory=ChemistryReport)
+    active_treatments: list[ActiveTreatment] = Field(default_factory=list)
+    swimming_safe: bool = True
+    safe_at: datetime | None = None
 
     @property
     def water_ok(self) -> bool:
-        """Return True if water parameters are within acceptable ranges."""
-        return len(self.critical_recommendations) == 0
+        """Return True if water parameters are within acceptable ranges and pool is safe.
+
+        Considers both water chemistry recommendations and active treatment
+        safety periods (e.g., recent shock treatment).
+        """
+        return len(self.critical_recommendations) == 0 and self.swimming_safe
 
     @property
     def action_required(self) -> bool:

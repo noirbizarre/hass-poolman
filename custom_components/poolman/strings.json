@@ -161,6 +161,12 @@
           "warning": "Warning",
           "bad": "Bad"
         }
+      },
+      "active_treatments": {
+        "name": "Active treatments"
+      },
+      "safe_at": {
+        "name": "Safe to swim at"
       }
     },
     "binary_sensor": {
@@ -169,6 +175,202 @@
       },
       "action_required": {
         "name": "Action required"
+      },
+      "swimming_safe": {
+        "name": "Swimming safe"
+      }
+    },
+    "event": {
+      "ph_minus": {
+        "name": "pH minus treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "ph_plus": {
+        "name": "pH plus treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "chlore_choc": {
+        "name": "Shock chlorine treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "galet_chlore": {
+        "name": "Chlorine tablet treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "neutralizer": {
+        "name": "Neutralizer treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "tac_plus": {
+        "name": "Alkalinity increaser treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "salt": {
+        "name": "Salt treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "bromine_tablet": {
+        "name": "Bromine tablet treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "bromine_shock": {
+        "name": "Bromine shock treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "active_oxygen_tablet": {
+        "name": "Active oxygen tablet treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "active_oxygen_activator": {
+        "name": "Active oxygen activator treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "flocculant": {
+        "name": "Flocculant treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "anti_algae": {
+        "name": "Anti-algae treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "stabilizer": {
+        "name": "Stabilizer treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "clarifier": {
+        "name": "Clarifier treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "metal_sequestrant": {
+        "name": "Metal sequestrant treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "calcium_hardness_increaser": {
+        "name": "Calcium hardness increaser treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "winterizing_product": {
+        "name": "Winterizing product treatment",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Applied"
+            }
+          }
+        }
+      },
+      "filtration": {
+        "name": "Filtration",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "filtration_started": "Filtration started",
+              "filtration_stopped": "Filtration stopped"
+            }
+          }
+        }
       }
     },
     "select": {
@@ -195,19 +397,6 @@
       "filtration_duration_setting": {
         "name": "Filtration duration"
       }
-    },
-    "event": {
-      "filtration": {
-        "name": "Filtration",
-        "state_attributes": {
-          "event_type": {
-            "state": {
-              "filtration_started": "Filtration started",
-              "filtration_stopped": "Filtration stopped"
-            }
-          }
-        }
-      }
     }
   },
   "selector": {
@@ -232,6 +421,52 @@
         "cartridge": "Cartridge",
         "diatomaceous_earth": "Diatomaceous earth",
         "glass": "Glass media"
+      }
+    },
+    "chemical_product": {
+      "options": {
+        "ph_minus": "pH minus",
+        "ph_plus": "pH plus",
+        "chlore_choc": "Shock chlorine",
+        "galet_chlore": "Chlorine tablet",
+        "neutralizer": "Neutralizer",
+        "tac_plus": "Alkalinity increaser (TAC+)",
+        "salt": "Salt",
+        "bromine_tablet": "Bromine tablet",
+        "bromine_shock": "Bromine shock",
+        "active_oxygen_tablet": "Active oxygen tablet",
+        "active_oxygen_activator": "Active oxygen activator",
+        "flocculant": "Flocculant",
+        "anti_algae": "Anti-algae",
+        "stabilizer": "Stabilizer (CYA)",
+        "clarifier": "Clarifier",
+        "metal_sequestrant": "Metal sequestrant",
+        "calcium_hardness_increaser": "Calcium hardness increaser",
+        "winterizing_product": "Winterizing product"
+      }
+    }
+  },
+  "services": {
+    "add_treatment": {
+      "name": "Add treatment",
+      "description": "Record a chemical treatment applied to the pool.",
+      "fields": {
+        "device_id": {
+          "name": "Pool device",
+          "description": "The pool to apply the treatment to."
+        },
+        "product": {
+          "name": "Product",
+          "description": "The chemical product used for treatment."
+        },
+        "quantity_g": {
+          "name": "Quantity (g)",
+          "description": "Amount of product used in grams."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Optional notes about the treatment."
+        }
       }
     }
   }

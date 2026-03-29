@@ -11,7 +11,7 @@ name you set during configuration.
 
 ## Sensors
 
-The integration creates 11 sensor entities:
+The integration creates 13 sensor entities:
 
 ### Reading sensors
 
@@ -32,6 +32,8 @@ These sensors are calculated by Pool Manager from your readings.
 | `sensor.{pool}_filtration_duration` | Recommended filtration | h | Recommended daily filtration hours, computed from water temperature, filter type efficiency, outdoor temperature, and pump capacity. See [Pool Modes](pool-modes.md#filtration) for the full algorithm. |
 | `sensor.{pool}_water_quality_score` | Water quality | % | Overall water quality score from 0 (poor) to 100 (perfect). See [Water Chemistry](water-chemistry.md#water-quality-score) for scoring details. |
 | `sensor.{pool}_recommendations` | Recommendations | -- | Number of active recommendations. See details below. |
+| `sensor.{pool}_active_treatments` | Active treatments | -- | Number of currently active chemical treatments. See [Chemistry Tracking](chemistry-tracking.md) for details. |
+| `sensor.{pool}_safe_at` | Safe to swim at | -- | Timestamp (`timestamp` device class) indicating when the pool will be safe for swimming after treatments. `None` if already safe. |
 
 ### Recommendations sensor attributes
 
@@ -74,18 +76,39 @@ Each status sensor exposes additional detail through its state attributes:
     at a glance which parameters need attention. Combine with the extra
     attributes to display the actual reading alongside its target range.
 
+### Active treatments sensor attributes
+
+The `active_treatments` sensor exposes additional detail through its state attributes:
+
+| Attribute | Type | Description |
+| --- | --- | --- |
+| `treatments` | list of objects | Details of each active treatment: `product`, `applied_at`, `safe_at`, `quantity_g` |
+
 ## Binary Sensors
 
-The integration creates 2 binary sensor entities for quick status checks:
+The integration creates 3 binary sensor entities for quick status checks:
 
 | Entity | Name | Device Class | ON when... |
 | --- | --- | --- | --- |
-| `binary_sensor.{pool}_water_ok` | Water quality | `safety` | No high or critical priority recommendations exist |
+| `binary_sensor.{pool}_water_ok` | Water quality | `safety` | No high or critical priority recommendations exist **and** no active treatment safety period is in effect |
 | `binary_sensor.{pool}_action_required` | Action required | `problem` | At least one recommendation is active (any priority) |
+| `binary_sensor.{pool}_swimming_safe` | Swimming safe | `safety` | No active treatment safety period is in effect (all swim wait times have elapsed) |
 
 !!! tip "Automation ideas"
 
-    Use `binary_sensor.{pool}_action_required` to trigger notifications when your pool needs attention, or `binary_sensor.{pool}_water_ok` to confirm that water chemistry is within acceptable ranges.
+    Use `binary_sensor.{pool}_action_required` to trigger notifications when your pool needs attention, `binary_sensor.{pool}_water_ok` to confirm that water chemistry is within acceptable ranges, or `binary_sensor.{pool}_swimming_safe` to notify when the pool is safe for swimming after a treatment.
+
+## Event Entities
+
+The integration creates 18 event entities, one per chemical product,
+to track treatment applications. Each entity fires an `applied` event
+when a treatment is recorded via the `poolman.add_treatment` service.
+
+Treatment-specific products (e.g., `bromine_tablet`) are disabled by
+default when the pool's configured treatment type doesn't match.
+Universal products (e.g., `ph_minus`, `flocculant`) are always enabled.
+
+See [Chemistry Tracking](chemistry-tracking.md) for the full list of products, safety profiles, and usage details.
 
 ## Select
 

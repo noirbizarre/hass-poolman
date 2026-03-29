@@ -1,2 +1,51 @@
-# Placeholder for future service definitions.
-# Services will be added as the integration matures (e.g. add_chemical, reset_stock).
+add_treatment:
+  name: Add treatment
+  description: Record a chemical treatment applied to the pool.
+  fields:
+    device_id:
+      name: Pool device
+      description: The pool to apply the treatment to.
+      required: true
+      selector:
+        device:
+          integration: poolman
+    product:
+      name: Product
+      description: The chemical product used for treatment.
+      required: true
+      selector:
+        select:
+          translation_key: chemical_product
+          options:
+            - "ph_minus"
+            - "ph_plus"
+            - "chlore_choc"
+            - "galet_chlore"
+            - "neutralizer"
+            - "tac_plus"
+            - "salt"
+            - "bromine_tablet"
+            - "bromine_shock"
+            - "active_oxygen_tablet"
+            - "active_oxygen_activator"
+            - "flocculant"
+            - "anti_algae"
+            - "stabilizer"
+            - "clarifier"
+            - "metal_sequestrant"
+            - "calcium_hardness_increaser"
+            - "winterizing_product"
+    quantity_g:
+      name: Quantity
+      description: Amount of product used in grams.
+      selector:
+        number:
+          min: 0
+          step: 1
+          unit_of_measurement: g
+          mode: box
+    notes:
+      name: Notes
+      description: Optional notes about the treatment.
+      selector:
+        text:

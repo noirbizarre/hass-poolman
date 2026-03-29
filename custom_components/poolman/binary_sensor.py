@@ -39,6 +39,12 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[PoolmanBinarySensorDescription, ...] = (
         device_class=BinarySensorDeviceClass.PROBLEM,
         is_on_fn=lambda state: state.action_required,
     ),
+    PoolmanBinarySensorDescription(
+        key="swimming_safe",
+        translation_key="swimming_safe",
+        device_class=BinarySensorDeviceClass.SAFETY,
+        is_on_fn=lambda state: state.swimming_safe,
+    ),
 )
 
 
