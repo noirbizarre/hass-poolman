@@ -2,19 +2,38 @@
 
 from __future__ import annotations
 
+import logging
+
+import voluptuous as vol
+
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers import device_registry as dr
 
 from .const import (
     CONF_FILTRATION_KIND,
     CONF_TREATMENT,
     DEFAULT_FILTRATION_KIND,
     DEFAULT_TREATMENT,
+    DOMAIN,
     PLATFORMS,
+    SERVICE_ADD_TREATMENT,
 )
 from .coordinator import PoolmanCoordinator
+from .domain.model import ChemicalProduct
+
+_LOGGER = logging.getLogger(__name__)
 
 type PoolmanConfigEntry = ConfigEntry[PoolmanCoordinator]
+
+SERVICE_ADD_TREATMENT_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): str,
+        vol.Required("product"): vol.In([p.value for p in ChemicalProduct]),
+        vol.Optional("quantity_g"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+        vol.Optional("notes"): str,
+    }
+)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) -> bool:
@@ -24,12 +43,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) -> b
     entry.runtime_data = coordinator
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    _async_register_services(hass)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) -> bool:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    result = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+    # Unregister services if no more config entries remain
+    entries = hass.config_entries.async_entries(DOMAIN)
+    if not any(e.entry_id != entry.entry_id for e in entries):
+        hass.services.async_remove(DOMAIN, SERVICE_ADD_TREATMENT)
+
+    return result
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: PoolmanConfigEntry) -> None:
@@ -56,3 +83,39 @@ async def async_migrate_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) ->
         hass.config_entries.async_update_entry(entry, data=new_data, minor_version=3)
 
     return True
+
+
+def _async_register_services(hass: HomeAssistant) -> None:
+    """Register Pool Manager services (idempotent)."""
+    if hass.services.has_service(DOMAIN, SERVICE_ADD_TREATMENT):
+        return
+
+    async def async_handle_add_treatment(call: ServiceCall) -> None:
+        """Handle the add_treatment service call.
+
+        Resolves the target device to find the corresponding coordinator,
+        then records the treatment on the appropriate event entity.
+        """
+        product = ChemicalProduct(call.data["product"])
+        quantity_g: float | None = call.data.get("quantity_g")
+        notes: str | None = call.data.get("notes")
+        device_id: str = call.data["device_id"]
+
+        device_reg = dr.async_get(hass)
+        device = device_reg.async_get(device_id)
+        if device is None:
+            _LOGGER.warning("Device %s not found", device_id)
+            return
+
+        for entry_id in device.config_entries:
+            entry = hass.config_entries.async_get_entry(entry_id)
+            if entry and entry.domain == DOMAIN:
+                coordinator: PoolmanCoordinator = entry.runtime_data
+                await coordinator.async_add_treatment(product, quantity_g, notes)
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_ADD_TREATMENT,
+        async_handle_add_treatment,
+        schema=SERVICE_ADD_TREATMENT_SCHEMA,
+    )

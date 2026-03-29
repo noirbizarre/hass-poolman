@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 
-from datetime import timedelta
-from typing import Any
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.util.dt import utcnow
 
 from .const import (
     CONF_CYA_ENTITY,
@@ -36,6 +38,7 @@ from .const import (
 from .domain.chemistry import compute_chemistry_report, compute_water_quality_score
 from .domain.filtration import compute_filtration_duration
 from .domain.model import (
+    ChemicalProduct,
     FiltrationKind,
     Pool,
     PoolMode,
@@ -46,7 +49,15 @@ from .domain.model import (
     compute_status_changes,
 )
 from .domain.rules import RuleEngine
+from .domain.treatment import (
+    compute_active_treatments,
+    compute_safe_at,
+    compute_swimming_safe,
+)
 from .scheduler import FiltrationScheduler
+
+if TYPE_CHECKING:
+    from .event import PoolmanTreatmentEvent
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,7 +68,8 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
     """Coordinator to manage pool data updates.
 
     Reads sensor states from Home Assistant, builds a PoolReading,
-    runs the rule engine, and produces a PoolState consumed by all entities.
+    runs the rule engine, computes treatment safety, and produces
+    a PoolState consumed by all entities.
     """
 
     config_entry: PoolmanConfigEntry
@@ -74,6 +86,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         self.pool = self._build_pool()
         self.engine = RuleEngine()
         self._mode = PoolMode.RUNNING
+        self._treatment_entities: dict[ChemicalProduct, PoolmanTreatmentEvent] = {}
 
         # Filtration scheduler: only created when a pump entity is configured
         pump_entity_id = self._get_config(CONF_PUMP_ENTITY)
@@ -121,6 +134,44 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
     def mode(self, value: PoolMode) -> None:
         """Set the pool mode and trigger a refresh."""
         self._mode = value
+
+    def register_treatment_entity(
+        self,
+        product: ChemicalProduct,
+        entity: PoolmanTreatmentEvent,
+    ) -> None:
+        """Register a treatment event entity for safety tracking.
+
+        Called by each event entity during async_added_to_hass.
+
+        Args:
+            product: The chemical product this entity tracks.
+            entity: The event entity instance.
+        """
+        self._treatment_entities[product] = entity
+
+    async def async_add_treatment(
+        self,
+        product: ChemicalProduct,
+        quantity_g: float | None = None,
+        notes: str | None = None,
+    ) -> None:
+        """Record a chemical treatment application.
+
+        Fires the event on the corresponding event entity and triggers
+        a coordinator refresh to update derived sensors.
+
+        Args:
+            product: The chemical product applied.
+            quantity_g: Amount of product used in grams.
+            notes: Optional free-text note about the treatment.
+        """
+        entity = self._treatment_entities.get(product)
+        if entity is None:
+            _LOGGER.warning("No treatment entity registered for product %s", product)
+            return
+        entity.apply_treatment(quantity_g=quantity_g, notes=notes)
+        await self.async_request_refresh()
 
     def _read_sensor(self, entity_key: str) -> float | None:
         """Safely read a float value from a HA sensor entity.
@@ -178,6 +229,40 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             _LOGGER.debug("Cannot parse temperature attribute '%s' from %s", temp, weather_id)
             return None
 
+    def _read_treatment_entries(
+        self, now: datetime
+    ) -> list[tuple[ChemicalProduct, datetime, float | None]]:
+        """Read treatment data from registered event entities.
+
+        Collects the last application timestamp and quantity from each
+        event entity that has been triggered at least once.
+
+        Args:
+            now: Current time (unused but available for future filtering).
+
+        Returns:
+            List of (product, applied_at, quantity_g) tuples.
+        """
+        entries: list[tuple[ChemicalProduct, datetime, float | None]] = []
+        for product, entity in self._treatment_entities.items():
+            state_value = entity.state
+            if state_value is None:
+                continue
+            try:
+                applied_at = datetime.fromisoformat(state_value)
+            except (ValueError, TypeError):
+                _LOGGER.debug("Cannot parse event timestamp '%s' for %s", state_value, product)
+                continue
+
+            quantity_g: float | None = None
+            attrs = entity.extra_state_attributes
+            if attrs and "quantity_g" in attrs:
+                with contextlib.suppress(ValueError, TypeError):
+                    quantity_g = float(attrs["quantity_g"])
+
+            entries.append((product, applied_at, quantity_g))
+        return entries
+
     async def _async_update_data(self) -> PoolState:
         """Fetch sensor data and compute pool state."""
         reading = PoolReading(
@@ -195,6 +280,13 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         water_quality_score = compute_water_quality_score(reading)
         chemistry_report = compute_chemistry_report(reading)
 
+        # Compute treatment safety state from event entities
+        now = utcnow()
+        treatment_entries = self._read_treatment_entries(now)
+        active_treatments = compute_active_treatments(treatment_entries, now)
+        swimming_safe = compute_swimming_safe(active_treatments, now)
+        safe_at = compute_safe_at(active_treatments) if not swimming_safe else None
+
         new_state = PoolState(
             mode=self._mode,
             reading=reading,
@@ -202,6 +294,9 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             filtration_hours=filtration_hours,
             water_quality_score=water_quality_score,
             chemistry_report=chemistry_report,
+            active_treatments=active_treatments,
+            swimming_safe=swimming_safe,
+            safe_at=safe_at,
         )
 
         self._fire_status_change_events(new_state)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -27,7 +28,7 @@ from .entity import PoolmanEntity
 class PoolmanSensorEntityDescription(SensorEntityDescription):
     """Describes a Pool Manager sensor entity."""
 
-    value_fn: Callable[[PoolState], StateType]
+    value_fn: Callable[[PoolState], StateType | datetime | None]
     extra_attrs_fn: Callable[[PoolState], dict[str, Any]] | None = None
 
 
@@ -163,6 +164,30 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         ),
         extra_attrs_fn=lambda state: _parameter_report_attrs(state.chemistry_report.hardness),
     ),
+    PoolmanSensorEntityDescription(
+        key="active_treatments",
+        translation_key="active_treatments",
+        icon="mdi:flask",
+        value_fn=lambda state: len(state.active_treatments),
+        extra_attrs_fn=lambda state: {
+            "treatments": [
+                {
+                    "product": t.product.value,
+                    "applied_at": t.applied_at.isoformat(),
+                    "safe_at": t.safe_at.isoformat(),
+                    "quantity_g": t.quantity_g,
+                }
+                for t in state.active_treatments
+            ],
+        },
+    ),
+    PoolmanSensorEntityDescription(
+        key="safe_at",
+        translation_key="safe_at",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        icon="mdi:shield-check",
+        value_fn=lambda state: state.safe_at,
+    ),
 )
 
 
@@ -194,7 +219,7 @@ class PoolmanSensor(PoolmanEntity, SensorEntity):
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{description.key}"
 
     @property
-    def native_value(self) -> StateType:
+    def native_value(self) -> StateType | datetime | None:
         """Return the sensor value."""
         return self.entity_description.value_fn(self.pool_state)
 

@@ -155,12 +155,18 @@
         }
       },
       "hardness_status": {
-        "name": "Statut duret\u00e9",
+        "name": "Statut dureté",
         "state": {
           "good": "Bon",
           "warning": "Attention",
           "bad": "Mauvais"
         }
+      },
+      "active_treatments": {
+        "name": "Traitements actifs"
+      },
+      "safe_at": {
+        "name": "Baignade sûre à"
       }
     },
     "binary_sensor": {
@@ -169,6 +175,202 @@
       },
       "action_required": {
         "name": "Action requise"
+      },
+      "swimming_safe": {
+        "name": "Baignade s\u00fbre"
+      }
+    },
+    "event": {
+      "ph_minus": {
+        "name": "Traitement pH moins",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "ph_plus": {
+        "name": "Traitement pH plus",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "chlore_choc": {
+        "name": "Traitement chlore choc",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "galet_chlore": {
+        "name": "Traitement galet de chlore",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "neutralizer": {
+        "name": "Traitement neutralisant",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "tac_plus": {
+        "name": "Traitement TAC+",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "salt": {
+        "name": "Traitement sel",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "bromine_tablet": {
+        "name": "Traitement pastille de brome",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "bromine_shock": {
+        "name": "Traitement brome choc",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "active_oxygen_tablet": {
+        "name": "Traitement pastille d'oxyg\u00e8ne actif",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "active_oxygen_activator": {
+        "name": "Traitement activateur d'oxyg\u00e8ne actif",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "flocculant": {
+        "name": "Traitement floculant",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "anti_algae": {
+        "name": "Traitement anti-algues",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "stabilizer": {
+        "name": "Traitement stabilisant",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "clarifier": {
+        "name": "Traitement clarifiant",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "metal_sequestrant": {
+        "name": "Traitement s\u00e9questrant m\u00e9taux",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "calcium_hardness_increaser": {
+        "name": "Traitement duret\u00e9 calcique",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqu\u00e9"
+            }
+          }
+        }
+      },
+      "winterizing_product": {
+        "name": "Traitement produit d'hivernage",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "applied": "Appliqué"
+            }
+          }
+        }
+      },
+      "filtration": {
+        "name": "Filtration",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "filtration_started": "Filtration démarrée",
+              "filtration_stopped": "Filtration arrêtée"
+            }
+          }
+        }
       }
     },
     "select": {
@@ -183,30 +385,17 @@
     },
     "switch": {
       "filtration_control": {
-        "name": "Contr\u00f4le de la filtration"
+        "name": "Contrôle de la filtration"
       }
     },
     "time": {
       "filtration_start_time": {
-        "name": "Heure de d\u00e9but de filtration"
+        "name": "Heure de début de filtration"
       }
     },
     "number": {
       "filtration_duration_setting": {
-        "name": "Dur\u00e9e de filtration"
-      }
-    },
-    "event": {
-      "filtration": {
-        "name": "Filtration",
-        "state_attributes": {
-          "event_type": {
-            "state": {
-              "filtration_started": "Filtration d\u00e9marr\u00e9e",
-              "filtration_stopped": "Filtration arr\u00eat\u00e9e"
-            }
-          }
-        }
+        "name": "Durée de filtration"
       }
     }
   },
@@ -232,6 +421,52 @@
         "cartridge": "Cartouche",
         "diatomaceous_earth": "Terre diatom\u00e9es",
         "glass": "Verre"
+      }
+    },
+    "chemical_product": {
+      "options": {
+        "ph_minus": "pH moins",
+        "ph_plus": "pH plus",
+        "chlore_choc": "Chlore choc",
+        "galet_chlore": "Galet de chlore",
+        "neutralizer": "Neutralisant",
+        "tac_plus": "TAC+ (alcalinit\u00e9)",
+        "salt": "Sel",
+        "bromine_tablet": "Pastille de brome",
+        "bromine_shock": "Brome choc",
+        "active_oxygen_tablet": "Pastille d'oxyg\u00e8ne actif",
+        "active_oxygen_activator": "Activateur d'oxyg\u00e8ne actif",
+        "flocculant": "Floculant",
+        "anti_algae": "Anti-algues",
+        "stabilizer": "Stabilisant (CYA)",
+        "clarifier": "Clarifiant",
+        "metal_sequestrant": "S\u00e9questrant m\u00e9taux",
+        "calcium_hardness_increaser": "Correcteur de duret\u00e9 calcique",
+        "winterizing_product": "Produit d'hivernage"
+      }
+    }
+  },
+  "services": {
+    "add_treatment": {
+      "name": "Ajouter un traitement",
+      "description": "Enregistrer un traitement chimique appliqu\u00e9 \u00e0 la piscine.",
+      "fields": {
+        "device_id": {
+          "name": "Appareil piscine",
+          "description": "La piscine à laquelle appliquer le traitement."
+        },
+        "product": {
+          "name": "Produit",
+          "description": "Le produit chimique utilis\u00e9 pour le traitement."
+        },
+        "quantity_g": {
+          "name": "Quantit\u00e9 (g)",
+          "description": "Quantit\u00e9 de produit utilis\u00e9e en grammes."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Notes optionnelles sur le traitement."
+        }
       }
     }
   }

@@ -25,6 +25,9 @@ with no cloud service or specific hardware required.
 - **Rule engine** -- Actionable recommendations with chemical product
   names and dosage in grams, covering pH, sanitizer/ORP, alkalinity,
   and algae risk
+- **Chemistry tracking** -- Record chemical treatments, track active
+  products and safety wait times, with automatic swimming safety
+  determination
 - **Treatment types** -- Support for chlorine, salt electrolysis,
   bromine, and active oxygen, with treatment-specific product
   recommendations
@@ -55,7 +58,8 @@ All computations happen locally. No cloud API, no account, no internet connectio
 ## Quick Links
 
 - [Getting Started](getting-started.md) -- Prerequisites, installation, and configuration
-- [Entities](entities.md) -- Sensors, binary sensors, select, and filtration control entities
+- [Entities](entities.md) -- Sensors, binary sensors, event entities, select, and filtration control entities
+- [Chemistry Tracking](chemistry-tracking.md) -- Treatment recording, safety profiles, and swimming safety
 - [Filtration Control](filtration-control.md) -- Automatic pump scheduling, events, and automation examples
 - [Pool Modes](pool-modes.md) -- Running, Active Wintering, and Passive Wintering explained
 - [Water Chemistry](water-chemistry.md) -- Target ranges, scoring, and parameter details
