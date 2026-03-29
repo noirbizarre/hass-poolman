@@ -19,6 +19,7 @@ from .const import (
     CONF_ORP_ENTITY,
     CONF_OUTDOOR_TEMPERATURE_ENTITY,
     CONF_PH_ENTITY,
+    CONF_PUMP_ENTITY,
     CONF_PUMP_FLOW_M3H,
     CONF_SHAPE,
     CONF_TAC_ENTITY,
@@ -45,6 +46,7 @@ from .domain.model import (
     compute_status_changes,
 )
 from .domain.rules import RuleEngine
+from .scheduler import FiltrationScheduler
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -72,6 +74,12 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         self.pool = self._build_pool()
         self.engine = RuleEngine()
         self._mode = PoolMode.RUNNING
+
+        # Filtration scheduler: only created when a pump entity is configured
+        pump_entity_id = self._get_config(CONF_PUMP_ENTITY)
+        self.scheduler: FiltrationScheduler | None = (
+            FiltrationScheduler(hass, pump_entity_id) if pump_entity_id else None
+        )
 
     def _get_config(self, key: str, default: Any = None) -> Any:
         """Get a config value, checking options first then data.

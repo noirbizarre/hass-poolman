@@ -97,6 +97,39 @@ The integration creates 1 select entity to control the operational mode:
 
 Changing the mode immediately triggers a data refresh and recalculation of all computed values.
 
+## Filtration Control Entities
+
+When a **pump switch entity** is configured in the integration, additional
+entities are created for automatic pump scheduling. These entities are
+**conditional** -- they only appear when a pump entity is set.
+
+See [Filtration Control](filtration-control.md) for full details on
+scheduling behavior, cross-midnight support, and automation examples.
+
+### Switch
+
+| Entity | Name | Description |
+| --- | --- | --- |
+| `switch.{pool}_filtration_control` | Filtration control | Enables or disables automatic daily pump scheduling. Turning off immediately stops the pump. |
+
+### Time
+
+| Entity | Name | Default | Description |
+| --- | --- | --- | --- |
+| `time.{pool}_filtration_start_time` | Filtration start time | 10:00 | Daily start time for the filtration cycle |
+
+### Number
+
+| Entity | Name | Default | Range | Description |
+| --- | --- | --- | --- | --- |
+| `number.{pool}_filtration_duration_setting` | Filtration duration | 8 h | 1--24 h (step 0.5) | Duration of each daily filtration cycle |
+
+### Event
+
+| Entity | Name | Event types | Description |
+| --- | --- | --- | --- |
+| `event.{pool}_filtration` | Filtration | `filtration_started`, `filtration_stopped` | Fires when the pump is turned on or off by the scheduler |
+
 ## Events
 
 Pool Manager fires `poolman_event` events on the Home Assistant event bus

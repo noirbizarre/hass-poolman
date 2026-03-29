@@ -55,6 +55,7 @@ nav = [
   { "Getting Started" = "getting-started.md" },
   { "Entities" = "entities.md" },
   { "Pool Modes" = "pool-modes.md" },
+  { "Filtration Control" = "filtration-control.md" },
   { "Water Chemistry" = "water-chemistry.md" },
   { "Rules & Recommendations" = "rules-and-recommendations.md" },
   { "Contributing" = "contributing.md" },

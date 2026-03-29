@@ -180,6 +180,34 @@
           "winter_passive": "Passive wintering"
         }
       }
+    },
+    "switch": {
+      "filtration_control": {
+        "name": "Filtration control"
+      }
+    },
+    "time": {
+      "filtration_start_time": {
+        "name": "Filtration start time"
+      }
+    },
+    "number": {
+      "filtration_duration_setting": {
+        "name": "Filtration duration"
+      }
+    },
+    "event": {
+      "filtration": {
+        "name": "Filtration",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "filtration_started": "Filtration started",
+              "filtration_stopped": "Filtration stopped"
+            }
+          }
+        }
+      }
     }
   },
   "selector": {
