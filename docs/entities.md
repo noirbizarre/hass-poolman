@@ -11,7 +11,7 @@ name you set during configuration.
 
 ## Sensors
 
-The integration creates 6 sensor entities:
+The integration creates 11 sensor entities:
 
 ### Reading sensors
 
@@ -44,6 +44,36 @@ The `recommendations` sensor exposes additional detail through its state attribu
 
 These attributes can be used in automations, templates, or Lovelace cards to display detailed recommendation information.
 
+### Chemistry status sensors
+
+These sensors provide a quick **good / warning / bad** status for each chemistry
+parameter. See [Water Chemistry -- Chemistry Status](water-chemistry.md#chemistry-status)
+for how the status is determined.
+
+| Entity | Name | Options | Description |
+| --- | --- | --- | --- |
+| `sensor.{pool}_ph_status` | pH status | `good`, `warning`, `bad` | pH level status |
+| `sensor.{pool}_orp_status` | ORP status | `good`, `warning`, `bad` | Oxidation-Reduction Potential status |
+| `sensor.{pool}_tac_status` | TAC status | `good`, `warning`, `bad` | Total alkalinity status |
+| `sensor.{pool}_cya_status` | CYA status | `good`, `warning`, `bad` | Cyanuric acid (stabilizer) status |
+| `sensor.{pool}_hardness_status` | Hardness status | `good`, `warning`, `bad` | Calcium hardness status |
+
+Each status sensor exposes additional detail through its state attributes:
+
+| Attribute | Type | Description |
+| --- | --- | --- |
+| `value` | float | Current reading for this parameter |
+| `target` | float | Ideal target value |
+| `minimum` | float | Lower bound of the acceptable range |
+| `maximum` | float | Upper bound of the acceptable range |
+| `score` | integer | Individual quality score from 0 (poor) to 100 (perfect) |
+
+!!! tip "Dashboard ideas"
+
+    Use the status sensors to build a chemistry dashboard card that shows
+    at a glance which parameters need attention. Combine with the extra
+    attributes to display the actual reading alongside its target range.
+
 ## Binary Sensors
 
 The integration creates 2 binary sensor entities for quick status checks:
@@ -66,3 +96,60 @@ The integration creates 1 select entity to control the operational mode:
 | `select.{pool}_mode` | Pool mode | `running`, `winter_active`, `winter_passive` | Controls the current operational mode. See [Pool Modes](pool-modes.md) for details on each mode. |
 
 Changing the mode immediately triggers a data refresh and recalculation of all computed values.
+
+## Events
+
+Pool Manager fires `poolman_event` events on the Home Assistant event bus
+whenever a status transition is detected between two consecutive data updates.
+These events can be used to trigger automations (e.g. send a notification when
+pH becomes bad).
+
+!!! note
+
+    Events are **not** fired on the first data update after Home Assistant
+    starts, since there is no previous state to compare against.
+
+### Chemistry status changed
+
+Fired when an individual chemistry parameter transitions between `good`,
+`warning`, and `bad`, or becomes available/unavailable.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `device_id` | string | Device registry ID of the pool device |
+| `type` | string | `chemistry_status_changed` |
+| `parameter` | string | `ph`, `orp`, `tac`, `cya`, or `hardness` |
+| `previous_status` | string \| null | Previous status (`good`, `warning`, `bad`), or null if the parameter was unavailable |
+| `status` | string \| null | New status (`good`, `warning`, `bad`), or null if the parameter became unavailable |
+
+### Water status changed
+
+Fired when the overall water quality flips between OK and not OK (based on
+whether high/critical recommendations exist).
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `device_id` | string | Device registry ID of the pool device |
+| `type` | string | `water_status_changed` |
+| `parameter` | string | `water` |
+| `previous_status` | string | `ok` or `not_ok` |
+| `status` | string | `ok` or `not_ok` |
+
+!!! tip "Automation example"
+
+    ```yaml
+    automation:
+      - alias: "Notify when pH goes bad"
+        trigger:
+          - platform: event
+            event_type: poolman_event
+            event_data:
+              type: chemistry_status_changed
+              parameter: ph
+              status: bad
+        action:
+          - service: notify.mobile_app
+            data:
+              title: "Pool Alert"
+              message: "pH has gone out of range!"
+    ```

@@ -121,6 +121,46 @@
       },
       "recommendations": {
         "name": "Recommendations"
+      },
+      "ph_status": {
+        "name": "pH status",
+        "state": {
+          "good": "Good",
+          "warning": "Warning",
+          "bad": "Bad"
+        }
+      },
+      "orp_status": {
+        "name": "ORP status",
+        "state": {
+          "good": "Good",
+          "warning": "Warning",
+          "bad": "Bad"
+        }
+      },
+      "tac_status": {
+        "name": "TAC status",
+        "state": {
+          "good": "Good",
+          "warning": "Warning",
+          "bad": "Bad"
+        }
+      },
+      "cya_status": {
+        "name": "CYA status",
+        "state": {
+          "good": "Good",
+          "warning": "Warning",
+          "bad": "Bad"
+        }
+      },
+      "hardness_status": {
+        "name": "Hardness status",
+        "state": {
+          "good": "Good",
+          "warning": "Warning",
+          "bad": "Bad"
+        }
       }
     },
     "binary_sensor": {

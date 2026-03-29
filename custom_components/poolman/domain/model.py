@@ -60,6 +60,14 @@ class ChemicalProduct(StrEnum):
     ACTIVE_OXYGEN_ACTIVATOR = "active_oxygen_activator"
 
 
+class ChemistryStatus(StrEnum):
+    """Status levels for individual chemistry parameters."""
+
+    GOOD = "good"
+    WARNING = "warning"
+    BAD = "bad"
+
+
 class Severity(StrEnum):
     """Severity levels for chemistry status."""
 
@@ -97,6 +105,34 @@ class SanitizerStatus(BaseModel, frozen=True):
 
     product: ChemicalProduct
     severity: Severity
+
+
+class ParameterReport(BaseModel, frozen=True):
+    """Status report for a single chemistry parameter.
+
+    Bundles the evaluated status with the reading value, target range,
+    and individual quality score for rich dashboard display.
+    """
+
+    status: ChemistryStatus
+    value: float
+    target: float
+    minimum: float
+    maximum: float
+    score: int = Field(ge=0, le=100, description="Quality score from 0 to 100")
+
+
+class ChemistryReport(BaseModel, frozen=True):
+    """Chemistry status report for all available parameters.
+
+    Each field is None when the corresponding sensor reading is unavailable.
+    """
+
+    ph: ParameterReport | None = None
+    orp: ParameterReport | None = None
+    tac: ParameterReport | None = None
+    cya: ParameterReport | None = None
+    hardness: ParameterReport | None = None
 
 
 class Pool(BaseModel):
@@ -154,6 +190,7 @@ class PoolState(BaseModel):
     recommendations: list[Recommendation] = Field(default_factory=list)
     filtration_hours: float | None = None
     water_quality_score: int | None = Field(None, ge=0, le=100)
+    chemistry_report: ChemistryReport = Field(default_factory=ChemistryReport)
 
     @property
     def water_ok(self) -> bool:
@@ -173,3 +210,75 @@ class PoolState(BaseModel):
             for r in self.recommendations
             if r.priority in (RecommendationPriority.HIGH, RecommendationPriority.CRITICAL)
         ]
+
+
+# Chemistry parameter names evaluated for status changes
+_CHEMISTRY_PARAMS: tuple[str, ...] = ("ph", "orp", "tac", "cya", "hardness")
+
+
+class StatusChange(BaseModel, frozen=True):
+    """A detected status transition between two consecutive pool state updates.
+
+    Attributes:
+        type: Event type identifier (``water_status_changed`` or
+            ``chemistry_status_changed``).
+        parameter: Which parameter changed (``water``, ``ph``, ``orp``,
+            ``tac``, ``cya``, or ``hardness``).
+        previous_status: Status before the change, or None if the parameter
+            was previously unavailable.
+        status: Status after the change, or None if the parameter became
+            unavailable.
+    """
+
+    type: str
+    parameter: str
+    previous_status: str | None
+    status: str | None
+
+
+def compute_status_changes(previous: PoolState, current: PoolState) -> list[StatusChange]:
+    """Detect status changes between two consecutive pool states.
+
+    Detects transitions in:
+        - Overall ``water_ok`` status (ok / not_ok)
+        - Individual chemistry parameter statuses (good / warning / bad)
+
+    Args:
+        previous: The previous pool state.
+        current: The current pool state.
+
+    Returns:
+        List of detected status changes. Empty if nothing changed.
+    """
+    changes: list[StatusChange] = []
+
+    # Check overall water_ok status
+    if previous.water_ok != current.water_ok:
+        changes.append(
+            StatusChange(
+                type="water_status_changed",
+                parameter="water",
+                previous_status="ok" if previous.water_ok else "not_ok",
+                status="ok" if current.water_ok else "not_ok",
+            )
+        )
+
+    # Check individual chemistry parameter statuses
+    for param in _CHEMISTRY_PARAMS:
+        prev_report: ParameterReport | None = getattr(previous.chemistry_report, param)
+        new_report: ParameterReport | None = getattr(current.chemistry_report, param)
+
+        prev_status = prev_report.status if prev_report else None
+        new_status = new_report.status if new_report else None
+
+        if prev_status != new_status:
+            changes.append(
+                StatusChange(
+                    type="chemistry_status_changed",
+                    parameter=param,
+                    previous_status=prev_status,
+                    status=new_status,
+                )
+            )
+
+    return changes

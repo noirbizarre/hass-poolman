@@ -8,7 +8,10 @@ from __future__ import annotations
 
 from .model import (
     ChemicalProduct,
+    ChemistryReport,
+    ChemistryStatus,
     DosageAdjustment,
+    ParameterReport,
     Pool,
     PoolReading,
     SanitizerStatus,
@@ -205,3 +208,86 @@ def _score_range(value: float, minimum: float, target: float, maximum: float) ->
         return 100.0 * (value - minimum) / (target - minimum) if target != minimum else 100.0
 
     return 100.0 * (maximum - value) / (maximum - target) if maximum != target else 100.0
+
+
+# Threshold for good vs warning status (score out of 100)
+_STATUS_GOOD_THRESHOLD: float = 50.0
+
+
+def compute_parameter_status(
+    value: float, minimum: float, target: float, maximum: float
+) -> ParameterReport:
+    """Compute chemistry status for a single parameter value.
+
+    Classification logic:
+        - **good**: score >= 50 (inner half of acceptable range, closer to target)
+        - **warning**: 0 < score < 50, or value at boundary (outer half, near boundary)
+        - **bad**: value outside the acceptable min--max range
+
+    Args:
+        value: The measured value.
+        minimum: Lower bound of acceptable range.
+        target: Ideal value.
+        maximum: Upper bound of acceptable range.
+
+    Returns:
+        ParameterReport with status, value, range, and score.
+    """
+    score = _score_range(value, minimum, target, maximum)
+
+    if value < minimum or value > maximum:
+        status = ChemistryStatus.BAD
+    elif score >= _STATUS_GOOD_THRESHOLD:
+        status = ChemistryStatus.GOOD
+    else:
+        status = ChemistryStatus.WARNING
+
+    return ParameterReport(
+        status=status,
+        value=value,
+        target=target,
+        minimum=minimum,
+        maximum=maximum,
+        score=round(score),
+    )
+
+
+def compute_chemistry_report(reading: PoolReading) -> ChemistryReport:
+    """Compute chemistry status report for all available parameters.
+
+    Only parameters with a valid reading are evaluated. Parameters without
+    a sensor reading are left as None.
+
+    Args:
+        reading: Current sensor readings.
+
+    Returns:
+        ChemistryReport with per-parameter status reports.
+    """
+    return ChemistryReport(
+        ph=(
+            compute_parameter_status(reading.ph, PH_MIN, PH_TARGET, PH_MAX)
+            if reading.ph is not None
+            else None
+        ),
+        orp=(
+            compute_parameter_status(reading.orp, ORP_MIN_CRITICAL, ORP_TARGET, ORP_MAX)
+            if reading.orp is not None
+            else None
+        ),
+        tac=(
+            compute_parameter_status(reading.tac, TAC_MIN, TAC_TARGET, TAC_MAX)
+            if reading.tac is not None
+            else None
+        ),
+        cya=(
+            compute_parameter_status(reading.cya, CYA_MIN, CYA_TARGET, CYA_MAX)
+            if reading.cya is not None
+            else None
+        ),
+        hardness=(
+            compute_parameter_status(reading.hardness, HARDNESS_MIN, HARDNESS_TARGET, HARDNESS_MAX)
+            if reading.hardness is not None
+            else None
+        ),
+    )
