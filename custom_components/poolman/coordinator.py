@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
     CONF_CYA_ENTITY,
+    CONF_FILTRATION_KIND,
     CONF_HARDNESS_ENTITY,
     CONF_ORP_ENTITY,
     CONF_PH_ENTITY,
@@ -21,12 +22,13 @@ from .const import (
     CONF_TAC_ENTITY,
     CONF_TEMPERATURE_ENTITY,
     CONF_VOLUME_M3,
+    DEFAULT_FILTRATION_KIND,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
     DOMAIN,
 )
 from .domain.chemistry import compute_water_quality_score
 from .domain.filtration import compute_filtration_duration
-from .domain.model import Pool, PoolMode, PoolReading, PoolShape, PoolState
+from .domain.model import FiltrationKind, Pool, PoolMode, PoolReading, PoolShape, PoolState
 from .domain.rules import RuleEngine
 
 _LOGGER = logging.getLogger(__name__)
@@ -52,14 +54,39 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             config_entry=config_entry,
             update_interval=timedelta(minutes=DEFAULT_UPDATE_INTERVAL_MINUTES),
         )
-        data = config_entry.data
-        self.pool = Pool(
-            volume_m3=data[CONF_VOLUME_M3],
-            shape=PoolShape(data[CONF_SHAPE]),
-            pump_flow_m3h=data[CONF_PUMP_FLOW_M3H],
-        )
+        self.pool = self._build_pool()
         self.engine = RuleEngine()
         self._mode = PoolMode.RUNNING
+
+    def _get_config(self, key: str, default: Any = None) -> Any:
+        """Get a config value, checking options first then data.
+
+        Args:
+            key: Configuration key to look up.
+            default: Fallback value if key is not found in either source.
+
+        Returns:
+            The configuration value.
+        """
+        if key in self.config_entry.options:
+            return self.config_entry.options[key]
+        return self.config_entry.data.get(key, default)
+
+    def _build_pool(self) -> Pool:
+        """Build the Pool model from config entry data and options.
+
+        Returns:
+            A Pool instance reflecting the current configuration.
+        """
+        data = self.config_entry.data
+        return Pool(
+            volume_m3=data[CONF_VOLUME_M3],
+            shape=PoolShape(data[CONF_SHAPE]),
+            filtration_kind=FiltrationKind(
+                self._get_config(CONF_FILTRATION_KIND, DEFAULT_FILTRATION_KIND)
+            ),
+            pump_flow_m3h=self._get_config(CONF_PUMP_FLOW_M3H),
+        )
 
     @property
     def mode(self) -> PoolMode:
@@ -80,7 +107,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         Returns:
             Float value or None if unavailable/invalid.
         """
-        entity_id = self.config_entry.data.get(entity_key)
+        entity_id = self._get_config(entity_key)
         if not entity_id:
             return None
 
@@ -126,5 +153,5 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         Returns:
             The entity ID string or None.
         """
-        value: Any = self.config_entry.data.get(key)
+        value: Any = self._get_config(key)
         return str(value) if value else None

@@ -25,10 +25,15 @@ with no cloud service or specific hardware required.
 - **Rule engine** -- Actionable recommendations with chemical product
   names and dosage in grams, covering pH, chlorine/ORP, alkalinity,
   and algae risk
+- **Filtration configuration** -- Support for different filtration
+  types (sand, cartridge, diatomaceous earth, glass) with dedicated
+  pump and temperature sensor settings
 - **3 operational modes** -- Running, Active Wintering, and Passive
   Wintering, each with adapted filtration logic and rule behavior
 - **Hardware agnostic** -- Works with any sensor source: dedicated pool
   probes (Flipr, iopool, Sutro), ESPHome DIY sensors, or manual input helpers
+- **Reconfigurable** -- Filtration settings can be updated at any time
+  through the integration options, without removing the integration
 - **Multi-language** -- English and French translations included
 
 ## How It Works

@@ -29,7 +29,7 @@ These sensors are calculated by Pool Manager from your readings.
 
 | Entity | Name | Unit | Description |
 | --- | --- | --- | --- |
-| `sensor.{pool}_filtration_duration` | Recommended filtration | h | Recommended daily filtration hours, computed from water temperature and pump capacity. See [Pool Modes](pool-modes.md) for calculation details. |
+| `sensor.{pool}_filtration_duration` | Recommended filtration | h | Recommended daily filtration hours, computed from water temperature and pump capacity configured in the [filtration settings](getting-started.md#step-2-filtration). See [Pool Modes](pool-modes.md) for calculation details. |
 | `sensor.{pool}_water_quality_score` | Water quality | % | Overall water quality score from 0 (poor) to 100 (perfect). See [Water Chemistry](water-chemistry.md#water-quality-score) for scoring details. |
 | `sensor.{pool}_recommendations` | Recommendations | -- | Number of active recommendations. See details below. |
 
