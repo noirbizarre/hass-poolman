@@ -6,8 +6,8 @@ import pytest
 
 from custom_components.poolman.domain.chemistry import (
     PH_TARGET,
-    compute_chlorine_status,
     compute_ph_adjustment,
+    compute_sanitizer_status,
     compute_tac_adjustment,
     compute_water_quality_score,
 )
@@ -16,6 +16,7 @@ from custom_components.poolman.domain.model import (
     Pool,
     PoolReading,
     Severity,
+    TreatmentType,
 )
 
 
@@ -78,36 +79,97 @@ class TestPhAdjustment:
         assert severe_result.quantity_g > slight_result.quantity_g
 
 
-class TestChlorineStatus:
-    """Tests for chlorine/ORP evaluation."""
+class TestSanitizerStatus:
+    """Tests for sanitizer/ORP evaluation across treatment types."""
 
     def test_orp_in_range_returns_none(self) -> None:
         reading = PoolReading(orp=750.0)
-        assert compute_chlorine_status(reading) is None
+        assert compute_sanitizer_status(reading) is None
 
-    def test_orp_critically_low(self) -> None:
+    def test_orp_none_returns_none(self) -> None:
+        reading = PoolReading(orp=None)
+        assert compute_sanitizer_status(reading) is None
+
+    # Chlorine treatment (default)
+    def test_chlorine_orp_critically_low(self) -> None:
         reading = PoolReading(orp=600.0)
-        result = compute_chlorine_status(reading)
+        result = compute_sanitizer_status(reading, TreatmentType.CHLORINE)
         assert result is not None
         assert result.product == ChemicalProduct.CHLORE_CHOC
         assert result.severity == Severity.CRITICAL
 
-    def test_orp_low(self) -> None:
+    def test_chlorine_orp_low(self) -> None:
         reading = PoolReading(orp=700.0)
-        result = compute_chlorine_status(reading)
+        result = compute_sanitizer_status(reading, TreatmentType.CHLORINE)
         assert result is not None
         assert result.product == ChemicalProduct.GALET_CHLORE
         assert result.severity == Severity.MEDIUM
 
-    def test_orp_too_high(self) -> None:
+    def test_chlorine_orp_too_high(self) -> None:
         reading = PoolReading(orp=950.0)
-        result = compute_chlorine_status(reading)
+        result = compute_sanitizer_status(reading, TreatmentType.CHLORINE)
         assert result is not None
         assert result.product == ChemicalProduct.NEUTRALIZER
 
-    def test_orp_none_returns_none(self) -> None:
-        reading = PoolReading(orp=None)
-        assert compute_chlorine_status(reading) is None
+    # Salt electrolysis treatment
+    def test_salt_orp_critically_low(self) -> None:
+        reading = PoolReading(orp=600.0)
+        result = compute_sanitizer_status(reading, TreatmentType.SALT_ELECTROLYSIS)
+        assert result is not None
+        assert result.product == ChemicalProduct.CHLORE_CHOC
+        assert result.severity == Severity.CRITICAL
+
+    def test_salt_orp_low(self) -> None:
+        reading = PoolReading(orp=700.0)
+        result = compute_sanitizer_status(reading, TreatmentType.SALT_ELECTROLYSIS)
+        assert result is not None
+        assert result.product == ChemicalProduct.SALT
+        assert result.severity == Severity.MEDIUM
+
+    # Bromine treatment
+    def test_bromine_orp_critically_low(self) -> None:
+        reading = PoolReading(orp=600.0)
+        result = compute_sanitizer_status(reading, TreatmentType.BROMINE)
+        assert result is not None
+        assert result.product == ChemicalProduct.BROMINE_SHOCK
+        assert result.severity == Severity.CRITICAL
+
+    def test_bromine_orp_low(self) -> None:
+        reading = PoolReading(orp=700.0)
+        result = compute_sanitizer_status(reading, TreatmentType.BROMINE)
+        assert result is not None
+        assert result.product == ChemicalProduct.BROMINE_TABLET
+        assert result.severity == Severity.MEDIUM
+
+    # Active oxygen treatment
+    def test_active_oxygen_orp_critically_low(self) -> None:
+        reading = PoolReading(orp=600.0)
+        result = compute_sanitizer_status(reading, TreatmentType.ACTIVE_OXYGEN)
+        assert result is not None
+        assert result.product == ChemicalProduct.ACTIVE_OXYGEN_ACTIVATOR
+        assert result.severity == Severity.CRITICAL
+
+    def test_active_oxygen_orp_low(self) -> None:
+        reading = PoolReading(orp=700.0)
+        result = compute_sanitizer_status(reading, TreatmentType.ACTIVE_OXYGEN)
+        assert result is not None
+        assert result.product == ChemicalProduct.ACTIVE_OXYGEN_TABLET
+        assert result.severity == Severity.MEDIUM
+
+    # Default treatment is chlorine
+    def test_default_treatment_is_chlorine(self) -> None:
+        reading = PoolReading(orp=600.0)
+        result = compute_sanitizer_status(reading)
+        assert result is not None
+        assert result.product == ChemicalProduct.CHLORE_CHOC
+
+    # All treatments return neutralizer for high ORP
+    @pytest.mark.parametrize("treatment", list(TreatmentType))
+    def test_all_treatments_return_neutralizer_for_high_orp(self, treatment: TreatmentType) -> None:
+        reading = PoolReading(orp=950.0)
+        result = compute_sanitizer_status(reading, treatment)
+        assert result is not None
+        assert result.product == ChemicalProduct.NEUTRALIZER
 
 
 class TestTacAdjustment:

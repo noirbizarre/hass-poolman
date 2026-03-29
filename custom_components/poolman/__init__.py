@@ -5,7 +5,13 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_FILTRATION_KIND, DEFAULT_FILTRATION_KIND, PLATFORMS
+from .const import (
+    CONF_FILTRATION_KIND,
+    CONF_TREATMENT,
+    DEFAULT_FILTRATION_KIND,
+    DEFAULT_TREATMENT,
+    PLATFORMS,
+)
 from .coordinator import PoolmanCoordinator
 
 type PoolmanConfigEntry = ConfigEntry[PoolmanCoordinator]
@@ -35,11 +41,18 @@ async def async_migrate_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) ->
     """Migrate config entry to a newer version.
 
     Handles migration from v1.1 to v1.2: adds filtration_kind with a default value.
+    Handles migration from v1.2 to v1.3: adds treatment with a default value.
     """
     if entry.version == 1 and entry.minor_version < 2:
         new_data = {**entry.data}
         if CONF_FILTRATION_KIND not in new_data:
             new_data[CONF_FILTRATION_KIND] = DEFAULT_FILTRATION_KIND
         hass.config_entries.async_update_entry(entry, data=new_data, minor_version=2)
+
+    if entry.version == 1 and entry.minor_version < 3:
+        new_data = {**entry.data}
+        if CONF_TREATMENT not in new_data:
+            new_data[CONF_TREATMENT] = DEFAULT_TREATMENT
+        hass.config_entries.async_update_entry(entry, data=new_data, minor_version=3)
 
     return True

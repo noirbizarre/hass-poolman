@@ -53,16 +53,27 @@ for details.
 
     This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering) mode.
 
-### Chlorine Rule (ORP)
+### Sanitizer Rule (ORP)
 
-Evaluates chlorine effectiveness through ORP (Oxidation-Reduction Potential) readings.
+Evaluates sanitizer effectiveness through ORP (Oxidation-Reduction Potential)
+readings. The recommended products depend on the configured
+[treatment type](getting-started.md#step-2-chemistry).
 
-| ORP Level | Severity | Priority | Recommendation |
+| ORP Level | Severity | Priority | Action |
 | --- | --- | --- | --- |
-| < 650 mV | Critical | Critical | Shock chlorination required |
-| 650--720 mV | Medium | Medium | Add chlorine tablets |
+| < 650 mV | Critical | Critical | Shock treatment required |
+| 650--720 mV | Medium | Medium | Add regular sanitizer product |
 | 720--900 mV | -- | -- | No action (acceptable range) |
-| > 900 mV | Medium | Medium | Reduce chlorine dosage (add neutralizer) |
+| > 900 mV | Medium | Medium | Reduce sanitizer dosage (add neutralizer) |
+
+#### Products by treatment type
+
+| Treatment | Regular | Shock | Excess |
+| --- | --- | --- | --- |
+| Chlorine | Chlorine tablet | Shock chlorine | Neutralizer |
+| Salt electrolysis | Salt | Salt (increased dose) | Neutralizer |
+| Bromine | Bromine tablet | Bromine shock | Neutralizer |
+| Active oxygen | Active oxygen tablet | Active oxygen activator | Neutralizer |
 
 !!! note
 

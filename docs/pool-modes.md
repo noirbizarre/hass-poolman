@@ -52,7 +52,7 @@ duration and the turnover time, clamped between **2 hours minimum** and
 
 ### Rules
 
-All chemistry rules are active: pH, chlorine/ORP, TAC, and algae risk.
+All chemistry rules are active: pH, sanitizer/ORP, TAC, and algae risk.
 
 ## Active Wintering
 
@@ -91,7 +91,7 @@ in this mode.
 | --- | --- | --- | --- |
 | Filtration | temp / 2 (2--24h) | 4h fixed | 0h |
 | pH rule | Active | Active | Disabled |
-| Chlorine/ORP rule | Active | Active | Disabled |
+| Sanitizer/ORP rule | Active | Active | Disabled |
 | TAC rule | Active | Active | Disabled |
 | Algae risk alert | Active | Active | Disabled |
 | Typical season | Spring--Autumn | Cold months | Full winter shutdown |

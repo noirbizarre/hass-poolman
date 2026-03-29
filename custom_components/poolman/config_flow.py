@@ -36,18 +36,21 @@ from .const import (
     CONF_SHAPE,
     CONF_TAC_ENTITY,
     CONF_TEMPERATURE_ENTITY,
+    CONF_TREATMENT,
     CONF_VOLUME_M3,
     DEFAULT_FILTRATION_KIND,
     DEFAULT_PUMP_FLOW_M3H,
+    DEFAULT_TREATMENT,
     DEFAULT_VOLUME_M3,
     DOMAIN,
     FILTRATION_KINDS,
     SHAPES,
+    TREATMENTS,
 )
 
 
 def _pool_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
-    """Build the schema for pool basics + chemistry sensors.
+    """Build the schema for pool basics.
 
     Args:
         defaults: Optional default values to pre-populate the form.
@@ -77,6 +80,32 @@ def _pool_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                     options=SHAPES,
                     mode=SelectSelectorMode.DROPDOWN,
                     translation_key="pool_shape",
+                )
+            ),
+        }
+    )
+
+
+def _chemistry_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    """Build the schema for chemistry settings and sensors.
+
+    Args:
+        defaults: Optional default values to pre-populate the form.
+
+    Returns:
+        A voluptuous schema for the chemistry step.
+    """
+    defaults = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_TREATMENT,
+                default=defaults.get(CONF_TREATMENT, DEFAULT_TREATMENT),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=TREATMENTS,
+                    mode=SelectSelectorMode.DROPDOWN,
+                    translation_key="treatment_type",
                 )
             ),
             vol.Required(
@@ -153,7 +182,7 @@ class PoolmanConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Pool Manager."""
 
     VERSION = 1
-    MINOR_VERSION = 2
+    MINOR_VERSION = 3
 
     def __init__(self) -> None:
         """Initialize the config flow."""
@@ -165,14 +194,27 @@ class PoolmanConfigFlow(ConfigFlow, domain=DOMAIN):
         return PoolmanOptionsFlowHandler(config_entry)
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Handle the pool configuration step (pool basics + chemistry sensors)."""
+        """Handle the pool configuration step (pool basics)."""
         if user_input is not None:
             self._user_input = user_input
-            return await self.async_step_filtration()
+            return await self.async_step_chemistry()
 
         return self.async_show_form(
             step_id="user",
             data_schema=_pool_schema(),
+        )
+
+    async def async_step_chemistry(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle the chemistry configuration step (treatment + sensors)."""
+        if user_input is not None:
+            self._user_input.update(user_input)
+            return await self.async_step_filtration()
+
+        return self.async_show_form(
+            step_id="chemistry",
+            data_schema=_chemistry_schema(),
         )
 
     async def async_step_filtration(
@@ -197,17 +239,39 @@ class PoolmanConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class PoolmanOptionsFlowHandler(OptionsFlowWithConfigEntry):
-    """Handle options flow for Pool Manager filtration settings."""
+    """Handle options flow for Pool Manager."""
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        """Initialize the options flow handler."""
+        super().__init__(config_entry)
+        self._options: dict[str, Any] = {}
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Handle the options flow init step."""
+        """Handle the options flow init step (chemistry settings)."""
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            self._options.update(user_input)
+            return await self.async_step_filtration()
 
         # Pre-populate with current values from options (fallback to data)
         current = {**self.config_entry.data, **self.config_entry.options}
 
         return self.async_show_form(
             step_id="init",
+            data_schema=_chemistry_schema(defaults=current),
+        )
+
+    async def async_step_filtration(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle the filtration options step."""
+        if user_input is not None:
+            self._options.update(user_input)
+            return self.async_create_entry(data=self._options)
+
+        # Pre-populate with current values from options (fallback to data)
+        current = {**self.config_entry.data, **self.config_entry.options}
+
+        return self.async_show_form(
+            step_id="filtration",
             data_schema=_filtration_schema(defaults=current),
         )

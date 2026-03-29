@@ -2,19 +2,22 @@
 
 from __future__ import annotations
 
+import pytest
+
 from custom_components.poolman.domain.model import (
     Pool,
     PoolMode,
     PoolReading,
     RecommendationPriority,
     RecommendationType,
+    TreatmentType,
 )
 from custom_components.poolman.domain.rules import (
     AlgaeRiskRule,
-    ChlorineRule,
     FiltrationRule,
     PhRule,
     RuleEngine,
+    SanitizerRule,
     TacRule,
 )
 
@@ -47,26 +50,121 @@ class TestPhRule:
         assert result == []
 
 
-class TestChlorineRule:
-    """Tests for chlorine rule evaluation."""
+class TestSanitizerRule:
+    """Tests for sanitizer rule evaluation across treatment types."""
 
     def test_good_orp_no_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(orp=750.0)
-        result = ChlorineRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
         assert result == []
 
-    def test_critical_orp_shock(self, pool: Pool) -> None:
+    def test_chlorine_critical_orp_shock(self, pool: Pool) -> None:
         reading = PoolReading(orp=600.0)
-        result = ChlorineRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
         assert len(result) == 1
         assert result[0].priority == RecommendationPriority.CRITICAL
         assert result[0].product == "chlore_choc"
 
-    def test_low_orp_galet(self, pool: Pool) -> None:
+    def test_chlorine_low_orp_galet(self, pool: Pool) -> None:
         reading = PoolReading(orp=700.0)
-        result = ChlorineRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
         assert len(result) == 1
         assert result[0].product == "galet_chlore"
+
+    def test_salt_low_orp_recommends_salt(self) -> None:
+        pool = Pool(
+            name="Salt Pool",
+            volume_m3=50.0,
+            pump_flow_m3h=10.0,
+            treatment=TreatmentType.SALT_ELECTROLYSIS,
+        )
+        reading = PoolReading(orp=700.0)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert len(result) == 1
+        assert result[0].product == "salt"
+        assert "salt level" in result[0].message.lower()
+
+    def test_salt_critical_orp_shock(self) -> None:
+        pool = Pool(
+            name="Salt Pool",
+            volume_m3=50.0,
+            pump_flow_m3h=10.0,
+            treatment=TreatmentType.SALT_ELECTROLYSIS,
+        )
+        reading = PoolReading(orp=600.0)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert len(result) == 1
+        assert result[0].priority == RecommendationPriority.CRITICAL
+        # Salt pools still use shock chlorination in emergencies
+        assert result[0].product == "chlore_choc"
+
+    def test_bromine_low_orp_recommends_bromine_tablet(self) -> None:
+        pool = Pool(
+            name="Bromine Pool",
+            volume_m3=50.0,
+            pump_flow_m3h=10.0,
+            treatment=TreatmentType.BROMINE,
+        )
+        reading = PoolReading(orp=700.0)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert len(result) == 1
+        assert result[0].product == "bromine_tablet"
+
+    def test_bromine_critical_orp_shock(self) -> None:
+        pool = Pool(
+            name="Bromine Pool",
+            volume_m3=50.0,
+            pump_flow_m3h=10.0,
+            treatment=TreatmentType.BROMINE,
+        )
+        reading = PoolReading(orp=600.0)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert len(result) == 1
+        assert result[0].product == "bromine_shock"
+
+    def test_active_oxygen_low_orp_recommends_tablet(self) -> None:
+        pool = Pool(
+            name="O2 Pool",
+            volume_m3=50.0,
+            pump_flow_m3h=10.0,
+            treatment=TreatmentType.ACTIVE_OXYGEN,
+        )
+        reading = PoolReading(orp=700.0)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert len(result) == 1
+        assert result[0].product == "active_oxygen_tablet"
+
+    def test_active_oxygen_critical_orp_shock(self) -> None:
+        pool = Pool(
+            name="O2 Pool",
+            volume_m3=50.0,
+            pump_flow_m3h=10.0,
+            treatment=TreatmentType.ACTIVE_OXYGEN,
+        )
+        reading = PoolReading(orp=600.0)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert len(result) == 1
+        assert result[0].product == "active_oxygen_activator"
+
+    def test_winter_passive_skips(self, pool: Pool) -> None:
+        reading = PoolReading(orp=600.0)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
+        assert result == []
+
+    @pytest.mark.parametrize("treatment", list(TreatmentType))
+    def test_high_orp_returns_neutralizer_for_all_treatments(
+        self, treatment: TreatmentType
+    ) -> None:
+        pool = Pool(
+            name="Test Pool",
+            volume_m3=50.0,
+            pump_flow_m3h=10.0,
+            treatment=treatment,
+        )
+        reading = PoolReading(orp=950.0)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert len(result) == 1
+        assert result[0].product == "neutralizer"
 
 
 class TestFiltrationRule:
@@ -180,5 +278,5 @@ class TestRuleEngine:
         engine = RuleEngine(rules=[PhRule()])
         reading = PoolReading(ph=8.0, orp=600.0)
         results = engine.evaluate(pool, reading, PoolMode.RUNNING)
-        # Only pH rule should fire, not chlorine
+        # Only pH rule should fire, not sanitizer
         assert all(r.product in ("ph_minus", "ph_plus") for r in results)

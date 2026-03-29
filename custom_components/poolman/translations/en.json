@@ -4,11 +4,21 @@
     "step": {
       "user": {
         "title": "Set up Pool Manager",
-        "description": "Configure your pool and water chemistry sensors.",
+        "description": "Configure your pool basics.",
         "data": {
           "pool_name": "Pool name",
           "volume_m3": "Volume",
-          "shape": "Pool shape",
+          "shape": "Pool shape"
+        },
+        "data_description": {
+          "volume_m3": "Total water volume of the pool."
+        }
+      },
+      "chemistry": {
+        "title": "Water chemistry",
+        "description": "Configure your water treatment and chemistry sensors.",
+        "data": {
+          "treatment": "Treatment type",
           "ph_entity": "pH sensor",
           "orp_entity": "ORP sensor",
           "tac_entity": "Total alkalinity (TAC) sensor",
@@ -16,7 +26,7 @@
           "hardness_entity": "Calcium hardness sensor"
         },
         "data_description": {
-          "volume_m3": "Total water volume of the pool.",
+          "treatment": "Water treatment method used in your pool.",
           "tac_entity": "Optional. Total alkalinity sensor.",
           "cya_entity": "Optional. Cyanuric acid (stabilizer) sensor.",
           "hardness_entity": "Optional. Calcium hardness sensor."
@@ -49,6 +59,24 @@
   "options": {
     "step": {
       "init": {
+        "title": "Water chemistry",
+        "description": "Update your water treatment and chemistry sensor settings.",
+        "data": {
+          "treatment": "Treatment type",
+          "ph_entity": "pH sensor",
+          "orp_entity": "ORP sensor",
+          "tac_entity": "Total alkalinity (TAC) sensor",
+          "cya_entity": "Cyanuric acid (stabilizer) sensor",
+          "hardness_entity": "Calcium hardness sensor"
+        },
+        "data_description": {
+          "treatment": "Water treatment method used in your pool.",
+          "tac_entity": "Optional. Total alkalinity sensor.",
+          "cya_entity": "Optional. Cyanuric acid (stabilizer) sensor.",
+          "hardness_entity": "Optional. Calcium hardness sensor."
+        }
+      },
+      "filtration": {
         "title": "Filtration settings",
         "description": "Update your filtration system settings.",
         "data": {
@@ -112,6 +140,14 @@
         "rectangular": "Rectangular",
         "round": "Round",
         "freeform": "Freeform"
+      }
+    },
+    "treatment_type": {
+      "options": {
+        "chlorine": "Chlorine",
+        "salt_electrolysis": "Salt electrolysis",
+        "bromine": "Bromine",
+        "active_oxygen": "Active oxygen"
       }
     },
     "filtration_kind": {

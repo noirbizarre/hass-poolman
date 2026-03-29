@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from .model import (
     ChemicalProduct,
-    ChlorineStatus,
     DosageAdjustment,
     Pool,
     PoolReading,
+    SanitizerStatus,
     Severity,
+    TreatmentType,
 )
 
 # Target ranges for pool chemistry
@@ -42,6 +43,30 @@ HARDNESS_MAX: float = 400.0
 PH_DOSAGE_PER_10M3: float = 150.0
 PH_DOSAGE_STEP: float = 0.2
 
+# Mapping from treatment type to sanitizer products
+_SANITIZER_PRODUCTS: dict[TreatmentType, dict[str, ChemicalProduct]] = {
+    TreatmentType.CHLORINE: {
+        "shock": ChemicalProduct.CHLORE_CHOC,
+        "regular": ChemicalProduct.GALET_CHLORE,
+        "excess": ChemicalProduct.NEUTRALIZER,
+    },
+    TreatmentType.SALT_ELECTROLYSIS: {
+        "shock": ChemicalProduct.CHLORE_CHOC,
+        "regular": ChemicalProduct.SALT,
+        "excess": ChemicalProduct.NEUTRALIZER,
+    },
+    TreatmentType.BROMINE: {
+        "shock": ChemicalProduct.BROMINE_SHOCK,
+        "regular": ChemicalProduct.BROMINE_TABLET,
+        "excess": ChemicalProduct.NEUTRALIZER,
+    },
+    TreatmentType.ACTIVE_OXYGEN: {
+        "shock": ChemicalProduct.ACTIVE_OXYGEN_ACTIVATOR,
+        "regular": ChemicalProduct.ACTIVE_OXYGEN_TABLET,
+        "excess": ChemicalProduct.NEUTRALIZER,
+    },
+}
+
 
 def compute_ph_adjustment(pool: Pool, reading: PoolReading) -> DosageAdjustment | None:
     """Compute pH adjustment recommendation.
@@ -69,24 +94,30 @@ def compute_ph_adjustment(pool: Pool, reading: PoolReading) -> DosageAdjustment 
     return DosageAdjustment(product=product, quantity_g=round(quantity, 0))
 
 
-def compute_chlorine_status(reading: PoolReading) -> ChlorineStatus | None:
-    """Evaluate chlorine status from ORP reading.
+def compute_sanitizer_status(
+    reading: PoolReading,
+    treatment: TreatmentType = TreatmentType.CHLORINE,
+) -> SanitizerStatus | None:
+    """Evaluate sanitizer status from ORP reading, adapted to the treatment type.
 
     Args:
         reading: Current sensor readings.
+        treatment: Water treatment method used in the pool.
 
     Returns:
-        ChlorineStatus with product and severity, or None if ORP is acceptable.
+        SanitizerStatus with product and severity, or None if ORP is acceptable.
     """
     if reading.orp is None:
         return None
 
+    products = _SANITIZER_PRODUCTS[treatment]
+
     if reading.orp < ORP_MIN_CRITICAL:
-        return ChlorineStatus(product=ChemicalProduct.CHLORE_CHOC, severity=Severity.CRITICAL)
+        return SanitizerStatus(product=products["shock"], severity=Severity.CRITICAL)
     if reading.orp < ORP_MIN_ACCEPTABLE:
-        return ChlorineStatus(product=ChemicalProduct.GALET_CHLORE, severity=Severity.MEDIUM)
+        return SanitizerStatus(product=products["regular"], severity=Severity.MEDIUM)
     if reading.orp > ORP_MAX:
-        return ChlorineStatus(product=ChemicalProduct.NEUTRALIZER, severity=Severity.MEDIUM)
+        return SanitizerStatus(product=products["excess"], severity=Severity.MEDIUM)
 
     return None
 

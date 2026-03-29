@@ -63,16 +63,27 @@ If no parameter has a valid reading, the score is unavailable.
 
 ## Chemical Products
 
-Pool Manager may recommend the following chemical products in its dosage calculations:
+Pool Manager recommends chemical products based on your configured
+[treatment type](getting-started.md#step-2-chemistry). The sanitizer-related
+products adapt to your treatment method, while pH and TAC products are
+universal.
+
+### Universal products
 
 | Product | Usage |
 | --- | --- |
 | pH- (pH minus) | Lower pH when it is above target |
 | pH+ (pH plus) | Raise pH when it is below target |
-| Chlore choc (shock chlorine) | Emergency chlorination when ORP is critically low |
-| Galet chlore (chlorine tablet) | Regular chlorine supplementation when ORP is below acceptable |
-| Neutralizer | Reduce chlorine when ORP is excessively high |
 | TAC+ (alkalinity increaser) | Raise total alkalinity when it is below minimum |
+
+### Sanitizer products by treatment type
+
+| Treatment | Regular product | Shock product | Excess product |
+| --- | --- | --- | --- |
+| Chlorine | Chlorine tablet | Shock chlorine | Neutralizer |
+| Salt electrolysis | Salt | Salt (increased dose) | Neutralizer |
+| Bromine | Bromine tablet | Bromine shock | Neutralizer |
+| Active oxygen | Active oxygen tablet | Active oxygen activator | Neutralizer |
 
 ## pH Dosage Calculation
 
