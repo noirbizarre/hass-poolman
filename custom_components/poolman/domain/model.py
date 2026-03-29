@@ -124,6 +124,7 @@ class PoolReading(BaseModel):
     ph: float | None = Field(None, ge=0, le=14, description="pH level")
     orp: float | None = Field(None, description="ORP in millivolts")
     temp_c: float | None = Field(None, description="Water temperature in Celsius")
+    outdoor_temp_c: float | None = Field(None, description="Outdoor/ambient temperature in Celsius")
     tac: float | None = Field(None, ge=0, description="Total alkalinity in ppm")
     cya: float | None = Field(None, ge=0, description="Cyanuric acid (stabilizer) in ppm")
     hardness: float | None = Field(None, ge=0, description="Calcium hardness in ppm")

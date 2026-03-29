@@ -16,6 +16,7 @@ from .const import (
     CONF_FILTRATION_KIND,
     CONF_HARDNESS_ENTITY,
     CONF_ORP_ENTITY,
+    CONF_OUTDOOR_TEMPERATURE_ENTITY,
     CONF_PH_ENTITY,
     CONF_PUMP_FLOW_M3H,
     CONF_SHAPE,
@@ -23,6 +24,7 @@ from .const import (
     CONF_TEMPERATURE_ENTITY,
     CONF_TREATMENT,
     CONF_VOLUME_M3,
+    CONF_WEATHER_ENTITY,
     DEFAULT_FILTRATION_KIND,
     DEFAULT_TREATMENT,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
@@ -132,12 +134,46 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             _LOGGER.debug("Cannot parse state '%s' from %s", state.state, entity_id)
             return None
 
+    def _read_outdoor_temperature(self) -> float | None:
+        """Read outdoor temperature from a sensor entity or weather entity.
+
+        Tries the dedicated outdoor temperature sensor first,
+        then falls back to the temperature attribute of a weather entity.
+
+        Returns:
+            Outdoor temperature in Celsius, or None if unavailable.
+        """
+        # Try dedicated outdoor temperature sensor
+        value = self._read_sensor(CONF_OUTDOOR_TEMPERATURE_ENTITY)
+        if value is not None:
+            return value
+
+        # Fall back to weather entity's temperature attribute
+        weather_id = self._get_config(CONF_WEATHER_ENTITY)
+        if not weather_id:
+            return None
+
+        state = self.hass.states.get(weather_id)
+        if state is None:
+            return None
+
+        temp = state.attributes.get("temperature")
+        if temp is None:
+            return None
+
+        try:
+            return float(temp)
+        except (ValueError, TypeError):
+            _LOGGER.debug("Cannot parse temperature attribute '%s' from %s", temp, weather_id)
+            return None
+
     async def _async_update_data(self) -> PoolState:
         """Fetch sensor data and compute pool state."""
         reading = PoolReading(
             ph=self._read_sensor(CONF_PH_ENTITY),
             orp=self._read_sensor(CONF_ORP_ENTITY),
             temp_c=self._read_sensor(CONF_TEMPERATURE_ENTITY),
+            outdoor_temp_c=self._read_outdoor_temperature(),
             tac=self._read_sensor(CONF_TAC_ENTITY),
             cya=self._read_sensor(CONF_CYA_ENTITY),
             hardness=self._read_sensor(CONF_HARDNESS_ENTITY),

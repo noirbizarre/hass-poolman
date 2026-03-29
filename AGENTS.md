@@ -57,3 +57,4 @@ The general contribution guidelines are outlined in `CONTRIBUTING.md` and should
 - `AGENTS.md` and `CONTRIBUTING.md` should be updated with any new guidelines or changes to existing rules.
 - Documentation in `docs/` should be kept up to date and reflect any changes in functionality or usage.
 - The demonstration in `demo/` should be updated to reflect any changes that may affect it.
+- All algorithms and complex logic should be explained in the documentation with examples and sources.
