@@ -29,6 +29,7 @@ from .const import (
     CONF_FILTRATION_KIND,
     CONF_HARDNESS_ENTITY,
     CONF_ORP_ENTITY,
+    CONF_OUTDOOR_TEMPERATURE_ENTITY,
     CONF_PH_ENTITY,
     CONF_POOL_NAME,
     CONF_PUMP_ENTITY,
@@ -38,6 +39,7 @@ from .const import (
     CONF_TEMPERATURE_ENTITY,
     CONF_TREATMENT,
     CONF_VOLUME_M3,
+    CONF_WEATHER_ENTITY,
     DEFAULT_FILTRATION_KIND,
     DEFAULT_PUMP_FLOW_M3H,
     DEFAULT_TREATMENT,
@@ -174,6 +176,14 @@ def _filtration_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 CONF_PUMP_ENTITY,
                 default=defaults.get(CONF_PUMP_ENTITY, vol.UNDEFINED),
             ): EntitySelector(EntitySelectorConfig(domain="switch")),
+            vol.Optional(
+                CONF_OUTDOOR_TEMPERATURE_ENTITY,
+                default=defaults.get(CONF_OUTDOOR_TEMPERATURE_ENTITY, vol.UNDEFINED),
+            ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+            vol.Optional(
+                CONF_WEATHER_ENTITY,
+                default=defaults.get(CONF_WEATHER_ENTITY, vol.UNDEFINED),
+            ): EntitySelector(EntitySelectorConfig(domain="weather")),
         }
     )
 

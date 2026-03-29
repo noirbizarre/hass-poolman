@@ -34,6 +34,7 @@ FAKE_CHEMISTRY_SENSORS = {
 # Filtration sensors (used in step 3: filtration settings)
 FAKE_FILTRATION_SENSORS = {
     "temperature_entity": "sensor.fake_pool_sensor_water_temperature",
+    "outdoor_temperature_entity": "sensor.fake_pool_sensor_outdoor_temperature",
 }
 
 
@@ -348,7 +349,7 @@ def main() -> None:
         )
 
     # Wait for fake sensor entities to appear
-    wait_for_entities(token, "sensor.fake_pool_sensor_", expected_count=6)
+    wait_for_entities(token, "sensor.fake_pool_sensor_", expected_count=7)
 
     # Set up Pool Manager (three-step flow: pool basics, chemistry, filtration)
     if has_integration(entries, "poolman"):

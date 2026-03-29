@@ -39,13 +39,17 @@
           "filtration_kind": "Filtration type",
           "pump_flow_m3h": "Pump flow rate",
           "temperature_entity": "Water temperature sensor",
-          "pump_entity": "Pump switch"
+          "pump_entity": "Pump switch",
+          "outdoor_temperature_entity": "Outdoor temperature sensor",
+          "weather_entity": "Weather entity"
         },
         "data_description": {
           "filtration_kind": "Type of filtration system installed.",
           "pump_flow_m3h": "Pump flow rate in cubic meters per hour.",
           "temperature_entity": "Sensor used to measure water temperature for filtration calculations.",
-          "pump_entity": "Optional. Switch entity to control the pump."
+          "pump_entity": "Optional. Switch entity to control the pump.",
+          "outdoor_temperature_entity": "Optional. Outdoor temperature sensor for heat stress adjustment.",
+          "weather_entity": "Optional. Weather integration entity (temperature attribute is used as fallback for outdoor temperature)."
         }
       }
     },
@@ -83,13 +87,17 @@
           "filtration_kind": "Filtration type",
           "pump_flow_m3h": "Pump flow rate",
           "temperature_entity": "Water temperature sensor",
-          "pump_entity": "Pump switch"
+          "pump_entity": "Pump switch",
+          "outdoor_temperature_entity": "Outdoor temperature sensor",
+          "weather_entity": "Weather entity"
         },
         "data_description": {
           "filtration_kind": "Type of filtration system installed.",
           "pump_flow_m3h": "Pump flow rate in cubic meters per hour.",
           "temperature_entity": "Sensor used to measure water temperature for filtration calculations.",
-          "pump_entity": "Optional. Switch entity to control the pump."
+          "pump_entity": "Optional. Switch entity to control the pump.",
+          "outdoor_temperature_entity": "Optional. Outdoor temperature sensor for heat stress adjustment.",
+          "weather_entity": "Optional. Weather integration entity (temperature attribute is used as fallback for outdoor temperature)."
         }
       }
     }

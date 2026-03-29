@@ -22,6 +22,10 @@ CONF_TAC_ENTITY: Final = "tac_entity"
 CONF_CYA_ENTITY: Final = "cya_entity"
 CONF_HARDNESS_ENTITY: Final = "hardness_entity"
 
+# Meteo entity config keys
+CONF_OUTDOOR_TEMPERATURE_ENTITY: Final = "outdoor_temperature_entity"
+CONF_WEATHER_ENTITY: Final = "weather_entity"
+
 # Actuator entity config keys
 CONF_PUMP_ENTITY: Final = "pump_entity"
 

@@ -28,6 +28,7 @@ These sensors enable additional recommendations and improve the water quality sc
 | TAC (Total Alkalinity) | ppm | Alkalinity level |
 | CYA (Cyanuric Acid) | ppm | Stabilizer level |
 | Calcium Hardness | ppm | Water hardness |
+| Outdoor temperature | °C | Ambient / air temperature (improves filtration suggestion) |
 
 ### Optional actuators
 
@@ -132,6 +133,16 @@ The third step configures your filtration system.
 | Parameter | Type | Description |
 | --- | --- | --- |
 | Pump entity | entity (switch) | Pump switch (reserved for future use) |
+| Outdoor temperature entity | entity (sensor) | Outdoor / air temperature sensor for heat stress adjustment |
+| Weather entity | entity (weather) | Weather integration entity (used as fallback for outdoor temperature) |
+
+!!! tip "Outdoor temperature sources"
+
+    You can configure an outdoor temperature sensor, a weather entity, or both.
+    When both are provided, the dedicated sensor takes priority. The weather
+    entity's `temperature` attribute is used as a fallback.
+    See [Pool Modes](pool-modes.md#step-3-outdoor-temperature-heat-stress)
+    for how outdoor temperature affects filtration duration.
 
 !!! note "Multiple pools"
 
@@ -145,7 +156,8 @@ through the integration's options:
 
 1. Go to **Settings > Devices & Services**
 2. Find **Pool Manager** and click **Configure**
-3. Update the treatment type, chemistry sensors, filtration type, pump flow rate, temperature sensor, or pump entity
+3. Update the treatment type, chemistry sensors, filtration type, pump flow rate,
+   temperature sensor, outdoor temperature sensor, weather entity, or pump entity
 
 Changes take effect immediately -- the integration reloads automatically.
 

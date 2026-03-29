@@ -19,6 +19,7 @@ from .const import DOMAIN, SENSOR_SPECS, FakeSensorSpec
 # Map sensor keys to HA device classes where applicable
 _DEVICE_CLASSES: dict[str, SensorDeviceClass] = {
     "temperature": SensorDeviceClass.TEMPERATURE,
+    "outdoor_temperature": SensorDeviceClass.TEMPERATURE,
     "ph": SensorDeviceClass.PH,
 }
 
@@ -29,6 +30,7 @@ _DISPLAY_PRECISION: dict[str, int] = {
     "tac": 0,
     "cya": 0,
     "hardness": 0,
+    "outdoor_temperature": 1,
 }
 
 

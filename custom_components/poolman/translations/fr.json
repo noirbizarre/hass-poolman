@@ -39,13 +39,17 @@
           "filtration_kind": "Type de filtration",
           "pump_flow_m3h": "D\u00e9bit de la pompe",
           "temperature_entity": "Capteur de temp\u00e9rature de l'eau",
-          "pump_entity": "Interrupteur de la pompe"
+          "pump_entity": "Interrupteur de la pompe",
+          "outdoor_temperature_entity": "Capteur de temp\u00e9rature ext\u00e9rieure",
+          "weather_entity": "Entit\u00e9 m\u00e9t\u00e9o"
         },
         "data_description": {
           "filtration_kind": "Type de syst\u00e8me de filtration install\u00e9.",
           "pump_flow_m3h": "D\u00e9bit de la pompe en m\u00e8tres cubes par heure.",
           "temperature_entity": "Capteur utilis\u00e9 pour mesurer la temp\u00e9rature de l'eau pour les calculs de filtration.",
-          "pump_entity": "Optionnel. Interrupteur pour contr\u00f4ler la pompe."
+          "pump_entity": "Optionnel. Interrupteur pour contr\u00f4ler la pompe.",
+          "outdoor_temperature_entity": "Optionnel. Capteur de temp\u00e9rature ext\u00e9rieure pour l'ajustement canicule.",
+          "weather_entity": "Optionnel. Entit\u00e9 d'int\u00e9gration m\u00e9t\u00e9o (l'attribut temp\u00e9rature est utilis\u00e9 comme alternative pour la temp\u00e9rature ext\u00e9rieure)."
         }
       }
     },
@@ -83,13 +87,17 @@
           "filtration_kind": "Type de filtration",
           "pump_flow_m3h": "D\u00e9bit de la pompe",
           "temperature_entity": "Capteur de temp\u00e9rature de l'eau",
-          "pump_entity": "Interrupteur de la pompe"
+          "pump_entity": "Interrupteur de la pompe",
+          "outdoor_temperature_entity": "Capteur de temp\u00e9rature ext\u00e9rieure",
+          "weather_entity": "Entit\u00e9 m\u00e9t\u00e9o"
         },
         "data_description": {
           "filtration_kind": "Type de syst\u00e8me de filtration install\u00e9.",
           "pump_flow_m3h": "D\u00e9bit de la pompe en m\u00e8tres cubes par heure.",
           "temperature_entity": "Capteur utilis\u00e9 pour mesurer la temp\u00e9rature de l'eau pour les calculs de filtration.",
-          "pump_entity": "Optionnel. Interrupteur pour contr\u00f4ler la pompe."
+          "pump_entity": "Optionnel. Interrupteur pour contr\u00f4ler la pompe.",
+          "outdoor_temperature_entity": "Optionnel. Capteur de temp\u00e9rature ext\u00e9rieure pour l'ajustement canicule.",
+          "weather_entity": "Optionnel. Entit\u00e9 d'int\u00e9gration m\u00e9t\u00e9o (l'attribut temp\u00e9rature est utilis\u00e9 comme alternative pour la temp\u00e9rature ext\u00e9rieure)."
         }
       }
     }

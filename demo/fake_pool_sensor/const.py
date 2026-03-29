@@ -97,4 +97,15 @@ SENSOR_SPECS: Final[tuple[FakeSensorSpec, ...]] = (
         unit="mg/L",
         icon="mdi:water-opacity",
     ),
+    FakeSensorSpec(
+        key="outdoor_temperature",
+        name="Outdoor temperature",
+        default=25.0,
+        min_value=-10.0,
+        max_value=50.0,
+        step=0.1,
+        noise=0.5,
+        unit="\u00b0C",
+        icon="mdi:thermometer",
+    ),
 )
