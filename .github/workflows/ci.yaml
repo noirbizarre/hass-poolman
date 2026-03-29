@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
-      - run: uv sync
+      - run: uv sync --frozen --group lint --group test
       - uses: j178/prek-action@v2
 
   test:
@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
-      - run: uv sync
+      - run: uv sync --frozen --group test
       - name: Run tests with coverage
         run: uv run poe cover --color=yes -o junit_family=legacy
 
@@ -37,6 +37,34 @@ jobs:
         with:
           directory: reports
           report_type: test_results
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync --frozen --group docs
+      - name: Build documentation
+        run: uv run poe doc:build
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy-docs:
+    name: Deploy documentation
+    runs-on: ubuntu-latest
+    needs: docs
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      pages: write      # to deploy to Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment
 
   hassfest:
     name: Hassfest

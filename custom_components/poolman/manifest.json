@@ -3,7 +3,7 @@
   "name": "Pool Manager",
   "codeowners": ["@noirbizarre"],
   "config_flow": true,
-  "documentation": "https://github.com/noirbizarre/hass-poolman#readme",
+  "documentation": "https://noirbizarre.github.io/hass-poolman/",
   "integration_type": "device",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/noirbizarre/hass-poolman/issues",
