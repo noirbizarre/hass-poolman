@@ -350,6 +350,7 @@ def main() -> None:
 
     # Wait for fake sensor entities to appear
     wait_for_entities(token, "sensor.fake_pool_sensor_", expected_count=7)
+    wait_for_entities(token, "switch.fake_pool_sensor_", expected_count=1)
 
     # Set up Pool Manager (three-step flow: pool basics, chemistry, filtration)
     if has_integration(entries, "poolman"):
@@ -375,6 +376,7 @@ def main() -> None:
                 {
                     "filtration_kind": "sand",
                     "pump_flow_m3h": 10.0,
+                    "pump_entity": "switch.fake_pool_sensor_pump",
                     **FAKE_FILTRATION_SENSORS,
                 },
             ],

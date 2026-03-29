@@ -91,6 +91,14 @@ duration and the turnover time.
 
 The result is bounded between **2 hours minimum** and **24 hours maximum**.
 
+!!! info "Advisory vs Active Control"
+
+    The recommended filtration duration computed here is an **advisory** value
+    exposed as a sensor entity. It does not directly control your pump.
+    If you have a pump switch configured, you can use
+    [Filtration Control](filtration-control.md) for automatic daily pump
+    scheduling, and optionally sync the duration via automation.
+
 ??? example "Calculation examples"
 
     **Example 1 --- Standard conditions**

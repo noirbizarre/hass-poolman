@@ -180,6 +180,34 @@
           "winter_passive": "Hivernage passif"
         }
       }
+    },
+    "switch": {
+      "filtration_control": {
+        "name": "Contr\u00f4le de la filtration"
+      }
+    },
+    "time": {
+      "filtration_start_time": {
+        "name": "Heure de d\u00e9but de filtration"
+      }
+    },
+    "number": {
+      "filtration_duration_setting": {
+        "name": "Dur\u00e9e de filtration"
+      }
+    },
+    "event": {
+      "filtration": {
+        "name": "Filtration",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "filtration_started": "Filtration d\u00e9marr\u00e9e",
+              "filtration_stopped": "Filtration arr\u00eat\u00e9e"
+            }
+          }
+        }
+      }
     }
   },
   "selector": {

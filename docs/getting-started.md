@@ -34,7 +34,7 @@ These sensors enable additional recommendations and improve the water quality sc
 
 | Entity | Type | Description |
 | --- | --- | --- |
-| Pump switch | switch | Pump on/off entity (reserved for future use) |
+| Pump switch | switch | Pump on/off entity. Enables [filtration control](filtration-control.md) (automatic daily pump scheduling). |
 
 ### Compatible sensor sources
 
@@ -132,7 +132,7 @@ The third step configures your filtration system.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| Pump entity | entity (switch) | Pump switch (reserved for future use) |
+| Pump entity | entity (switch) | Pump switch for [filtration control](filtration-control.md) (automatic daily scheduling) |
 | Outdoor temperature entity | entity (sensor) | Outdoor / air temperature sensor for heat stress adjustment |
 | Weather entity | entity (weather) | Weather integration entity (used as fallback for outdoor temperature) |
 

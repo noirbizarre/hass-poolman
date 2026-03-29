@@ -1,11 +1,12 @@
 """Constants for the Pool Manager integration."""
 
+from datetime import time
 from typing import Final
 
 DOMAIN: Final = "poolman"
 EVENT_POOLMAN: Final = "poolman_event"
 
-PLATFORMS: Final = ["sensor", "binary_sensor", "select"]
+PLATFORMS: Final = ["sensor", "binary_sensor", "select", "switch", "time", "number", "event"]
 
 # Config entry keys
 CONF_POOL_NAME: Final = "pool_name"
@@ -66,9 +67,15 @@ MODE_WINTER_ACTIVE: Final = "winter_active"
 MODE_WINTER_PASSIVE: Final = "winter_passive"
 MODES: Final = [MODE_RUNNING, MODE_WINTER_ACTIVE, MODE_WINTER_PASSIVE]
 
+# Filtration control event types
+EVENT_FILTRATION_STARTED: Final = "filtration_started"
+EVENT_FILTRATION_STOPPED: Final = "filtration_stopped"
+
 # Default values
 DEFAULT_VOLUME_M3: Final = 50.0
 DEFAULT_TREATMENT: Final = TREATMENT_CHLORINE
 DEFAULT_FILTRATION_KIND: Final = FILTRATION_KIND_SAND
 DEFAULT_PUMP_FLOW_M3H: Final = 10.0
 DEFAULT_UPDATE_INTERVAL_MINUTES: Final = 5
+DEFAULT_FILTRATION_START_TIME: Final = time(10, 0)
+DEFAULT_FILTRATION_DURATION_HOURS: Final = 8.0

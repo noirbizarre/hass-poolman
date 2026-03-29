@@ -7,7 +7,7 @@ from typing import Final
 
 DOMAIN: Final = "fake_pool_sensor"
 
-PLATFORMS: Final = ["sensor", "number"]
+PLATFORMS: Final = ["sensor", "number", "switch"]
 
 CONF_DEVICE_NAME: Final = "device_name"
 

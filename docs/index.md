@@ -31,6 +31,8 @@ with no cloud service or specific hardware required.
 - **Filtration configuration** -- Support for different filtration
   types (sand, cartridge, diatomaceous earth, glass) with dedicated
   pump and temperature sensor settings
+- **Automatic pump control** -- Daily pump scheduling with configurable
+  start time and duration when a pump switch entity is configured
 - **3 operational modes** -- Running, Active Wintering, and Passive
   Wintering, each with adapted filtration logic and rule behavior
 - **Hardware agnostic** -- Works with any sensor source: dedicated pool
@@ -53,7 +55,8 @@ All computations happen locally. No cloud API, no account, no internet connectio
 ## Quick Links
 
 - [Getting Started](getting-started.md) -- Prerequisites, installation, and configuration
-- [Entities](entities.md) -- Sensors, binary sensors, and select entities created by the integration
+- [Entities](entities.md) -- Sensors, binary sensors, select, and filtration control entities
+- [Filtration Control](filtration-control.md) -- Automatic pump scheduling, events, and automation examples
 - [Pool Modes](pool-modes.md) -- Running, Active Wintering, and Passive Wintering explained
 - [Water Chemistry](water-chemistry.md) -- Target ranges, scoring, and parameter details
 - [Rules & Recommendations](rules-and-recommendations.md) -- The rule engine, priority system, and chemical dosages
