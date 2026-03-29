@@ -76,11 +76,11 @@ Or manually add as a custom repository:
 
 Or go to **Settings > Devices & Services > Add Integration** and search for **Pool Manager**.
 
-The integration is configured through a two-step UI flow. No YAML configuration is needed.
+The integration is configured through a three-step UI flow. No YAML configuration is needed.
 
-### Step 1: Pool & sensors
+### Step 1: Pool basics
 
-The first step collects your pool's physical characteristics and chemistry sensor entities.
+The first step collects your pool's physical characteristics.
 
 #### Required parameters
 
@@ -89,8 +89,23 @@ The first step collects your pool's physical characteristics and chemistry senso
 | Pool name | text | My Pool | Name for your pool (used as device name and unique identifier) |
 | Volume | number (m³) | 50.0 | Pool water volume (1--500 m³) |
 | Shape | select | Rectangular | Pool shape: Rectangular, Round, or Freeform |
+
+### Step 2: Chemistry
+
+The second step configures your water treatment method and chemistry sensor entities.
+
+#### Required parameters
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| Treatment type | select | Chlorine | Water treatment method: Chlorine, Salt electrolysis, Bromine, or Active oxygen |
 | pH entity | entity (sensor) | -- | pH sensor entity |
 | ORP entity | entity (sensor) | -- | ORP sensor entity |
+
+The treatment type determines which sanitizer products are recommended by the
+[rule engine](rules-and-recommendations.md#sanitizer-rule-orp). For example,
+a chlorine-treated pool will receive chlorine tablet recommendations, while a
+bromine-treated pool will receive bromine tablet recommendations.
 
 #### Optional parameters
 
@@ -100,9 +115,9 @@ The first step collects your pool's physical characteristics and chemistry senso
 | CYA entity | entity (sensor) | Cyanuric Acid / Stabilizer sensor |
 | Hardness entity | entity (sensor) | Calcium Hardness sensor |
 
-### Step 2: Filtration
+### Step 3: Filtration
 
-The second step configures your filtration system.
+The third step configures your filtration system.
 
 #### Required parameters
 
@@ -123,14 +138,14 @@ The second step configures your filtration system.
     You can add the integration multiple times to manage several pools.
     Each pool is identified by its name, which must be unique.
 
-## Reconfiguring filtration settings
+## Reconfiguring settings
 
-After initial setup, you can modify your filtration settings at any time
+After initial setup, you can modify your chemistry and filtration settings at any time
 through the integration's options:
 
 1. Go to **Settings > Devices & Services**
 2. Find **Pool Manager** and click **Configure**
-3. Update the filtration type, pump flow rate, temperature sensor, or pump entity
+3. Update the treatment type, chemistry sensors, filtration type, pump flow rate, temperature sensor, or pump entity
 
 Changes take effect immediately -- the integration reloads automatically.
 

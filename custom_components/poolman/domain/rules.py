@@ -1,6 +1,6 @@
 """Extensible rule engine for pool management.
 
-Provides a base Rule class and built-in rules for pH, chlorine, and filtration.
+Provides a base Rule class and built-in rules for pH, sanitizer, and filtration.
 New rules can be added by subclassing Rule and registering in the engine.
 No Home Assistant dependencies.
 """
@@ -18,8 +18,8 @@ from .chemistry import (
     PH_TOLERANCE,
     TAC_MAX,
     TAC_MIN,
-    compute_chlorine_status,
     compute_ph_adjustment,
+    compute_sanitizer_status,
     compute_tac_adjustment,
 )
 from .filtration import compute_filtration_duration
@@ -31,7 +31,32 @@ from .model import (
     RecommendationPriority,
     RecommendationType,
     Severity,
+    TreatmentType,
 )
+
+# Human-readable labels for sanitizer products by treatment type and action
+_SANITIZER_MESSAGES: dict[TreatmentType, dict[str, str]] = {
+    TreatmentType.CHLORINE: {
+        "shock": "Shock chlorination required (ORP critically low)",
+        "regular": "Add chlorine tablets (ORP below {orp_min} mV)",
+        "excess": "ORP too high, reduce chlorine dosage",
+    },
+    TreatmentType.SALT_ELECTROLYSIS: {
+        "shock": "Shock chlorination required (ORP critically low)",
+        "regular": "Check salt level and electrolysis cell (ORP below {orp_min} mV)",
+        "excess": "ORP too high, reduce electrolysis output",
+    },
+    TreatmentType.BROMINE: {
+        "shock": "Bromine shock required (ORP critically low)",
+        "regular": "Add bromine tablets (ORP below {orp_min} mV)",
+        "excess": "ORP too high, reduce bromine dosage",
+    },
+    TreatmentType.ACTIVE_OXYGEN: {
+        "shock": "Active oxygen shock required (ORP critically low)",
+        "regular": "Add active oxygen tablets (ORP below {orp_min} mV)",
+        "excess": "ORP too high, reduce active oxygen dosage",
+    },
+}
 
 
 class Rule(ABC):
@@ -97,8 +122,8 @@ class PhRule(Rule):
         ]
 
 
-class ChlorineRule(Rule):
-    """Rule for chlorine/ORP level evaluation."""
+class SanitizerRule(Rule):
+    """Rule for sanitizer level evaluation based on ORP and treatment type."""
 
     def evaluate(
         self,
@@ -106,23 +131,25 @@ class ChlorineRule(Rule):
         reading: PoolReading,
         mode: PoolMode,
     ) -> list[Recommendation]:
-        """Evaluate chlorine via ORP and recommend treatment."""
+        """Evaluate sanitizer via ORP and recommend treatment adapted to treatment type."""
         if mode == PoolMode.WINTER_PASSIVE or reading.orp is None:
             return []
 
-        result = compute_chlorine_status(reading)
+        result = compute_sanitizer_status(reading, pool.treatment)
         if result is None:
             return []
 
+        messages = _SANITIZER_MESSAGES[pool.treatment]
+
         if result.severity == Severity.CRITICAL:
             priority = RecommendationPriority.CRITICAL
-            message = "Shock chlorination required (ORP critically low)"
+            message = messages["shock"]
         elif reading.orp > ORP_MAX:
             priority = RecommendationPriority.MEDIUM
-            message = "ORP too high, reduce chlorine dosage"
+            message = messages["excess"]
         else:
             priority = RecommendationPriority.MEDIUM
-            message = f"Add {result.product} (ORP below {ORP_MIN_ACCEPTABLE} mV)"
+            message = messages["regular"].format(orp_min=ORP_MIN_ACCEPTABLE)
 
         return [
             Recommendation(
@@ -249,7 +276,7 @@ class RuleEngine:
         """Return the default set of built-in rules."""
         return [
             PhRule(),
-            ChlorineRule(),
+            SanitizerRule(),
             FiltrationRule(),
             TacRule(),
             AlgaeRiskRule(),

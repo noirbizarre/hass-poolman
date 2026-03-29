@@ -21,14 +21,24 @@ from .const import (
     CONF_SHAPE,
     CONF_TAC_ENTITY,
     CONF_TEMPERATURE_ENTITY,
+    CONF_TREATMENT,
     CONF_VOLUME_M3,
     DEFAULT_FILTRATION_KIND,
+    DEFAULT_TREATMENT,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
     DOMAIN,
 )
 from .domain.chemistry import compute_water_quality_score
 from .domain.filtration import compute_filtration_duration
-from .domain.model import FiltrationKind, Pool, PoolMode, PoolReading, PoolShape, PoolState
+from .domain.model import (
+    FiltrationKind,
+    Pool,
+    PoolMode,
+    PoolReading,
+    PoolShape,
+    PoolState,
+    TreatmentType,
+)
 from .domain.rules import RuleEngine
 
 _LOGGER = logging.getLogger(__name__)
@@ -82,6 +92,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         return Pool(
             volume_m3=data[CONF_VOLUME_M3],
             shape=PoolShape(data[CONF_SHAPE]),
+            treatment=TreatmentType(self._get_config(CONF_TREATMENT, DEFAULT_TREATMENT)),
             filtration_kind=FiltrationKind(
                 self._get_config(CONF_FILTRATION_KIND, DEFAULT_FILTRATION_KIND)
             ),

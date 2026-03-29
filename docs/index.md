@@ -23,8 +23,11 @@ with no cloud service or specific hardware required.
 - **Computed analytics** -- Recommended daily filtration duration
   and a 0--100% water quality score, computed from your sensor data
 - **Rule engine** -- Actionable recommendations with chemical product
-  names and dosage in grams, covering pH, chlorine/ORP, alkalinity,
+  names and dosage in grams, covering pH, sanitizer/ORP, alkalinity,
   and algae risk
+- **Treatment types** -- Support for chlorine, salt electrolysis,
+  bromine, and active oxygen, with treatment-specific product
+  recommendations
 - **Filtration configuration** -- Support for different filtration
   types (sand, cartridge, diatomaceous earth, glass) with dedicated
   pump and temperature sensor settings
@@ -32,7 +35,7 @@ with no cloud service or specific hardware required.
   Wintering, each with adapted filtration logic and rule behavior
 - **Hardware agnostic** -- Works with any sensor source: dedicated pool
   probes (Flipr, iopool, Sutro), ESPHome DIY sensors, or manual input helpers
-- **Reconfigurable** -- Filtration settings can be updated at any time
+- **Reconfigurable** -- Chemistry and filtration settings can be updated at any time
   through the integration options, without removing the integration
 - **Multi-language** -- English and French translations included
 

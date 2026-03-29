@@ -22,7 +22,7 @@ USERNAME = "admin"
 PASSWORD = "admin"  # noqa: S105
 
 # Expected entity IDs created by the Fake Pool Sensor integration
-# Chemistry sensors (used in step 1: pool & sensors)
+# Chemistry sensors (used in step 2: chemistry)
 FAKE_CHEMISTRY_SENSORS = {
     "ph_entity": "sensor.fake_pool_sensor_ph",
     "orp_entity": "sensor.fake_pool_sensor_orp",
@@ -31,7 +31,7 @@ FAKE_CHEMISTRY_SENSORS = {
     "hardness_entity": "sensor.fake_pool_sensor_calcium_hardness",
 }
 
-# Filtration sensors (used in step 2: filtration settings)
+# Filtration sensors (used in step 3: filtration settings)
 FAKE_FILTRATION_SENSORS = {
     "temperature_entity": "sensor.fake_pool_sensor_water_temperature",
 }
@@ -350,7 +350,7 @@ def main() -> None:
     # Wait for fake sensor entities to appear
     wait_for_entities(token, "sensor.fake_pool_sensor_", expected_count=6)
 
-    # Set up Pool Manager (two-step flow: pool & sensors, then filtration)
+    # Set up Pool Manager (three-step flow: pool basics, chemistry, filtration)
     if has_integration(entries, "poolman"):
         log("Pool Manager already configured, skipping.")
     else:
@@ -359,14 +359,18 @@ def main() -> None:
             token,
             "poolman",
             [
-                # Step 1: Pool basics + chemistry sensors
+                # Step 1: Pool basics (name, volume, shape)
                 {
                     "pool_name": "Demo Pool",
                     "volume_m3": 50.0,
                     "shape": "rectangular",
+                },
+                # Step 2: Chemistry (treatment type + sensors)
+                {
+                    "treatment": "chlorine",
                     **FAKE_CHEMISTRY_SENSORS,
                 },
-                # Step 2: Filtration settings
+                # Step 3: Filtration settings
                 {
                     "filtration_kind": "sand",
                     "pump_flow_m3h": 10.0,

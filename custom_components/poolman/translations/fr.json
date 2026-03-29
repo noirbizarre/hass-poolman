@@ -4,11 +4,21 @@
     "step": {
       "user": {
         "title": "Configurer Pool Manager",
-        "description": "Configurez votre piscine et vos capteurs de chimie de l'eau.",
+        "description": "Configurez les param\u00e8tres de base de votre piscine.",
         "data": {
           "pool_name": "Nom de la piscine",
           "volume_m3": "Volume",
-          "shape": "Forme de la piscine",
+          "shape": "Forme de la piscine"
+        },
+        "data_description": {
+          "volume_m3": "Volume total d'eau de la piscine."
+        }
+      },
+      "chemistry": {
+        "title": "Chimie de l'eau",
+        "description": "Configurez votre traitement de l'eau et vos capteurs de chimie.",
+        "data": {
+          "treatment": "Type de traitement",
           "ph_entity": "Capteur de pH",
           "orp_entity": "Capteur ORP",
           "tac_entity": "Capteur d'alcalinit\u00e9 totale (TAC)",
@@ -16,7 +26,7 @@
           "hardness_entity": "Capteur de duret\u00e9 calcique"
         },
         "data_description": {
-          "volume_m3": "Volume total d'eau de la piscine.",
+          "treatment": "M\u00e9thode de traitement de l'eau utilis\u00e9e dans votre piscine.",
           "tac_entity": "Optionnel. Capteur d'alcalinit\u00e9 totale.",
           "cya_entity": "Optionnel. Capteur d'acide cyanurique (stabilisant).",
           "hardness_entity": "Optionnel. Capteur de duret\u00e9 calcique."
@@ -49,6 +59,24 @@
   "options": {
     "step": {
       "init": {
+        "title": "Chimie de l'eau",
+        "description": "Modifiez les param\u00e8tres de traitement et de capteurs de chimie.",
+        "data": {
+          "treatment": "Type de traitement",
+          "ph_entity": "Capteur de pH",
+          "orp_entity": "Capteur ORP",
+          "tac_entity": "Capteur d'alcalinit\u00e9 totale (TAC)",
+          "cya_entity": "Capteur d'acide cyanurique (stabilisant)",
+          "hardness_entity": "Capteur de duret\u00e9 calcique"
+        },
+        "data_description": {
+          "treatment": "M\u00e9thode de traitement de l'eau utilis\u00e9e dans votre piscine.",
+          "tac_entity": "Optionnel. Capteur d'alcalinit\u00e9 totale.",
+          "cya_entity": "Optionnel. Capteur d'acide cyanurique (stabilisant).",
+          "hardness_entity": "Optionnel. Capteur de duret\u00e9 calcique."
+        }
+      },
+      "filtration": {
         "title": "Param\u00e8tres de filtration",
         "description": "Modifiez les param\u00e8tres de votre syst\u00e8me de filtration.",
         "data": {
@@ -112,6 +140,14 @@
         "rectangular": "Rectangulaire",
         "round": "Ronde",
         "freeform": "Forme libre"
+      }
+    },
+    "treatment_type": {
+      "options": {
+        "chlorine": "Chlore",
+        "salt_electrolysis": "\u00c9lectrolyse au sel",
+        "bromine": "Brome",
+        "active_oxygen": "Oxyg\u00e8ne actif"
       }
     },
     "filtration_kind": {

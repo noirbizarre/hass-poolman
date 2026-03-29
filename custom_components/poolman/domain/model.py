@@ -27,6 +27,15 @@ class FiltrationKind(StrEnum):
     GLASS = "glass"
 
 
+class TreatmentType(StrEnum):
+    """Water treatment method used in the pool."""
+
+    CHLORINE = "chlorine"
+    SALT_ELECTROLYSIS = "salt_electrolysis"
+    BROMINE = "bromine"
+    ACTIVE_OXYGEN = "active_oxygen"
+
+
 class PoolMode(StrEnum):
     """Operational mode of the pool."""
 
@@ -44,6 +53,11 @@ class ChemicalProduct(StrEnum):
     GALET_CHLORE = "galet_chlore"
     NEUTRALIZER = "neutralizer"
     TAC_PLUS = "tac_plus"
+    SALT = "salt"
+    BROMINE_TABLET = "bromine_tablet"
+    BROMINE_SHOCK = "bromine_shock"
+    ACTIVE_OXYGEN_TABLET = "active_oxygen_tablet"
+    ACTIVE_OXYGEN_ACTIVATOR = "active_oxygen_activator"
 
 
 class Severity(StrEnum):
@@ -78,8 +92,8 @@ class DosageAdjustment(BaseModel, frozen=True):
     quantity_g: float | None = Field(None, ge=0, description="Quantity in grams")
 
 
-class ChlorineStatus(BaseModel, frozen=True):
-    """Chlorine/ORP evaluation result."""
+class SanitizerStatus(BaseModel, frozen=True):
+    """Sanitizer evaluation result based on ORP reading and treatment type."""
 
     product: ChemicalProduct
     severity: Severity
@@ -91,6 +105,7 @@ class Pool(BaseModel):
     name: str = "Pool"
     volume_m3: float = Field(gt=0, description="Pool volume in cubic meters")
     shape: PoolShape = PoolShape.RECTANGULAR
+    treatment: TreatmentType = TreatmentType.CHLORINE
     filtration_kind: FiltrationKind = FiltrationKind.SAND
     pump_flow_m3h: float = Field(gt=0, description="Pump flow rate in m3/h")
 

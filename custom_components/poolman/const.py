@@ -10,6 +10,7 @@ PLATFORMS: Final = ["sensor", "binary_sensor", "select"]
 CONF_POOL_NAME: Final = "pool_name"
 CONF_VOLUME_M3: Final = "volume_m3"
 CONF_SHAPE: Final = "shape"
+CONF_TREATMENT: Final = "treatment"
 CONF_FILTRATION_KIND: Final = "filtration_kind"
 CONF_PUMP_FLOW_M3H: Final = "pump_flow_m3h"
 
@@ -29,6 +30,18 @@ SHAPE_RECTANGULAR: Final = "rectangular"
 SHAPE_ROUND: Final = "round"
 SHAPE_FREEFORM: Final = "freeform"
 SHAPES: Final = [SHAPE_RECTANGULAR, SHAPE_ROUND, SHAPE_FREEFORM]
+
+# Treatment types
+TREATMENT_CHLORINE: Final = "chlorine"
+TREATMENT_SALT_ELECTROLYSIS: Final = "salt_electrolysis"
+TREATMENT_BROMINE: Final = "bromine"
+TREATMENT_ACTIVE_OXYGEN: Final = "active_oxygen"
+TREATMENTS: Final = [
+    TREATMENT_CHLORINE,
+    TREATMENT_SALT_ELECTROLYSIS,
+    TREATMENT_BROMINE,
+    TREATMENT_ACTIVE_OXYGEN,
+]
 
 # Filtration kinds
 FILTRATION_KIND_SAND: Final = "sand"
@@ -50,6 +63,7 @@ MODES: Final = [MODE_RUNNING, MODE_WINTER_ACTIVE, MODE_WINTER_PASSIVE]
 
 # Default values
 DEFAULT_VOLUME_M3: Final = 50.0
+DEFAULT_TREATMENT: Final = TREATMENT_CHLORINE
 DEFAULT_FILTRATION_KIND: Final = FILTRATION_KIND_SAND
 DEFAULT_PUMP_FLOW_M3H: Final = 10.0
 DEFAULT_UPDATE_INTERVAL_MINUTES: Final = 5
