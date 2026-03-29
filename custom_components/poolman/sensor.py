@@ -19,7 +19,7 @@ from homeassistant.helpers.typing import StateType
 
 from . import PoolmanConfigEntry
 from .coordinator import PoolmanCoordinator
-from .domain.model import PoolState
+from .domain.model import ChemistryStatus, ParameterReport, PoolState
 from .entity import PoolmanEntity
 
 
@@ -29,6 +29,29 @@ class PoolmanSensorEntityDescription(SensorEntityDescription):
 
     value_fn: Callable[[PoolState], StateType]
     extra_attrs_fn: Callable[[PoolState], dict[str, Any]] | None = None
+
+
+def _parameter_report_attrs(report: ParameterReport | None) -> dict[str, Any]:
+    """Extract extra state attributes from a parameter report.
+
+    Args:
+        report: The parameter report, or None if the reading is unavailable.
+
+    Returns:
+        Dictionary with value, target, range, and score; empty if report is None.
+    """
+    if report is None:
+        return {}
+    return {
+        "value": report.value,
+        "target": report.target,
+        "minimum": report.minimum,
+        "maximum": report.maximum,
+        "score": report.score,
+    }
+
+
+_CHEMISTRY_STATUS_OPTIONS: list[str] = list(ChemistryStatus)
 
 
 SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
@@ -84,6 +107,61 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
             "actions": [str(r) for r in state.recommendations],
             "critical_count": len(state.critical_recommendations),
         },
+    ),
+    PoolmanSensorEntityDescription(
+        key="ph_status",
+        translation_key="ph_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=_CHEMISTRY_STATUS_OPTIONS,
+        icon="mdi:ph",
+        value_fn=lambda state: (
+            state.chemistry_report.ph.status if state.chemistry_report.ph else None
+        ),
+        extra_attrs_fn=lambda state: _parameter_report_attrs(state.chemistry_report.ph),
+    ),
+    PoolmanSensorEntityDescription(
+        key="orp_status",
+        translation_key="orp_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=_CHEMISTRY_STATUS_OPTIONS,
+        icon="mdi:flash-triangle-outline",
+        value_fn=lambda state: (
+            state.chemistry_report.orp.status if state.chemistry_report.orp else None
+        ),
+        extra_attrs_fn=lambda state: _parameter_report_attrs(state.chemistry_report.orp),
+    ),
+    PoolmanSensorEntityDescription(
+        key="tac_status",
+        translation_key="tac_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=_CHEMISTRY_STATUS_OPTIONS,
+        icon="mdi:water-opacity",
+        value_fn=lambda state: (
+            state.chemistry_report.tac.status if state.chemistry_report.tac else None
+        ),
+        extra_attrs_fn=lambda state: _parameter_report_attrs(state.chemistry_report.tac),
+    ),
+    PoolmanSensorEntityDescription(
+        key="cya_status",
+        translation_key="cya_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=_CHEMISTRY_STATUS_OPTIONS,
+        icon="mdi:shield-sun-outline",
+        value_fn=lambda state: (
+            state.chemistry_report.cya.status if state.chemistry_report.cya else None
+        ),
+        extra_attrs_fn=lambda state: _parameter_report_attrs(state.chemistry_report.cya),
+    ),
+    PoolmanSensorEntityDescription(
+        key="hardness_status",
+        translation_key="hardness_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=_CHEMISTRY_STATUS_OPTIONS,
+        icon="mdi:water-percent",
+        value_fn=lambda state: (
+            state.chemistry_report.hardness.status if state.chemistry_report.hardness else None
+        ),
+        extra_attrs_fn=lambda state: _parameter_report_attrs(state.chemistry_report.hardness),
     ),
 )
 

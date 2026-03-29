@@ -21,6 +21,41 @@ and dosage calculations.
 Values within the minimum--maximum range are considered acceptable. The target
 value represents the ideal level for each parameter.
 
+## Chemistry Status
+
+Each parameter is evaluated individually and assigned one of three statuses:
+**good**, **warning**, or **bad**. These are exposed as
+[enum sensors](entities.md#chemistry-status-sensors) for use in dashboards and
+automations.
+
+### How the status is determined
+
+The status is derived from the parameter's individual quality score (the same
+score used in the [water quality score](#water-quality-score) calculation):
+
+| Status | Condition | Meaning |
+| --- | --- | --- |
+| **Good** | Score >= 50 (inner half of acceptable range) | Parameter is close to target, no attention needed |
+| **Warning** | Score < 50 but value within min--max range | Parameter is drifting towards boundary, should be monitored |
+| **Bad** | Value outside the acceptable min--max range | Parameter is out of range, action required |
+
+??? example "pH status example"
+
+    For pH with range 6.8--7.8 and target 7.2:
+
+    | pH reading | Score | Status |
+    | --- | --- | --- |
+    | 7.2 | 100 | Good (at target) |
+    | 7.0 | 50 | Good (midpoint, inner half) |
+    | 6.9 | 25 | Warning (outer half, nearing boundary) |
+    | 6.8 | 0 | Warning (at boundary, still in range) |
+    | 6.5 | 0 | Bad (below range) |
+    | 8.0 | 0 | Bad (above range) |
+
+When a parameter's status changes between updates, a `poolman_event` is fired
+on the Home Assistant event bus so you can trigger automations. See
+[Events](entities.md#events) for the full event schema.
+
 ## Water Quality Score
 
 The **water quality score** is a 0--100% value displayed by the

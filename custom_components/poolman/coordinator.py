@@ -9,6 +9,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
@@ -29,8 +30,9 @@ from .const import (
     DEFAULT_TREATMENT,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
     DOMAIN,
+    EVENT_POOLMAN,
 )
-from .domain.chemistry import compute_water_quality_score
+from .domain.chemistry import compute_chemistry_report, compute_water_quality_score
 from .domain.filtration import compute_filtration_duration
 from .domain.model import (
     FiltrationKind,
@@ -40,6 +42,7 @@ from .domain.model import (
     PoolShape,
     PoolState,
     TreatmentType,
+    compute_status_changes,
 )
 from .domain.rules import RuleEngine
 
@@ -182,14 +185,64 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         recommendations = self.engine.evaluate(self.pool, reading, self._mode)
         filtration_hours = compute_filtration_duration(self.pool, reading, self._mode)
         water_quality_score = compute_water_quality_score(reading)
+        chemistry_report = compute_chemistry_report(reading)
 
-        return PoolState(
+        new_state = PoolState(
             mode=self._mode,
             reading=reading,
             recommendations=recommendations,
             filtration_hours=filtration_hours,
             water_quality_score=water_quality_score,
+            chemistry_report=chemistry_report,
         )
+
+        self._fire_status_change_events(new_state)
+
+        return new_state
+
+    def _fire_status_change_events(self, new_state: PoolState) -> None:
+        """Fire bus events for any status changes compared to the previous state.
+
+        Compares the new state against the previously stored state
+        (``self.data``) and fires a ``poolman_event`` for each detected
+        status transition. Skipped on the first update when no previous
+        state exists.
+
+        Args:
+            new_state: The newly computed pool state.
+        """
+        previous = self.data
+        if previous is None:
+            return
+
+        changes = compute_status_changes(previous, new_state)
+        if not changes:
+            return
+
+        device_id = self._get_device_id()
+        for change in changes:
+            self.hass.bus.async_fire(
+                EVENT_POOLMAN,
+                {
+                    "device_id": device_id,
+                    "type": change.type,
+                    "parameter": change.parameter,
+                    "previous_status": change.previous_status,
+                    "status": change.status,
+                },
+            )
+
+    def _get_device_id(self) -> str | None:
+        """Look up the device registry ID for this pool.
+
+        Returns:
+            The device ID string or None if the device is not yet registered.
+        """
+        device_registry = dr.async_get(self.hass)
+        device = device_registry.async_get_device(
+            identifiers={(DOMAIN, self.config_entry.entry_id)}
+        )
+        return device.id if device else None
 
     def get_entity_id(self, key: str) -> str | None:
         """Get configured entity ID for a sensor key.

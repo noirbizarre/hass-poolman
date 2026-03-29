@@ -3,6 +3,7 @@
 from typing import Final
 
 DOMAIN: Final = "poolman"
+EVENT_POOLMAN: Final = "poolman_event"
 
 PLATFORMS: Final = ["sensor", "binary_sensor", "select"]
 
