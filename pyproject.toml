@@ -6,21 +6,29 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.14"
 dependencies = [
+    "homeassistant",
     "pydantic>=2.0",
 ]
 
 [dependency-groups]
 dev = [
-    "homeassistant",
     "poethepoet",
-    "prek",
+]
+test = [
+    "pytest>=9.0",
     "pytest-asyncio>=0.24",
     "pytest-homeassistant-custom-component",
-    "pytest>=9.0",
     "pytest-cov",
+]
+lint = [
+    "prek",
     "ruff>=0.9",
     "sync-pre-commit-lock",
     "ty",
+]
+docs = [
+    "emotional",
+    "zensical>=0.0.30",
 ]
 
 [tool.commitizen]
@@ -135,3 +143,9 @@ test
 
 brand.help = "Render the brand logo and icon from the SVGs"
 brand.cmd = "uv run scripts/brand.py"
+
+"doc:build".help = "Build the documentation"
+"doc:build".cmd = "zensical build"
+
+doc.help = "Serve the documentation with live reload"
+doc.cmd = "zensical serve"

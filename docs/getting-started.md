@@ -1,0 +1,105 @@
+---
+icon: lucide/rocket
+---
+
+# Getting Started
+
+## Prerequisites
+
+Pool Manager aggregates readings from **existing Home Assistant sensor
+entities**. You need at least the following sensors already configured
+in your Home Assistant instance:
+
+### Required sensors
+
+| Sensor | Unit | Description |
+| --- | --- | --- |
+| Water temperature | °C | Pool water temperature |
+| pH | -- | pH level (0--14 scale) |
+| ORP | mV | Oxidation-Reduction Potential |
+
+### Optional sensors
+
+These sensors enable additional recommendations and improve the water quality score accuracy:
+
+| Sensor | Unit | Description |
+| --- | --- | --- |
+| TAC (Total Alkalinity) | ppm | Alkalinity level |
+| CYA (Cyanuric Acid) | ppm | Stabilizer level |
+| Calcium Hardness | ppm | Water hardness |
+| Pump switch | -- | Pump on/off entity (reserved for future use) |
+
+### Compatible sensor sources
+
+Your sensors can come from any source:
+
+- **Dedicated pool probes**: Flipr, iopool, Sutro, Blue Connect, etc.
+- **DIY sensors**: ESPHome, Tasmota, or any MQTT-based sensor
+- **Manual input**: Home Assistant input_number helpers for manual readings
+
+## Installation
+
+### HACS (recommended)
+
+<!-- markdownlint-disable MD033 MD013 -->
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=noirbizarre&repository=hass-poolman&category=Integration)
+
+<!-- markdownlint-enable MD033 MD013 -->
+
+Or manually add as a custom repository:
+
+1. Open [HACS](https://hacs.xyz/) in Home Assistant
+2. Go to **Integrations**
+3. Click the three-dot menu and select **Custom repositories**
+4. Add `noirbizarre/hass-poolman` with category **Integration**
+5. Search for and install **Pool Manager**
+6. Restart Home Assistant
+
+### Manual installation
+
+1. Download the [latest release](https://github.com/noirbizarre/hass-poolman/releases/latest)
+2. Copy the `custom_components/poolman` directory into your Home Assistant `config/custom_components/` directory
+3. Restart Home Assistant
+
+## Configuration
+
+<!-- markdownlint-disable MD013 -->
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=poolman)
+<!-- markdownlint-enable MD013 -->
+
+Or go to **Settings > Devices & Services > Add Integration** and search for **Pool Manager**.
+
+The integration is configured through a single-step UI flow. No YAML configuration is needed.
+
+### Required parameters
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| Pool name | text | My Pool | Name for your pool (used as device name and unique identifier) |
+| Volume | number (m³) | 50.0 | Pool water volume (1--500 m³) |
+| Shape | select | Rectangular | Pool shape: Rectangular, Round, or Freeform |
+| Pump flow rate | number (m³/h) | 10.0 | Pump flow rate (1--50 m³/h) |
+| Temperature entity | entity | -- | Water temperature sensor entity |
+| pH entity | entity | -- | pH sensor entity |
+| ORP entity | entity | -- | ORP sensor entity |
+
+### Optional parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| TAC entity | entity (sensor) | Total Alkalinity sensor |
+| CYA entity | entity (sensor) | Cyanuric Acid / Stabilizer sensor |
+| Hardness entity | entity (sensor) | Calcium Hardness sensor |
+| Pump entity | entity (switch) | Pump switch (reserved for future use) |
+
+!!! note "Multiple pools"
+
+    You can add the integration multiple times to manage several pools.
+    Each pool is identified by its name, which must be unique.
+
+## Update interval
+
+Pool Manager reads your sensor entities and recomputes all analytics every
+**5 minutes**. This interval is fixed and not configurable. Since all
+computation is local, this has negligible impact on system performance.
