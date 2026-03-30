@@ -20,7 +20,7 @@ from homeassistant.helpers.typing import StateType
 
 from . import PoolmanConfigEntry
 from .coordinator import PoolmanCoordinator
-from .domain.model import ChemistryStatus, ParameterReport, PoolState
+from .domain.model import ActionKind, ChemistryStatus, ParameterReport, PoolState
 from .entity import PoolmanEntity
 
 
@@ -107,6 +107,29 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         extra_attrs_fn=lambda state: {
             "actions": [str(r) for r in state.recommendations],
             "critical_count": len(state.critical_recommendations),
+        },
+    ),
+    PoolmanSensorEntityDescription(
+        key="chemistry_actions",
+        translation_key="chemistry_actions",
+        icon="mdi:flask-outline",
+        value_fn=lambda state: len(state.chemistry_actions),
+        extra_attrs_fn=lambda state: {
+            "actions": [
+                {
+                    "kind": r.kind,
+                    "message": r.message,
+                    "product": r.product,
+                    "quantity_g": r.quantity_g,
+                }
+                for r in state.chemistry_actions
+            ],
+            "suggestion_count": len(
+                [r for r in state.chemistry_actions if r.kind == ActionKind.SUGGESTION]
+            ),
+            "requirement_count": len(
+                [r for r in state.chemistry_actions if r.kind == ActionKind.REQUIREMENT]
+            ),
         },
     ),
     PoolmanSensorEntityDescription(

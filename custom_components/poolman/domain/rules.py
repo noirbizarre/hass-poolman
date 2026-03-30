@@ -10,6 +10,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from .chemistry import (
+    CYA_MAX,
+    CYA_MIN,
+    HARDNESS_MAX,
+    HARDNESS_MIN,
     ORP_MAX,
     ORP_MIN_ACCEPTABLE,
     PH_MAX,
@@ -18,12 +22,15 @@ from .chemistry import (
     PH_TOLERANCE,
     TAC_MAX,
     TAC_MIN,
+    compute_cya_adjustment,
+    compute_hardness_adjustment,
     compute_ph_adjustment,
     compute_sanitizer_status,
     compute_tac_adjustment,
 )
 from .filtration import compute_filtration_duration
 from .model import (
+    ActionKind,
     Pool,
     PoolMode,
     PoolReading,
@@ -102,19 +109,23 @@ class PhRule(Rule):
         if result is None:
             return []
 
-        # Determine priority based on how far from target
+        # Determine priority and kind based on how far from target
         delta = abs(reading.ph - PH_TARGET)
         if reading.ph < PH_MIN or reading.ph > PH_MAX:
             priority = RecommendationPriority.HIGH
+            kind = ActionKind.REQUIREMENT
         elif delta > PH_TOLERANCE * 3:
             priority = RecommendationPriority.MEDIUM
+            kind = ActionKind.SUGGESTION
         else:
             priority = RecommendationPriority.LOW
+            kind = ActionKind.SUGGESTION
 
         return [
             Recommendation(
                 type=RecommendationType.CHEMICAL,
                 priority=priority,
+                kind=kind,
                 message=f"Add {result.quantity_g:.0f}g of {result.product}",
                 product=result.product,
                 quantity_g=result.quantity_g,
@@ -143,18 +154,22 @@ class SanitizerRule(Rule):
 
         if result.severity == Severity.CRITICAL:
             priority = RecommendationPriority.CRITICAL
+            kind = ActionKind.REQUIREMENT
             message = messages["shock"]
         elif reading.orp > ORP_MAX:
             priority = RecommendationPriority.MEDIUM
+            kind = ActionKind.REQUIREMENT
             message = messages["excess"]
         else:
             priority = RecommendationPriority.MEDIUM
+            kind = ActionKind.SUGGESTION
             message = messages["regular"].format(orp_min=ORP_MIN_ACCEPTABLE)
 
         return [
             Recommendation(
                 type=RecommendationType.CHEMICAL,
                 priority=priority,
+                kind=kind,
                 message=message,
                 product=result.product,
             )
@@ -186,6 +201,7 @@ class FiltrationRule(Rule):
             Recommendation(
                 type=RecommendationType.FILTRATION,
                 priority=priority,
+                kind=ActionKind.SUGGESTION,
                 message=f"Run filtration for {hours:.1f} hours today",
             )
         ]
@@ -210,9 +226,11 @@ class TacRule(Rule):
 
         if reading.tac < TAC_MIN:
             priority = RecommendationPriority.MEDIUM
+            kind = ActionKind.REQUIREMENT
             message = f"Add {result.quantity_g:.0f}g of TAC+ (alkalinity too low)"
         elif reading.tac > TAC_MAX:
             priority = RecommendationPriority.LOW
+            kind = ActionKind.SUGGESTION
             message = "Alkalinity too high, pH- treatments will help lower it"
         else:
             return []
@@ -221,6 +239,7 @@ class TacRule(Rule):
             Recommendation(
                 type=RecommendationType.CHEMICAL,
                 priority=priority,
+                kind=kind,
                 message=message,
                 product=result.product,
                 quantity_g=result.quantity_g,
@@ -249,7 +268,102 @@ class AlgaeRiskRule(Rule):
                 Recommendation(
                     type=RecommendationType.ALERT,
                     priority=RecommendationPriority.HIGH,
+                    kind=ActionKind.REQUIREMENT,
                     message="High algae risk (warm water + low ORP)",
+                )
+            ]
+
+        return []
+
+
+class CyaRule(Rule):
+    """Rule for cyanuric acid (stabilizer) level adjustment.
+
+    CYA below minimum requires adding stabilizer (with dosage).
+    CYA above maximum has no chemical fix -- recommends partial drain.
+    """
+
+    def evaluate(
+        self,
+        pool: Pool,
+        reading: PoolReading,
+        mode: PoolMode,
+    ) -> list[Recommendation]:
+        """Evaluate CYA level and recommend adjustments."""
+        if mode == PoolMode.WINTER_PASSIVE or reading.cya is None:
+            return []
+
+        if reading.cya < CYA_MIN:
+            result = compute_cya_adjustment(pool, reading)
+            if result is None:
+                return []
+            return [
+                Recommendation(
+                    type=RecommendationType.CHEMICAL,
+                    priority=RecommendationPriority.MEDIUM,
+                    kind=ActionKind.REQUIREMENT,
+                    message=f"Add {result.quantity_g:.0f}g of stabilizer (CYA too low)",
+                    product=result.product,
+                    quantity_g=result.quantity_g,
+                )
+            ]
+
+        if reading.cya > CYA_MAX:
+            return [
+                Recommendation(
+                    type=RecommendationType.ALERT,
+                    priority=RecommendationPriority.LOW,
+                    kind=ActionKind.REQUIREMENT,
+                    message="CYA too high, consider partial water drain",
+                )
+            ]
+
+        return []
+
+
+class HardnessRule(Rule):
+    """Rule for calcium hardness level adjustment.
+
+    Hardness below minimum requires adding calcium hardness increaser
+    (with dosage). Hardness above maximum has no chemical fix -- recommends
+    partial drain.
+    """
+
+    def evaluate(
+        self,
+        pool: Pool,
+        reading: PoolReading,
+        mode: PoolMode,
+    ) -> list[Recommendation]:
+        """Evaluate calcium hardness and recommend adjustments."""
+        if mode == PoolMode.WINTER_PASSIVE or reading.hardness is None:
+            return []
+
+        if reading.hardness < HARDNESS_MIN:
+            result = compute_hardness_adjustment(pool, reading)
+            if result is None:
+                return []
+            return [
+                Recommendation(
+                    type=RecommendationType.CHEMICAL,
+                    priority=RecommendationPriority.MEDIUM,
+                    kind=ActionKind.REQUIREMENT,
+                    message=(
+                        f"Add {result.quantity_g:.0f}g of calcium hardness"
+                        " increaser (hardness too low)"
+                    ),
+                    product=result.product,
+                    quantity_g=result.quantity_g,
+                )
+            ]
+
+        if reading.hardness > HARDNESS_MAX:
+            return [
+                Recommendation(
+                    type=RecommendationType.ALERT,
+                    priority=RecommendationPriority.LOW,
+                    kind=ActionKind.REQUIREMENT,
+                    message="Calcium hardness too high, consider partial water drain",
                 )
             ]
 
@@ -280,6 +394,8 @@ class RuleEngine:
             FiltrationRule(),
             TacRule(),
             AlgaeRiskRule(),
+            CyaRule(),
+            HardnessRule(),
         ]
 
     def evaluate(

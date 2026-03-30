@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from custom_components.poolman.domain.model import (
+    ActionKind,
     ChemistryReport,
     ChemistryStatus,
     ParameterReport,
@@ -289,3 +290,99 @@ class TestPoolStateActionRequired:
         )
         state = PoolState(recommendations=[rec])
         assert state.action_required is True
+
+
+class TestActionKind:
+    """Tests for ActionKind enum and default value."""
+
+    def test_action_kind_values(self) -> None:
+        assert ActionKind.SUGGESTION == "suggestion"
+        assert ActionKind.REQUIREMENT == "requirement"
+
+    def test_recommendation_default_kind_is_suggestion(self) -> None:
+        rec = Recommendation(
+            type=RecommendationType.CHEMICAL,
+            priority=RecommendationPriority.LOW,
+            message="Test",
+        )
+        assert rec.kind == ActionKind.SUGGESTION
+
+    def test_recommendation_explicit_kind(self) -> None:
+        rec = Recommendation(
+            type=RecommendationType.CHEMICAL,
+            priority=RecommendationPriority.HIGH,
+            kind=ActionKind.REQUIREMENT,
+            message="Test",
+        )
+        assert rec.kind == ActionKind.REQUIREMENT
+
+
+class TestPoolStateChemistryActions:
+    """Tests for PoolState.chemistry_actions, suggestions, and requirements."""
+
+    def _make_rec(
+        self,
+        rtype: RecommendationType = RecommendationType.CHEMICAL,
+        kind: ActionKind = ActionKind.SUGGESTION,
+        priority: RecommendationPriority = RecommendationPriority.LOW,
+        message: str = "test",
+    ) -> Recommendation:
+        return Recommendation(type=rtype, priority=priority, kind=kind, message=message)
+
+    def test_chemistry_actions_excludes_filtration(self) -> None:
+        chem = self._make_rec(rtype=RecommendationType.CHEMICAL)
+        filt = self._make_rec(rtype=RecommendationType.FILTRATION)
+        alert = self._make_rec(rtype=RecommendationType.ALERT)
+        state = PoolState(recommendations=[chem, filt, alert])
+
+        assert len(state.chemistry_actions) == 2
+        assert filt not in state.chemistry_actions
+        assert chem in state.chemistry_actions
+        assert alert in state.chemistry_actions
+
+    def test_chemistry_actions_empty(self) -> None:
+        state = PoolState()
+        assert state.chemistry_actions == []
+
+    def test_suggestions_filters_by_kind(self) -> None:
+        sug = self._make_rec(kind=ActionKind.SUGGESTION)
+        req = self._make_rec(kind=ActionKind.REQUIREMENT)
+        state = PoolState(recommendations=[sug, req])
+
+        assert len(state.suggestions) == 1
+        assert state.suggestions[0] is sug
+
+    def test_requirements_filters_by_kind(self) -> None:
+        sug = self._make_rec(kind=ActionKind.SUGGESTION)
+        req = self._make_rec(kind=ActionKind.REQUIREMENT)
+        state = PoolState(recommendations=[sug, req])
+
+        assert len(state.requirements) == 1
+        assert state.requirements[0] is req
+
+    def test_filtration_excluded_from_suggestions_and_requirements(self) -> None:
+        filt = self._make_rec(rtype=RecommendationType.FILTRATION, kind=ActionKind.SUGGESTION)
+        state = PoolState(recommendations=[filt])
+
+        assert state.suggestions == []
+        assert state.requirements == []
+        assert state.chemistry_actions == []
+
+    def test_mixed_recommendations(self) -> None:
+        chem_sug = self._make_rec(
+            rtype=RecommendationType.CHEMICAL, kind=ActionKind.SUGGESTION, message="chem_sug"
+        )
+        chem_req = self._make_rec(
+            rtype=RecommendationType.CHEMICAL, kind=ActionKind.REQUIREMENT, message="chem_req"
+        )
+        alert_req = self._make_rec(
+            rtype=RecommendationType.ALERT, kind=ActionKind.REQUIREMENT, message="alert_req"
+        )
+        filt = self._make_rec(
+            rtype=RecommendationType.FILTRATION, kind=ActionKind.SUGGESTION, message="filt"
+        )
+        state = PoolState(recommendations=[chem_sug, chem_req, alert_req, filt])
+
+        assert len(state.chemistry_actions) == 3
+        assert len(state.suggestions) == 1
+        assert len(state.requirements) == 2

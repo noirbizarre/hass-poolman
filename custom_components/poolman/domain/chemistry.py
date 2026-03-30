@@ -151,6 +151,70 @@ def compute_tac_adjustment(pool: Pool, reading: PoolReading) -> DosageAdjustment
     return None
 
 
+# CYA dosage: 1g of cyanuric acid per 1 m3 raises CYA by 1 ppm
+CYA_DOSAGE_PER_M3_PER_PPM: float = 1.0
+
+# Hardness dosage: ~1.5g of CaCl2 per 1 m3 raises hardness by 1 ppm
+HARDNESS_DOSAGE_PER_M3_PER_PPM: float = 1.5
+
+
+def compute_cya_adjustment(pool: Pool, reading: PoolReading) -> DosageAdjustment | None:
+    """Compute cyanuric acid (stabilizer) adjustment recommendation.
+
+    Uses 1 g of cyanuric acid per m3 to raise CYA by 1 ppm.
+    Returns None when CYA is within range or above maximum (no chemical fix
+    for excess CYA -- partial drain is the only option).
+
+    Args:
+        pool: Pool physical characteristics.
+        reading: Current sensor readings.
+
+    Returns:
+        DosageAdjustment with product and quantity, or None if CYA is in range
+        or no chemical fix is available.
+    """
+    if reading.cya is None:
+        return None
+
+    if reading.cya < CYA_MIN:
+        delta_ppm = CYA_TARGET - reading.cya
+        quantity = delta_ppm * CYA_DOSAGE_PER_M3_PER_PPM * pool.volume_m3
+        return DosageAdjustment(product=ChemicalProduct.STABILIZER, quantity_g=round(quantity, 0))
+
+    # CYA above max: no chemical product can lower it
+    return None
+
+
+def compute_hardness_adjustment(pool: Pool, reading: PoolReading) -> DosageAdjustment | None:
+    """Compute calcium hardness adjustment recommendation.
+
+    Uses ~1.5 g of CaCl2 per m3 to raise hardness by 1 ppm.
+    Returns None when hardness is within range or above maximum (no chemical
+    fix for excess hardness -- partial drain is the only option).
+
+    Args:
+        pool: Pool physical characteristics.
+        reading: Current sensor readings.
+
+    Returns:
+        DosageAdjustment with product and quantity, or None if hardness is in
+        range or no chemical fix is available.
+    """
+    if reading.hardness is None:
+        return None
+
+    if reading.hardness < HARDNESS_MIN:
+        delta_ppm = HARDNESS_TARGET - reading.hardness
+        quantity = delta_ppm * HARDNESS_DOSAGE_PER_M3_PER_PPM * pool.volume_m3
+        return DosageAdjustment(
+            product=ChemicalProduct.CALCIUM_HARDNESS_INCREASER,
+            quantity_g=round(quantity, 0),
+        )
+
+    # Hardness above max: no chemical product can lower it
+    return None
+
+
 def compute_water_quality_score(reading: PoolReading) -> int | None:
     """Compute an overall water quality score from 0 to 100.
 

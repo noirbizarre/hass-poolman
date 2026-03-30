@@ -23,6 +23,20 @@ Each recommendation has a priority level that determines its urgency and affects
 
 Recommendations are sorted by priority (critical first) when displayed.
 
+## Action Kind
+
+Each recommendation is classified as either a **suggestion** or a **requirement**:
+
+| Kind | Description |
+| --- | --- |
+| Requirement | The pool needs attention to remain safe or functional |
+| Suggestion | An optional improvement that would bring parameters closer to ideal |
+
+The kind is exposed through the
+[chemistry actions sensor](entities.md#chemistry-actions-sensor-attributes)
+and can be used to filter or prioritize actions in automations
+and dashboards.
+
 ## Recommendation Types
 
 | Type | Description |
@@ -39,11 +53,11 @@ Recommendations are sorted by priority (critical first) when displayed.
 Monitors the pH level and recommends adjustments when it deviates from the
 target (7.2).
 
-| Condition | Priority | Recommendation |
-| --- | --- | --- |
-| pH outside acceptable range (< 6.8 or > 7.8) | High | Add pH+ or pH- with calculated dosage |
-| pH deviation > 0.3 from target | Medium | Add pH+ or pH- with calculated dosage |
-| pH deviation > 0.1 from target | Low | Add pH+ or pH- with calculated dosage |
+| Condition | Priority | Kind | Recommendation |
+| --- | --- | --- | --- |
+| pH outside acceptable range (< 6.8 or > 7.8) | High | Requirement | Add pH+ or pH- with calculated dosage |
+| pH deviation > 0.3 from target | Medium | Suggestion | Add pH+ or pH- with calculated dosage |
+| pH deviation > 0.1 from target | Low | Suggestion | Add pH+ or pH- with calculated dosage |
 
 The dosage is calculated based on pool volume.
 See [pH Dosage Calculation](water-chemistry.md#ph-dosage-calculation)
@@ -59,12 +73,12 @@ Evaluates sanitizer effectiveness through ORP (Oxidation-Reduction Potential)
 readings. The recommended products depend on the configured
 [treatment type](getting-started.md#step-2-chemistry).
 
-| ORP Level | Severity | Priority | Action |
-| --- | --- | --- | --- |
-| < 650 mV | Critical | Critical | Shock treatment required |
-| 650--720 mV | Medium | Medium | Add regular sanitizer product |
-| 720--900 mV | -- | -- | No action (acceptable range) |
-| > 900 mV | Medium | Medium | Reduce sanitizer dosage (add neutralizer) |
+| ORP Level | Severity | Priority | Kind | Action |
+| --- | --- | --- | --- | --- |
+| < 650 mV | Critical | Critical | Requirement | Shock treatment required |
+| 650--720 mV | Medium | Medium | Suggestion | Add regular sanitizer product |
+| 720--900 mV | -- | -- | -- | No action (acceptable range) |
+| > 900 mV | Medium | Medium | Requirement | Reduce sanitizer dosage (add neutralizer) |
 
 #### Products by treatment type
 
@@ -93,10 +107,10 @@ Recommends daily filtration duration based on the current [pool mode](pool-modes
 
 Monitors total alkalinity and recommends adjustments.
 
-| Condition | Priority | Recommendation |
-| --- | --- | --- |
-| TAC < 80 ppm | Medium | Add TAC+ with calculated dosage |
-| TAC > 150 ppm | Low | pH- treatments will help lower it |
+| Condition | Priority | Kind | Recommendation |
+| --- | --- | --- | --- |
+| TAC < 80 ppm | Medium | Requirement | Add TAC+ with calculated dosage |
+| TAC > 150 ppm | Low | Suggestion | pH- treatments will help lower it |
 
 See [TAC Dosage Calculation](water-chemistry.md#tac-dosage-calculation) for dosage details.
 
@@ -108,9 +122,39 @@ See [TAC Dosage Calculation](water-chemistry.md#tac-dosage-calculation) for dosa
 
 Detects conditions favorable to algae growth by combining temperature and ORP readings.
 
-| Condition | Priority | Recommendation |
-| --- | --- | --- |
-| Water temperature > 28°C **and** ORP < 720 mV | High | High algae risk alert |
+| Condition | Priority | Kind | Recommendation |
+| --- | --- | --- | --- |
+| Water temperature > 28°C **and** ORP < 720 mV | High | Requirement | High algae risk alert |
 
 Both conditions must be met simultaneously. This rule is disabled in
 [Passive Wintering](pool-modes.md#passive-wintering) mode.
+
+### CYA Rule (Cyanuric Acid)
+
+Monitors cyanuric acid (stabilizer) levels and recommends adjustments.
+
+| Condition | Priority | Kind | Recommendation |
+| --- | --- | --- | --- |
+| CYA < 20 ppm | Medium | Requirement | Add stabilizer with calculated dosage |
+| CYA > 75 ppm | Low | Requirement | Consider partial water drain (no chemical fix) |
+
+See [CYA Dosage Calculation](water-chemistry.md#cya-dosage-calculation) for dosage details.
+
+!!! note
+
+    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering) mode.
+
+### Hardness Rule (Calcium Hardness)
+
+Monitors calcium hardness levels and recommends adjustments.
+
+| Condition | Priority | Kind | Recommendation |
+| --- | --- | --- | --- |
+| Hardness < 150 ppm | Medium | Requirement | Add calcium hardness increaser with calculated dosage |
+| Hardness > 400 ppm | Low | Requirement | Consider partial water drain (no chemical fix) |
+
+See [Hardness Dosage Calculation](water-chemistry.md#hardness-dosage-calculation) for dosage details.
+
+!!! note
+
+    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering) mode.
