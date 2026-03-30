@@ -50,10 +50,58 @@ class TestFiltrationDuration:
         result = compute_filtration_duration(pool, good_reading, PoolMode.WINTER_PASSIVE)
         assert result == WINTER_PASSIVE_HOURS
 
-    def test_winter_active_fixed(self, pool: Pool, good_reading: PoolReading) -> None:
-        """Active wintering should return fixed filtration hours."""
-        result = compute_filtration_duration(pool, good_reading, PoolMode.WINTER_ACTIVE)
+    def test_winter_active_dynamic_temp_over_3(self, pool: Pool) -> None:
+        """Active wintering should use temperature / 3 formula."""
+        reading = PoolReading(temp_c=15.0)
+        result = compute_filtration_duration(pool, reading, PoolMode.WINTER_ACTIVE)
+        assert result is not None
+        # 15/3 = 5.0, efficiency 1.0, turnover 50/10=5.0 -> max(5.0, 5.0) = 5.0
+        assert result == pytest.approx(5.0)
+
+    def test_winter_active_no_temp_fallback(self, pool: Pool) -> None:
+        """Active wintering without temperature should fall back to fixed hours."""
+        reading = PoolReading()
+        result = compute_filtration_duration(pool, reading, PoolMode.WINTER_ACTIVE)
         assert result == WINTER_ACTIVE_HOURS
+
+    def test_winter_active_applies_filter_efficiency(self) -> None:
+        """Active wintering should apply filter efficiency coefficient."""
+        glass_pool = Pool(
+            name="Glass", volume_m3=50.0, pump_flow_m3h=10.0, filtration_kind=FiltrationKind.GLASS
+        )
+        reading = PoolReading(temp_c=15.0)
+        result = compute_filtration_duration(glass_pool, reading, PoolMode.WINTER_ACTIVE)
+        assert result is not None
+        # 15/3 = 5.0, glass 0.9 -> 4.5, turnover 5.0 -> max(4.5, 5.0) = 5.0
+        assert result == pytest.approx(5.0)
+
+    def test_winter_active_applies_turnover(self) -> None:
+        """Active wintering should ensure at least one full turnover."""
+        slow_pool = Pool(name="Slow", volume_m3=100.0, pump_flow_m3h=5.0)
+        reading = PoolReading(temp_c=12.0)
+        result = compute_filtration_duration(slow_pool, reading, PoolMode.WINTER_ACTIVE)
+        assert result is not None
+        # 12/3 = 4.0, turnover 100/5 = 20.0 -> max(4.0, 20.0) = 20.0
+        assert result == pytest.approx(20.0)
+
+    def test_winter_active_clamps_minimum(self, pool: Pool) -> None:
+        """Active wintering should clamp to minimum 2h."""
+        reading = PoolReading(temp_c=3.0)
+        result = compute_filtration_duration(pool, reading, PoolMode.WINTER_ACTIVE)
+        assert result is not None
+        # 3/3 = 1.0, clamped to 2.0 (but turnover 5.0 wins -> 5.0)
+        assert result >= MIN_FILTRATION_HOURS
+
+    def test_winter_active_no_outdoor_heat_stress(self, pool: Pool) -> None:
+        """Active wintering should NOT apply outdoor temperature heat stress."""
+        reading_no_outdoor = PoolReading(temp_c=15.0)
+        reading_hot_outdoor = PoolReading(temp_c=15.0, outdoor_temp_c=35.0)
+        result_no = compute_filtration_duration(pool, reading_no_outdoor, PoolMode.WINTER_ACTIVE)
+        result_hot = compute_filtration_duration(pool, reading_hot_outdoor, PoolMode.WINTER_ACTIVE)
+        assert result_no is not None
+        assert result_hot is not None
+        # Both should be equal: outdoor temp is ignored in winter active
+        assert result_no == result_hot
 
     def test_hibernating_fixed(self, pool: Pool, good_reading: PoolReading) -> None:
         """Hibernating mode should return fixed filtration hours (same as active wintering)."""
@@ -173,8 +221,8 @@ class TestFiltrationKindEfficiency:
             expected = max(expected, 50.0 / 10.0)
             assert result == pytest.approx(expected)
 
-    def test_efficiency_does_not_affect_winter_modes(self, pool: Pool) -> None:
-        """Filter efficiency should not affect winter mode fixed durations."""
+    def test_efficiency_does_not_affect_hibernating_mode(self, pool: Pool) -> None:
+        """Filter efficiency should not affect hibernating mode fixed duration."""
         reading = PoolReading(temp_c=26.0)
         de_pool = Pool(
             name="DE",
@@ -187,7 +235,7 @@ class TestFiltrationKindEfficiency:
             == WINTER_PASSIVE_HOURS
         )
         assert (
-            compute_filtration_duration(de_pool, reading, PoolMode.WINTER_ACTIVE)
+            compute_filtration_duration(de_pool, reading, PoolMode.HIBERNATING)
             == WINTER_ACTIVE_HOURS
         )
 
@@ -245,8 +293,8 @@ class TestOutdoorTemperatureAdjustment:
         assert result is not None
         assert result == MAX_FILTRATION_HOURS
 
-    def test_outdoor_temp_does_not_affect_winter_modes(self) -> None:
-        """Outdoor temperature should not affect winter mode fixed durations."""
+    def test_outdoor_temp_does_not_affect_hibernating_mode(self) -> None:
+        """Outdoor temperature should not affect hibernating mode fixed duration."""
         pool = Pool(name="Test", volume_m3=50.0, pump_flow_m3h=10.0)
         reading = PoolReading(temp_c=26.0, outdoor_temp_c=40.0)
         assert (
@@ -254,8 +302,7 @@ class TestOutdoorTemperatureAdjustment:
             == WINTER_PASSIVE_HOURS
         )
         assert (
-            compute_filtration_duration(pool, reading, PoolMode.WINTER_ACTIVE)
-            == WINTER_ACTIVE_HOURS
+            compute_filtration_duration(pool, reading, PoolMode.HIBERNATING) == WINTER_ACTIVE_HOURS
         )
 
 

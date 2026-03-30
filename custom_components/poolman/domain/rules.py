@@ -151,7 +151,7 @@ class SanitizerRule(Rule):
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
     ) -> list[Recommendation]:
         """Evaluate sanitizer via ORP and recommend treatment adapted to treatment type."""
-        if mode == PoolMode.WINTER_PASSIVE or reading.orp is None:
+        if mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE) or reading.orp is None:
             return []
 
         result = compute_sanitizer_status(reading, pool.treatment)
@@ -230,7 +230,7 @@ class TacRule(Rule):
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
     ) -> list[Recommendation]:
         """Evaluate TAC and recommend adjustments."""
-        if mode == PoolMode.WINTER_PASSIVE or reading.tac is None:
+        if mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE) or reading.tac is None:
             return []
 
         result = compute_tac_adjustment(pool, reading)
@@ -271,7 +271,7 @@ class AlgaeRiskRule(Rule):
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
     ) -> list[Recommendation]:
         """Evaluate algae risk from warm water and low ORP."""
-        if mode == PoolMode.WINTER_PASSIVE:
+        if mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE):
             return []
 
         if reading.temp_c is None or reading.orp is None:
@@ -305,7 +305,7 @@ class CyaRule(Rule):
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
     ) -> list[Recommendation]:
         """Evaluate CYA level and recommend adjustments."""
-        if mode == PoolMode.WINTER_PASSIVE or reading.cya is None:
+        if mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE) or reading.cya is None:
             return []
 
         if reading.cya < CYA_MIN:
@@ -352,7 +352,7 @@ class HardnessRule(Rule):
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
     ) -> list[Recommendation]:
         """Evaluate calcium hardness and recommend adjustments."""
-        if mode == PoolMode.WINTER_PASSIVE or reading.hardness is None:
+        if mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE) or reading.hardness is None:
             return []
 
         if reading.hardness < HARDNESS_MIN:

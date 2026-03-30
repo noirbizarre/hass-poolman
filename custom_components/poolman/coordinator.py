@@ -549,7 +549,9 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         now = utcnow()
         treatment_entries = self._read_treatment_entries(now)
         active_treatments = compute_active_treatments(treatment_entries, now)
-        swimming_safe = compute_swimming_safe(active_treatments, now)
+        treatment_safe = compute_swimming_safe(active_treatments, now)
+        # Swimming is only safe in ACTIVE mode and when no treatment safety period is active
+        swimming_safe = self._mode == PoolMode.ACTIVE and treatment_safe
         safe_at = compute_safe_at(active_treatments) if not swimming_safe else None
 
         new_state = PoolState(
