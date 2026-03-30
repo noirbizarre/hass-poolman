@@ -8,6 +8,7 @@ from custom_components.poolman.domain.model import (
     ChemistryReport,
     ChemistryStatus,
     ParameterReport,
+    Pool,
     PoolState,
     Recommendation,
     RecommendationPriority,
@@ -222,3 +223,69 @@ class TestComputeStatusChanges:
 
         chem_changes = [c for c in changes if c.type == "chemistry_status_changed"]
         assert chem_changes == []
+
+
+class TestPoolTurnoversPerDay:
+    """Tests for Pool.turnovers_per_day property."""
+
+    def test_turnovers_per_day(self, pool: Pool) -> None:
+        """50m3 pool with 10m3/h pump: (10*24)/50 = 4.8 turnovers."""
+        assert pool.turnovers_per_day == pytest.approx(4.8)
+
+    def test_turnovers_high_flow(self) -> None:
+        """100m3 pool with 25m3/h pump: (25*24)/100 = 6.0 turnovers."""
+        pool = Pool(name="Big", volume_m3=100.0, pump_flow_m3h=25.0)
+        assert pool.turnovers_per_day == pytest.approx(6.0)
+
+
+class TestRecommendationStr:
+    """Tests for Recommendation.__str__ method."""
+
+    def test_str_with_quantity_and_product(self) -> None:
+        """String should include dosage when both quantity and product are present."""
+        rec = Recommendation(
+            type=RecommendationType.CHEMICAL,
+            priority=RecommendationPriority.HIGH,
+            message="Add pH-",
+            product="ph_minus",
+            quantity_g=150.0,
+        )
+        assert str(rec) == "Add pH- (150g of ph_minus)"
+
+    def test_str_without_quantity(self) -> None:
+        """String should just be the message when no quantity."""
+        rec = Recommendation(
+            type=RecommendationType.FILTRATION,
+            priority=RecommendationPriority.LOW,
+            message="Run filtration for 8h",
+        )
+        assert str(rec) == "Run filtration for 8h"
+
+    def test_str_with_zero_quantity(self) -> None:
+        """Zero quantity should fall through to plain message."""
+        rec = Recommendation(
+            type=RecommendationType.CHEMICAL,
+            priority=RecommendationPriority.LOW,
+            message="Check levels",
+            product="ph_minus",
+            quantity_g=0.0,
+        )
+        # 0.0 is falsy, so falls to plain message
+        assert str(rec) == "Check levels"
+
+
+class TestPoolStateActionRequired:
+    """Tests for PoolState.action_required property."""
+
+    def test_no_recommendations_not_required(self) -> None:
+        state = PoolState()
+        assert state.action_required is False
+
+    def test_with_recommendations_required(self) -> None:
+        rec = Recommendation(
+            type=RecommendationType.FILTRATION,
+            priority=RecommendationPriority.LOW,
+            message="Run filtration",
+        )
+        state = PoolState(recommendations=[rec])
+        assert state.action_required is True

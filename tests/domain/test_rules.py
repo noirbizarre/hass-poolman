@@ -49,6 +49,14 @@ class TestPhRule:
         result = PhRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
         assert result == []
 
+    def test_slightly_off_ph_returns_low_priority(self, pool: Pool) -> None:
+        """pH slightly off target (within min/max, delta <= tolerance*3) -> LOW."""
+        # PH_TARGET=7.2, PH_TOLERANCE=0.1, so delta <= 0.3 and within 6.8-7.8
+        reading = PoolReading(ph=7.4)  # delta=0.2
+        result = PhRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert len(result) == 1
+        assert result[0].priority == RecommendationPriority.LOW
+
 
 class TestSanitizerRule:
     """Tests for sanitizer rule evaluation across treatment types."""
@@ -181,6 +189,13 @@ class TestFiltrationRule:
         result = FiltrationRule().evaluate(pool, reading, PoolMode.RUNNING)
         assert result == []
 
+    def test_low_filtration_hours_returns_low_priority(self, pool: Pool) -> None:
+        """When filtration hours < 12 in running mode, priority should be LOW."""
+        reading = PoolReading(temp_c=20.0)  # 20/2 = 10h < 12
+        result = FiltrationRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert len(result) == 1
+        assert result[0].priority == RecommendationPriority.LOW
+
 
 class TestTacRule:
     """Tests for TAC rule evaluation."""
@@ -195,6 +210,14 @@ class TestTacRule:
         result = TacRule().evaluate(pool, reading, PoolMode.RUNNING)
         assert len(result) == 1
         assert result[0].product == "tac_plus"
+
+    def test_high_tac_recommends_ph_minus(self, pool: Pool) -> None:
+        """TAC above max should recommend using pH- to lower alkalinity."""
+        reading = PoolReading(tac=160.0)  # TAC_MAX = 150
+        result = TacRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert len(result) == 1
+        assert result[0].priority == RecommendationPriority.LOW
+        assert "too high" in result[0].message.lower()
 
 
 class TestAlgaeRiskRule:

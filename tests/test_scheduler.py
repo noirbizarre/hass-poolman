@@ -333,3 +333,47 @@ class TestDefaults:
     def test_pump_entity_id(self, scheduler: FiltrationScheduler) -> None:
         """Pump entity ID should match the one provided."""
         assert scheduler.pump_entity_id == "switch.pool_pump"
+
+
+class TestTimeCallbacks:
+    """Tests for _on_start_time and _on_stop_time callbacks."""
+
+    @pytest.mark.asyncio
+    async def test_on_start_time_when_enabled(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """_on_start_time should start pump when scheduler is enabled."""
+        scheduler._enabled = True
+        await scheduler._on_start_time(datetime.now())
+        hass.services.async_call.assert_called_once_with(
+            "switch", "turn_on", {"entity_id": "switch.pool_pump"}
+        )
+
+    @pytest.mark.asyncio
+    async def test_on_start_time_when_disabled(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """_on_start_time should do nothing when scheduler is disabled."""
+        scheduler._enabled = False
+        await scheduler._on_start_time(datetime.now())
+        hass.services.async_call.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_on_stop_time_when_enabled(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """_on_stop_time should stop pump when scheduler is enabled."""
+        scheduler._enabled = True
+        await scheduler._on_stop_time(datetime.now())
+        hass.services.async_call.assert_called_once_with(
+            "switch", "turn_off", {"entity_id": "switch.pool_pump"}
+        )
+
+    @pytest.mark.asyncio
+    async def test_on_stop_time_when_disabled(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """_on_stop_time should do nothing when scheduler is disabled."""
+        scheduler._enabled = False
+        await scheduler._on_stop_time(datetime.now())
+        hass.services.async_call.assert_not_called()

@@ -56,7 +56,7 @@ asyncio_mode = "auto"
 
 
 [tool.coverage.run]
-source_pkgs = ["custom_components/poolman"]
+source_pkgs = ["custom_components.poolman"]
 branch = true
 omit = [
     "tests/*",
