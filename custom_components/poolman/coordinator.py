@@ -31,6 +31,7 @@ from .const import (
     CONF_WEATHER_ENTITY,
     DEFAULT_FILTRATION_DURATION_MODE,
     DEFAULT_FILTRATION_KIND,
+    DEFAULT_MIN_DYNAMIC_DURATION_HOURS,
     DEFAULT_TREATMENT,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
     DOMAIN,
@@ -89,6 +90,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         self.engine = RuleEngine()
         self._mode = PoolMode.RUNNING
         self._filtration_duration_mode = FiltrationDurationMode(DEFAULT_FILTRATION_DURATION_MODE)
+        self._min_dynamic_period_duration = DEFAULT_MIN_DYNAMIC_DURATION_HOURS
         self._treatment_entities: dict[ChemicalProduct, PoolmanTreatmentEvent] = {}
 
         # Filtration scheduler: only created when a pump entity is configured
@@ -139,14 +141,26 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         self._mode = value
 
     @property
+    def min_dynamic_period_duration(self) -> float:
+        """Return the minimum duration for a dynamically computed period.
+
+        When the recommendation is less than period 1's duration, the
+        dynamic period 2 duration will use this floor value.  Defaults
+        to 0.0 (effectively skipping period 2).
+        """
+        return self._min_dynamic_period_duration
+
+    @property
     def filtration_duration_mode(self) -> FiltrationDurationMode:
         """Return the current filtration duration control mode."""
         return self._filtration_duration_mode
 
     @filtration_duration_mode.setter
     def filtration_duration_mode(self, value: FiltrationDurationMode) -> None:
-        """Set the filtration duration control mode."""
+        """Set the filtration duration control mode and sync scheduler split state."""
         self._filtration_duration_mode = value
+        if self.scheduler is not None:
+            self.hass.async_create_task(self.scheduler.async_set_split(value.is_split))
 
     def register_treatment_entity(
         self,
@@ -321,6 +335,21 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             and filtration_hours is not None
         ):
             await self.scheduler.async_update_schedule(duration_hours=filtration_hours)
+
+        # Auto-sync period 2 duration in split_dynamic mode
+        if (
+            self._filtration_duration_mode == FiltrationDurationMode.SPLIT_DYNAMIC
+            and self.scheduler is not None
+            and filtration_hours is not None
+            and len(self.scheduler.periods) > 1
+        ):
+            period1_duration = self.scheduler.periods[0].duration_hours
+            remaining = filtration_hours - period1_duration
+            period2_duration = max(self._min_dynamic_period_duration, remaining)
+            await self.scheduler.async_update_schedule(
+                duration_hours=period2_duration,
+                period_index=1,
+            )
 
         return new_state
 

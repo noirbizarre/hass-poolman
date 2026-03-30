@@ -8,6 +8,7 @@ import pytest
 
 from custom_components.poolman.coordinator import PoolmanCoordinator
 from custom_components.poolman.domain.model import FiltrationDurationMode
+from custom_components.poolman.scheduler import FiltrationPeriod
 
 
 @pytest.fixture
@@ -17,6 +18,7 @@ def hass() -> MagicMock:
     mock_hass.services.async_call = AsyncMock()
     mock_hass.states.get.return_value = None
     mock_hass.bus.async_fire = MagicMock()
+    mock_hass.async_create_task = MagicMock(side_effect=lambda coro: coro.close())
     return mock_hass
 
 
@@ -37,9 +39,26 @@ def config_entry() -> MagicMock:
 
 @pytest.fixture
 def mock_scheduler() -> MagicMock:
-    """Return a mock FiltrationScheduler."""
+    """Return a mock FiltrationScheduler with single period."""
     scheduler = MagicMock()
     scheduler.async_update_schedule = AsyncMock()
+    scheduler.async_set_split = AsyncMock()
+    # Default: single period of 8h
+    scheduler.periods = [FiltrationPeriod(duration_hours=8.0)]
+    return scheduler
+
+
+@pytest.fixture
+def mock_scheduler_split() -> MagicMock:
+    """Return a mock FiltrationScheduler with two periods."""
+    scheduler = MagicMock()
+    scheduler.async_update_schedule = AsyncMock()
+    scheduler.async_set_split = AsyncMock()
+    # Two periods: 6h + 4h
+    scheduler.periods = [
+        FiltrationPeriod(duration_hours=6.0),
+        FiltrationPeriod(duration_hours=4.0),
+    ]
     return scheduler
 
 
@@ -56,6 +75,21 @@ def coordinator(
 
         coord = PoolmanCoordinator(hass, config_entry)
         coord.scheduler = mock_scheduler
+        return coord
+
+
+@pytest.fixture
+def coordinator_split(
+    hass: MagicMock, config_entry: MagicMock, mock_scheduler_split: MagicMock
+) -> PoolmanCoordinator:
+    """Return a PoolmanCoordinator with a mock split scheduler."""
+    with patch("custom_components.poolman.coordinator.FiltrationScheduler") as mock_sched_cls:
+        mock_sched_cls.return_value = mock_scheduler_split
+
+        config_entry.options = {"pump_entity": "switch.pool_pump"}
+
+        coord = PoolmanCoordinator(hass, config_entry)
+        coord.scheduler = mock_scheduler_split
         return coord
 
 
@@ -213,3 +247,196 @@ class TestModeTransitions:
             await coordinator._async_update_data()
 
         mock_scheduler.async_update_schedule.assert_not_called()
+
+
+class TestMinDynamicPeriodDuration:
+    """Tests for the min_dynamic_period_duration property."""
+
+    def test_default_is_zero(self, coordinator: PoolmanCoordinator) -> None:
+        """The default minimum dynamic period duration should be 0.0."""
+        assert coordinator.min_dynamic_period_duration == 0.0
+
+
+class TestSplitModeSetterSyncsScheduler:
+    """Tests that setting a split mode calls async_set_split on the scheduler."""
+
+    def test_split_static_enables_split(
+        self, coordinator: PoolmanCoordinator, mock_scheduler: MagicMock, hass: MagicMock
+    ) -> None:
+        """Setting split_static should create task for async_set_split(True)."""
+        coordinator.filtration_duration_mode = FiltrationDurationMode.SPLIT_STATIC
+        hass.async_create_task.assert_called()
+
+    def test_split_dynamic_enables_split(
+        self, coordinator: PoolmanCoordinator, mock_scheduler: MagicMock, hass: MagicMock
+    ) -> None:
+        """Setting split_dynamic should create task for async_set_split(True)."""
+        coordinator.filtration_duration_mode = FiltrationDurationMode.SPLIT_DYNAMIC
+        hass.async_create_task.assert_called()
+
+    def test_manual_disables_split(
+        self, coordinator: PoolmanCoordinator, mock_scheduler: MagicMock, hass: MagicMock
+    ) -> None:
+        """Setting manual should create task for async_set_split(False)."""
+        coordinator.filtration_duration_mode = FiltrationDurationMode.MANUAL
+        hass.async_create_task.assert_called()
+
+    def test_dynamic_disables_split(
+        self, coordinator: PoolmanCoordinator, mock_scheduler: MagicMock, hass: MagicMock
+    ) -> None:
+        """Setting dynamic should create task for async_set_split(False)."""
+        coordinator.filtration_duration_mode = FiltrationDurationMode.DYNAMIC
+        hass.async_create_task.assert_called()
+
+    def test_no_scheduler_does_not_crash(self, coordinator_no_pump: PoolmanCoordinator) -> None:
+        """Setting split mode without scheduler should not raise."""
+        coordinator_no_pump.filtration_duration_mode = FiltrationDurationMode.SPLIT_STATIC
+        assert coordinator_no_pump.filtration_duration_mode == FiltrationDurationMode.SPLIT_STATIC
+
+
+class TestSplitDynamicAutoSync:
+    """Tests for auto-sync of period 2 duration in split_dynamic mode."""
+
+    @pytest.mark.asyncio
+    async def test_split_dynamic_syncs_period2_duration(
+        self, coordinator_split: PoolmanCoordinator, mock_scheduler_split: MagicMock
+    ) -> None:
+        """In split_dynamic mode, period 2 should get remaining hours."""
+        coordinator_split._filtration_duration_mode = FiltrationDurationMode.SPLIT_DYNAMIC
+
+        with patch(
+            "custom_components.poolman.coordinator.compute_filtration_duration",
+            return_value=10.0,
+        ):
+            await coordinator_split._async_update_data()
+
+        # Period 1 is 6h, recommendation is 10h -> period 2 should be 4h
+        mock_scheduler_split.async_update_schedule.assert_called_with(
+            duration_hours=4.0,
+            period_index=1,
+        )
+
+    @pytest.mark.asyncio
+    async def test_split_dynamic_uses_min_when_recommendation_less_than_period1(
+        self, coordinator_split: PoolmanCoordinator, mock_scheduler_split: MagicMock
+    ) -> None:
+        """When recommendation <= period 1 duration, min duration should be used."""
+        coordinator_split._filtration_duration_mode = FiltrationDurationMode.SPLIT_DYNAMIC
+
+        with patch(
+            "custom_components.poolman.coordinator.compute_filtration_duration",
+            return_value=4.0,
+        ):
+            await coordinator_split._async_update_data()
+
+        # Period 1 is 6h, recommendation is 4h -> remaining is -2h
+        # min_dynamic_period_duration is 0.0, so period 2 gets 0.0
+        mock_scheduler_split.async_update_schedule.assert_called_with(
+            duration_hours=0.0,
+            period_index=1,
+        )
+
+    @pytest.mark.asyncio
+    async def test_split_dynamic_uses_custom_min_duration(
+        self, coordinator_split: PoolmanCoordinator, mock_scheduler_split: MagicMock
+    ) -> None:
+        """When custom min is set and remaining < min, the min should be used."""
+        coordinator_split._filtration_duration_mode = FiltrationDurationMode.SPLIT_DYNAMIC
+        coordinator_split._min_dynamic_period_duration = 2.0
+
+        with patch(
+            "custom_components.poolman.coordinator.compute_filtration_duration",
+            return_value=4.0,
+        ):
+            await coordinator_split._async_update_data()
+
+        # Period 1 is 6h, recommendation is 4h -> remaining is -2h
+        # min_dynamic_period_duration is 2.0, so period 2 gets 2.0
+        mock_scheduler_split.async_update_schedule.assert_called_with(
+            duration_hours=2.0,
+            period_index=1,
+        )
+
+    @pytest.mark.asyncio
+    async def test_split_dynamic_skips_sync_when_filtration_hours_none(
+        self, coordinator_split: PoolmanCoordinator, mock_scheduler_split: MagicMock
+    ) -> None:
+        """In split_dynamic mode, no sync when filtration_hours is None."""
+        coordinator_split._filtration_duration_mode = FiltrationDurationMode.SPLIT_DYNAMIC
+
+        with patch(
+            "custom_components.poolman.coordinator.compute_filtration_duration",
+            return_value=None,
+        ):
+            await coordinator_split._async_update_data()
+
+        mock_scheduler_split.async_update_schedule.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_split_static_does_not_auto_sync_period2(
+        self, coordinator_split: PoolmanCoordinator, mock_scheduler_split: MagicMock
+    ) -> None:
+        """In split_static mode, period 2 duration should NOT be auto-synced."""
+        coordinator_split._filtration_duration_mode = FiltrationDurationMode.SPLIT_STATIC
+
+        with patch(
+            "custom_components.poolman.coordinator.compute_filtration_duration",
+            return_value=10.0,
+        ):
+            await coordinator_split._async_update_data()
+
+        mock_scheduler_split.async_update_schedule.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_split_dynamic_does_not_sync_period1(
+        self, coordinator_split: PoolmanCoordinator, mock_scheduler_split: MagicMock
+    ) -> None:
+        """In split_dynamic mode, period 1 should NOT be auto-synced (only period 2)."""
+        coordinator_split._filtration_duration_mode = FiltrationDurationMode.SPLIT_DYNAMIC
+
+        with patch(
+            "custom_components.poolman.coordinator.compute_filtration_duration",
+            return_value=12.0,
+        ):
+            await coordinator_split._async_update_data()
+
+        # Only period_index=1 should be synced, never period_index=0
+        calls = mock_scheduler_split.async_update_schedule.call_args_list
+        assert len(calls) == 1
+        assert calls[0].kwargs["period_index"] == 1
+
+
+class TestSplitModeTransitions:
+    """Tests for switching between split and non-split modes."""
+
+    @pytest.mark.asyncio
+    async def test_switch_dynamic_to_split_dynamic_syncs_period2(
+        self, coordinator_split: PoolmanCoordinator, mock_scheduler_split: MagicMock
+    ) -> None:
+        """Switching from dynamic to split_dynamic should sync period 2."""
+        coordinator_split._filtration_duration_mode = FiltrationDurationMode.DYNAMIC
+
+        with patch(
+            "custom_components.poolman.coordinator.compute_filtration_duration",
+            return_value=10.0,
+        ):
+            await coordinator_split._async_update_data()
+
+        # In dynamic mode with split scheduler, period 0 gets the full recommendation
+        mock_scheduler_split.async_update_schedule.assert_called_with(duration_hours=10.0)
+        mock_scheduler_split.async_update_schedule.reset_mock()
+
+        # Switch to split_dynamic
+        coordinator_split._filtration_duration_mode = FiltrationDurationMode.SPLIT_DYNAMIC
+
+        with patch(
+            "custom_components.poolman.coordinator.compute_filtration_duration",
+            return_value=10.0,
+        ):
+            await coordinator_split._async_update_data()
+
+        # Now period 2 should be synced: 10.0 - 6.0 = 4.0
+        mock_scheduler_split.async_update_schedule.assert_called_with(
+            duration_hours=4.0,
+            period_index=1,
+        )

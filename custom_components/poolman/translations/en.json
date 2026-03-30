@@ -389,7 +389,9 @@
         "name": "Filtration duration mode",
         "state": {
           "manual": "Manual",
-          "dynamic": "Dynamic"
+          "dynamic": "Dynamic",
+          "split_static": "Split (static)",
+          "split_dynamic": "Split (dynamic)"
         }
       }
     },
@@ -401,11 +403,17 @@
     "time": {
       "filtration_start_time": {
         "name": "Filtration start time"
+      },
+      "filtration_start_time_2": {
+        "name": "Filtration start time 2"
       }
     },
     "number": {
       "filtration_duration_setting": {
         "name": "Filtration duration"
+      },
+      "filtration_duration_setting_2": {
+        "name": "Filtration duration 2"
       }
     }
   },

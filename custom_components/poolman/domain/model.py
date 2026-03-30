@@ -48,12 +48,25 @@ class PoolMode(StrEnum):
 class FiltrationDurationMode(StrEnum):
     """Filtration duration control mode.
 
-    Determines whether the daily filtration duration is set manually
-    by the user or computed dynamically from pool conditions.
+    Determines how the daily filtration duration is configured and
+    whether it is split across multiple periods.
+
+    - ``manual``: single continuous window, user-set duration.
+    - ``dynamic``: single continuous window, auto-computed duration.
+    - ``split_static``: two windows, both with user-set durations.
+    - ``split_dynamic``: two windows, first user-set + second auto-computed
+      to reach the daily recommendation.
     """
 
     MANUAL = "manual"
     DYNAMIC = "dynamic"
+    SPLIT_STATIC = "split_static"
+    SPLIT_DYNAMIC = "split_dynamic"
+
+    @property
+    def is_split(self) -> bool:
+        """Return True if this mode uses two filtration periods."""
+        return self in (FiltrationDurationMode.SPLIT_STATIC, FiltrationDurationMode.SPLIT_DYNAMIC)
 
 
 class ChemicalProduct(StrEnum):
