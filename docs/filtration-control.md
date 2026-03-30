@@ -1,5 +1,5 @@
 ---
-icon: lucide/pump
+icon: material/water-pump
 ---
 
 # Filtration Control
