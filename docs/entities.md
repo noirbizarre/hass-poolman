@@ -133,7 +133,7 @@ The integration creates select entities to control operational settings:
 
 | Entity | Name | Options | Default | Description |
 | --- | --- | --- | --- | --- |
-| `select.{pool}_mode` | Pool mode | `running`, `winter_active`, `winter_passive` | `running` | Controls the current operational mode. See [Pool Modes](pool-modes.md) for details on each mode. |
+| `select.{pool}_mode` | Pool mode | `active`, `hibernating`, `winter_active`, `winter_passive`, `activating` | `active` | Controls the current operational mode. Persisted across restarts. See [Pool Modes](pool-modes.md) for details on each mode. |
 
 Changing the mode immediately triggers a data refresh and recalculation of all computed values.
 

@@ -52,8 +52,13 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class PoolmanModeSelect(PoolmanEntity, SelectEntity):
-    """Select entity for pool operating mode."""
+class PoolmanModeSelect(PoolmanEntity, SelectEntity, RestoreEntity):
+    """Select entity for pool operating mode.
+
+    The selected mode is persisted across restarts via RestoreEntity.
+    When entering ``WINTER_PASSIVE`` mode, the filtration scheduler is
+    paused and the pump is stopped immediately.
+    """
 
     entity_description: SelectEntityDescription
 
@@ -68,9 +73,21 @@ class PoolmanModeSelect(PoolmanEntity, SelectEntity):
         """Return the current pool mode."""
         return self.coordinator.mode.value
 
+    async def async_added_to_hass(self) -> None:
+        """Restore the last known pool mode."""
+        await super().async_added_to_hass()
+        if (
+            last_state := await self.async_get_last_state()
+        ) is not None and last_state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            try:
+                restored_mode = PoolMode(last_state.state)
+            except ValueError:
+                restored_mode = PoolMode.ACTIVE
+            await self.coordinator.async_set_mode(restored_mode)
+
     async def async_select_option(self, option: str) -> None:
         """Change the pool mode."""
-        self.coordinator.mode = PoolMode(option)
+        await self.coordinator.async_set_mode(PoolMode(option))
         await self.coordinator.async_request_refresh()
 
 

@@ -250,6 +250,12 @@ class TestFiltrationRule:
         assert len(result) == 1
         assert result[0].type == RecommendationType.FILTRATION
 
+    def test_winter_passive_skips(self, pool: Pool) -> None:
+        """WINTER_PASSIVE mode should produce no filtration recommendation."""
+        reading = PoolReading(temp_c=26.0)
+        result = FiltrationRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
+        assert result == []
+
 
 class TestTacRule:
     """Tests for TAC rule evaluation."""
