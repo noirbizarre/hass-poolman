@@ -42,6 +42,8 @@ from .domain.model import (
     ChemicalProduct,
     FiltrationDurationMode,
     FiltrationKind,
+    ManualMeasure,
+    MeasureParameter,
     Pool,
     PoolMode,
     PoolReading,
@@ -59,11 +61,21 @@ from .domain.treatment import (
 from .scheduler import FiltrationScheduler
 
 if TYPE_CHECKING:
-    from .event import PoolmanTreatmentEvent
+    from .event import PoolmanMeasureEvent, PoolmanTreatmentEvent
 
 _LOGGER = logging.getLogger(__name__)
 
 type PoolmanConfigEntry = ConfigEntry[PoolmanCoordinator]
+
+# Mapping from MeasureParameter to the config key for the corresponding sensor entity
+_MEASURE_SENSOR_KEY: dict[MeasureParameter, str] = {
+    MeasureParameter.PH: CONF_PH_ENTITY,
+    MeasureParameter.ORP: CONF_ORP_ENTITY,
+    MeasureParameter.TAC: CONF_TAC_ENTITY,
+    MeasureParameter.CYA: CONF_CYA_ENTITY,
+    MeasureParameter.HARDNESS: CONF_HARDNESS_ENTITY,
+    MeasureParameter.TEMPERATURE: CONF_TEMPERATURE_ENTITY,
+}
 
 
 class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
@@ -90,6 +102,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         self._mode = PoolMode.RUNNING
         self._filtration_duration_mode = FiltrationDurationMode(DEFAULT_FILTRATION_DURATION_MODE)
         self._treatment_entities: dict[ChemicalProduct, PoolmanTreatmentEvent] = {}
+        self._measure_entities: dict[MeasureParameter, PoolmanMeasureEvent] = {}
 
         # Filtration scheduler: only created when a pump entity is configured
         pump_entity_id = self._get_config(CONF_PUMP_ENTITY)
@@ -186,6 +199,44 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         entity.apply_treatment(quantity_g=quantity_g, notes=notes)
         await self.async_request_refresh()
 
+    def register_measure_entity(
+        self,
+        parameter: MeasureParameter,
+        entity: PoolmanMeasureEvent,
+    ) -> None:
+        """Register a measure event entity for manual measurement tracking.
+
+        Called by each measure event entity during async_added_to_hass.
+
+        Args:
+            parameter: The pool parameter this entity tracks.
+            entity: The measure event entity instance.
+        """
+        self._measure_entities[parameter] = entity
+
+    async def async_record_measure(
+        self,
+        parameter: MeasureParameter,
+        value: float,
+        notes: str | None = None,
+    ) -> None:
+        """Record a manual measurement.
+
+        Fires the event on the corresponding measure event entity and
+        triggers a coordinator refresh to update derived sensors.
+
+        Args:
+            parameter: The pool parameter being measured.
+            value: The measured value.
+            notes: Optional free-text note about the measurement.
+        """
+        entity = self._measure_entities.get(parameter)
+        if entity is None:
+            _LOGGER.warning("No measure entity registered for parameter %s", parameter)
+            return
+        entity.record_measure(value=value, notes=notes)
+        await self.async_request_refresh()
+
     def _read_sensor(self, entity_key: str) -> float | None:
         """Safely read a float value from a HA sensor entity.
 
@@ -242,6 +293,36 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             _LOGGER.debug("Cannot parse temperature attribute '%s' from %s", temp, weather_id)
             return None
 
+    def _read_with_fallback(
+        self,
+        sensor_key: str,
+        parameter: MeasureParameter,
+        manual_measures: dict[MeasureParameter, ManualMeasure],
+    ) -> tuple[float | None, str | None]:
+        """Read a sensor value with fallback to manual measurement.
+
+        Tries the configured sensor entity first. If unavailable, falls
+        back to the last manual measurement for the same parameter.
+
+        Args:
+            sensor_key: Config entry key for the sensor entity ID.
+            parameter: The corresponding measure parameter.
+            manual_measures: Current manual measurements.
+
+        Returns:
+            Tuple of (value, source) where source is "sensor", "manual",
+            or None if both are unavailable.
+        """
+        sensor_value = self._read_sensor(sensor_key)
+        if sensor_value is not None:
+            return sensor_value, "sensor"
+
+        measure = manual_measures.get(parameter)
+        if measure is not None:
+            return measure.value, "manual"
+
+        return None, None
+
     def _read_treatment_entries(
         self, now: datetime
     ) -> list[tuple[ChemicalProduct, datetime, float | None]]:
@@ -268,7 +349,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
                 continue
 
             quantity_g: float | None = None
-            attrs = entity.extra_state_attributes
+            attrs = entity.state_attributes
             if attrs and "quantity_g" in attrs:
                 with contextlib.suppress(ValueError, TypeError):
                     quantity_g = float(attrs["quantity_g"])
@@ -276,19 +357,123 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             entries.append((product, applied_at, quantity_g))
         return entries
 
+    def _read_measure_entries(self) -> dict[MeasureParameter, ManualMeasure]:
+        """Read manual measurement data from registered measure event entities.
+
+        Collects the last measurement value and timestamp from each measure
+        event entity that has been triggered at least once.
+
+        Returns:
+            Dict mapping parameter to the last recorded ManualMeasure.
+        """
+        measures: dict[MeasureParameter, ManualMeasure] = {}
+        for parameter, entity in self._measure_entities.items():
+            state_value = entity.state
+            if state_value is None:
+                continue
+            try:
+                measured_at = datetime.fromisoformat(state_value)
+            except (ValueError, TypeError):
+                _LOGGER.debug("Cannot parse event timestamp '%s' for %s", state_value, parameter)
+                continue
+
+            attrs = entity.state_attributes
+            if not attrs or "value" not in attrs:
+                continue
+
+            try:
+                value = float(attrs["value"])
+            except (ValueError, TypeError):
+                _LOGGER.debug(
+                    "Cannot parse measure value '%s' for %s", attrs.get("value"), parameter
+                )
+                continue
+
+            measures[parameter] = ManualMeasure(
+                parameter=parameter,
+                value=value,
+                measured_at=measured_at,
+            )
+        return measures
+
     async def _async_update_data(self) -> PoolState:
-        """Fetch sensor data and compute pool state."""
+        """Fetch sensor data and compute pool state.
+
+        Reads sensor values with fallback to manual measurements when
+        sensors are unavailable. Tracks which source provided each value
+        in ``reading_sources``.
+        """
+        # Read manual measures from event entities
+        manual_measures = self._read_measure_entries()
+
+        # Read each parameter with sensor-first, manual-fallback strategy
+        reading_sources: dict[str, str] = {}
+
+        ph, ph_src = self._read_with_fallback(CONF_PH_ENTITY, MeasureParameter.PH, manual_measures)
+        if ph_src:
+            reading_sources["ph"] = ph_src
+
+        orp, orp_src = self._read_with_fallback(
+            CONF_ORP_ENTITY, MeasureParameter.ORP, manual_measures
+        )
+        if orp_src:
+            reading_sources["orp"] = orp_src
+
+        temp_c, temp_src = self._read_with_fallback(
+            CONF_TEMPERATURE_ENTITY, MeasureParameter.TEMPERATURE, manual_measures
+        )
+        if temp_src:
+            reading_sources["temperature"] = temp_src
+
+        # Outdoor temperature has its own fallback chain (sensor -> weather entity)
+        # and does not support manual measurement
+        outdoor_temp_c = self._read_outdoor_temperature()
+
+        tac, tac_src = self._read_with_fallback(
+            CONF_TAC_ENTITY, MeasureParameter.TAC, manual_measures
+        )
+        if tac_src:
+            reading_sources["tac"] = tac_src
+
+        cya, cya_src = self._read_with_fallback(
+            CONF_CYA_ENTITY, MeasureParameter.CYA, manual_measures
+        )
+        if cya_src:
+            reading_sources["cya"] = cya_src
+
+        hardness, hardness_src = self._read_with_fallback(
+            CONF_HARDNESS_ENTITY, MeasureParameter.HARDNESS, manual_measures
+        )
+        if hardness_src:
+            reading_sources["hardness"] = hardness_src
+
         reading = PoolReading(
+            ph=ph,
+            orp=orp,
+            temp_c=temp_c,
+            outdoor_temp_c=outdoor_temp_c,
+            tac=tac,
+            cya=cya,
+            hardness=hardness,
+        )
+
+        # Build sensor-only reading for calibration rule comparison.
+        # The CalibrationRule needs to know the raw sensor values to compare
+        # against manual measures, even when the effective reading uses
+        # manual values as fallback.
+        sensor_reading = PoolReading(
             ph=self._read_sensor(CONF_PH_ENTITY),
             orp=self._read_sensor(CONF_ORP_ENTITY),
             temp_c=self._read_sensor(CONF_TEMPERATURE_ENTITY),
-            outdoor_temp_c=self._read_outdoor_temperature(),
+            outdoor_temp_c=outdoor_temp_c,
             tac=self._read_sensor(CONF_TAC_ENTITY),
             cya=self._read_sensor(CONF_CYA_ENTITY),
             hardness=self._read_sensor(CONF_HARDNESS_ENTITY),
         )
 
-        recommendations = self.engine.evaluate(self.pool, reading, self._mode)
+        recommendations = self.engine.evaluate(
+            self.pool, sensor_reading, self._mode, manual_measures=manual_measures
+        )
         filtration_hours = compute_filtration_duration(self.pool, reading, self._mode)
         water_quality_score = compute_water_quality_score(reading)
         chemistry_report = compute_chemistry_report(reading)
@@ -310,6 +495,8 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             active_treatments=active_treatments,
             swimming_safe=swimming_safe,
             safe_at=safe_at,
+            manual_measures=manual_measures,
+            reading_sources=reading_sources,
         )
 
         self._fire_status_change_events(new_state)

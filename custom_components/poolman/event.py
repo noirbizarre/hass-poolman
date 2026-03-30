@@ -6,6 +6,8 @@ Provides:
   Each treatment entity uses RestoreEntity (via EventEntity) for persistence
   across HA restarts. HA's built-in logbook/history serves as the pool
   treatment log.
+- One event entity per measurable parameter to track manual measurements.
+  These serve as a measurement journal, visible in HA's logbook/history.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from . import PoolmanConfigEntry
 from .const import EVENT_FILTRATION_STARTED, EVENT_FILTRATION_STOPPED
 from .coordinator import PoolmanCoordinator
-from .domain.model import ChemicalProduct, TreatmentType
+from .domain.model import ChemicalProduct, MeasureParameter, TreatmentType
 from .entity import PoolmanEntity
 
 
@@ -192,6 +194,57 @@ EVENT_DESCRIPTIONS: tuple[PoolmanEventEntityDescription, ...] = (
 )
 
 
+@dataclass(kw_only=True, frozen=True)
+class PoolmanMeasureEventEntityDescription(EventEntityDescription):
+    """Describes a Pool Manager manual measurement event entity.
+
+    Attributes:
+        parameter: The pool parameter this entity tracks.
+    """
+
+    parameter: MeasureParameter
+
+
+MEASURE_EVENT_DESCRIPTIONS: tuple[PoolmanMeasureEventEntityDescription, ...] = (
+    PoolmanMeasureEventEntityDescription(
+        key="measure_ph",
+        translation_key="measure_ph",
+        event_types=["measured"],
+        parameter=MeasureParameter.PH,
+    ),
+    PoolmanMeasureEventEntityDescription(
+        key="measure_orp",
+        translation_key="measure_orp",
+        event_types=["measured"],
+        parameter=MeasureParameter.ORP,
+    ),
+    PoolmanMeasureEventEntityDescription(
+        key="measure_tac",
+        translation_key="measure_tac",
+        event_types=["measured"],
+        parameter=MeasureParameter.TAC,
+    ),
+    PoolmanMeasureEventEntityDescription(
+        key="measure_cya",
+        translation_key="measure_cya",
+        event_types=["measured"],
+        parameter=MeasureParameter.CYA,
+    ),
+    PoolmanMeasureEventEntityDescription(
+        key="measure_hardness",
+        translation_key="measure_hardness",
+        event_types=["measured"],
+        parameter=MeasureParameter.HARDNESS,
+    ),
+    PoolmanMeasureEventEntityDescription(
+        key="measure_temperature",
+        translation_key="measure_temperature",
+        event_types=["measured"],
+        parameter=MeasureParameter.TEMPERATURE,
+    ),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: PoolmanConfigEntry,
@@ -202,6 +255,9 @@ async def async_setup_entry(
     entities: list[PoolmanEntity] = [
         PoolmanTreatmentEvent(coordinator, description) for description in EVENT_DESCRIPTIONS
     ]
+    entities.extend(
+        PoolmanMeasureEvent(coordinator, description) for description in MEASURE_EVENT_DESCRIPTIONS
+    )
     if coordinator.scheduler is not None:
         entities.append(PoolmanFiltrationEvent(coordinator))
     async_add_entities(entities)
@@ -298,4 +354,52 @@ class PoolmanTreatmentEvent(PoolmanEntity, EventEntity):
         if notes is not None:
             event_data["notes"] = notes
         self._trigger_event("applied", event_data)
+        self.async_write_ha_state()
+
+
+class PoolmanMeasureEvent(PoolmanEntity, EventEntity):
+    """Event entity tracking a manual measurement for a pool parameter.
+
+    Each entity represents one measurable parameter (pH, ORP, TAC, etc.).
+    When the user records a measurement (via the record_measure service),
+    a "measured" event is fired with the value in the event data.
+    HA's RestoreEntity persistence (via EventEntity) ensures the last
+    measurement survives HA restarts. HA's logbook/history serves as the
+    measurement journal.
+    """
+
+    entity_description: PoolmanMeasureEventEntityDescription
+
+    def __init__(
+        self,
+        coordinator: PoolmanCoordinator,
+        description: PoolmanMeasureEventEntityDescription,
+    ) -> None:
+        """Initialize the measure event entity."""
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{description.key}"
+        self._attr_icon = "mdi:test-tube"
+
+    async def async_added_to_hass(self) -> None:
+        """Register this entity with the coordinator when added to HA."""
+        await super().async_added_to_hass()
+        self.coordinator.register_measure_entity(self.entity_description.parameter, self)
+
+    @callback
+    def record_measure(
+        self,
+        value: float,
+        notes: str | None = None,
+    ) -> None:
+        """Record a manual measurement by firing an event.
+
+        Args:
+            value: The measured value.
+            notes: Optional free-text note about the measurement.
+        """
+        event_data: dict[str, Any] = {"value": value}
+        if notes is not None:
+            event_data["notes"] = notes
+        self._trigger_event("measured", event_data)
         self.async_write_ha_state()

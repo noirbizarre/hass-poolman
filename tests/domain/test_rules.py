@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
 from custom_components.poolman.domain.model import (
     ActionKind,
+    ManualMeasure,
+    MeasureParameter,
     Pool,
     PoolMode,
     PoolReading,
@@ -15,6 +19,7 @@ from custom_components.poolman.domain.model import (
 )
 from custom_components.poolman.domain.rules import (
     AlgaeRiskRule,
+    CalibrationRule,
     CyaRule,
     FiltrationRule,
     HardnessRule,
@@ -258,7 +263,7 @@ class TestRuleEngine:
 
     def test_default_rules_loaded(self) -> None:
         engine = RuleEngine()
-        assert len(engine.rules) == 7
+        assert len(engine.rules) == 8
 
     def test_good_readings_produce_filtration_only(
         self, pool: Pool, good_reading: PoolReading
@@ -411,3 +416,192 @@ class TestHardnessRule:
         reading = PoolReading(hardness=400.0)
         result = HardnessRule().evaluate(pool, reading, PoolMode.RUNNING)
         assert result == []
+
+
+def _ts() -> datetime:
+    """Return a fixed timestamp for test measures."""
+    return datetime(2025, 7, 15, 10, 0, tzinfo=UTC)
+
+
+class TestCalibrationRule:
+    """Tests for CalibrationRule deviation detection."""
+
+    def test_no_manual_measures_no_recommendation(self, pool: Pool) -> None:
+        """No recommendations when there are no manual measures."""
+        reading = PoolReading(ph=7.2, orp=750.0)
+        result = CalibrationRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert result == []
+
+    def test_no_deviation_no_recommendation(self, pool: Pool) -> None:
+        """No recommendation when sensor and manual values are close."""
+        reading = PoolReading(ph=7.2)
+        measures = {
+            MeasureParameter.PH: ManualMeasure(
+                parameter=MeasureParameter.PH, value=7.1, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.RUNNING, manual_measures=measures
+        )
+        assert result == []
+
+    def test_ph_deviation_generates_recommendation(self, pool: Pool) -> None:
+        """pH deviation exceeding threshold should generate a calibration suggestion."""
+        reading = PoolReading(ph=7.8)
+        measures = {
+            MeasureParameter.PH: ManualMeasure(
+                parameter=MeasureParameter.PH, value=7.2, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.RUNNING, manual_measures=measures
+        )
+        assert len(result) == 1
+        assert result[0].type == RecommendationType.MAINTENANCE
+        assert result[0].priority == RecommendationPriority.MEDIUM
+        assert result[0].kind == ActionKind.SUGGESTION
+        assert "pH" in result[0].message
+        assert "7.8" in result[0].message
+        assert "7.2" in result[0].message
+
+    def test_orp_deviation_generates_recommendation(self, pool: Pool) -> None:
+        """ORP deviation exceeding 50 mV threshold should generate recommendation."""
+        reading = PoolReading(orp=810.0)
+        measures = {
+            MeasureParameter.ORP: ManualMeasure(
+                parameter=MeasureParameter.ORP, value=750.0, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.RUNNING, manual_measures=measures
+        )
+        assert len(result) == 1
+        assert "ORP" in result[0].message
+
+    def test_temperature_deviation_generates_recommendation(self, pool: Pool) -> None:
+        """Temperature deviation exceeding 2C threshold should generate recommendation."""
+        reading = PoolReading(temp_c=28.5)
+        measures = {
+            MeasureParameter.TEMPERATURE: ManualMeasure(
+                parameter=MeasureParameter.TEMPERATURE, value=26.0, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.RUNNING, manual_measures=measures
+        )
+        assert len(result) == 1
+        assert "temperature" in result[0].message
+
+    def test_sensor_none_skipped(self, pool: Pool) -> None:
+        """When sensor value is None, no recommendation even with manual measure."""
+        reading = PoolReading(ph=None)
+        measures = {
+            MeasureParameter.PH: ManualMeasure(
+                parameter=MeasureParameter.PH, value=7.2, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.RUNNING, manual_measures=measures
+        )
+        assert result == []
+
+    def test_winter_passive_skips(self, pool: Pool) -> None:
+        """No recommendations in passive winter mode."""
+        reading = PoolReading(ph=8.0)
+        measures = {
+            MeasureParameter.PH: ManualMeasure(
+                parameter=MeasureParameter.PH, value=7.2, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.WINTER_PASSIVE, manual_measures=measures
+        )
+        assert result == []
+
+    def test_multiple_deviations(self, pool: Pool) -> None:
+        """Multiple parameters deviating should generate multiple recommendations."""
+        reading = PoolReading(ph=7.8, orp=810.0, temp_c=30.0)
+        measures = {
+            MeasureParameter.PH: ManualMeasure(
+                parameter=MeasureParameter.PH, value=7.2, measured_at=_ts()
+            ),
+            MeasureParameter.ORP: ManualMeasure(
+                parameter=MeasureParameter.ORP, value=750.0, measured_at=_ts()
+            ),
+            MeasureParameter.TEMPERATURE: ManualMeasure(
+                parameter=MeasureParameter.TEMPERATURE, value=26.0, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.RUNNING, manual_measures=measures
+        )
+        assert len(result) == 3
+
+    def test_deviation_at_threshold_no_recommendation(self, pool: Pool) -> None:
+        """Deviation exactly at threshold should NOT generate recommendation."""
+        reading = PoolReading(ph=7.5)
+        measures = {
+            MeasureParameter.PH: ManualMeasure(
+                parameter=MeasureParameter.PH, value=7.2, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.RUNNING, manual_measures=measures
+        )
+        # 0.3 == threshold, not > threshold
+        assert result == []
+
+    def test_tac_deviation(self, pool: Pool) -> None:
+        """TAC deviation exceeding 20 ppm should generate recommendation."""
+        reading = PoolReading(tac=145.0)
+        measures = {
+            MeasureParameter.TAC: ManualMeasure(
+                parameter=MeasureParameter.TAC, value=120.0, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.RUNNING, manual_measures=measures
+        )
+        assert len(result) == 1
+        assert "TAC" in result[0].message
+
+    def test_cya_deviation(self, pool: Pool) -> None:
+        """CYA deviation exceeding 10 ppm should generate recommendation."""
+        reading = PoolReading(cya=55.0)
+        measures = {
+            MeasureParameter.CYA: ManualMeasure(
+                parameter=MeasureParameter.CYA, value=40.0, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.RUNNING, manual_measures=measures
+        )
+        assert len(result) == 1
+        assert "CYA" in result[0].message
+
+    def test_hardness_deviation(self, pool: Pool) -> None:
+        """Hardness deviation exceeding 50 ppm should generate recommendation."""
+        reading = PoolReading(hardness=310.0)
+        measures = {
+            MeasureParameter.HARDNESS: ManualMeasure(
+                parameter=MeasureParameter.HARDNESS, value=250.0, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.RUNNING, manual_measures=measures
+        )
+        assert len(result) == 1
+        assert "hardness" in result[0].message
+
+    def test_winter_active_evaluates(self, pool: Pool) -> None:
+        """CalibrationRule should still evaluate in active winter mode."""
+        reading = PoolReading(ph=7.8)
+        measures = {
+            MeasureParameter.PH: ManualMeasure(
+                parameter=MeasureParameter.PH, value=7.2, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.WINTER_ACTIVE, manual_measures=measures
+        )
+        assert len(result) == 1

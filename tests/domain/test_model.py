@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
 from custom_components.poolman.domain.model import (
     ActionKind,
     ChemistryReport,
     ChemistryStatus,
+    ManualMeasure,
+    MeasureParameter,
     ParameterReport,
     Pool,
     PoolState,
@@ -386,3 +390,90 @@ class TestPoolStateChemistryActions:
         assert len(state.chemistry_actions) == 3
         assert len(state.suggestions) == 1
         assert len(state.requirements) == 2
+
+
+class TestMeasureParameter:
+    """Tests for MeasureParameter enum."""
+
+    def test_all_parameters_defined(self) -> None:
+        """All expected parameters should be present."""
+        expected = {"ph", "orp", "tac", "cya", "hardness", "temperature"}
+        assert {p.value for p in MeasureParameter} == expected
+
+    def test_str_values(self) -> None:
+        """StrEnum values should work as plain strings."""
+        assert MeasureParameter.PH == "ph"
+        assert MeasureParameter.ORP == "orp"
+        assert MeasureParameter.TAC == "tac"
+        assert MeasureParameter.CYA == "cya"
+        assert MeasureParameter.HARDNESS == "hardness"
+        assert MeasureParameter.TEMPERATURE == "temperature"
+
+    def test_construction_from_string(self) -> None:
+        """Should be constructable from string values."""
+        assert MeasureParameter("ph") == MeasureParameter.PH
+        assert MeasureParameter("temperature") == MeasureParameter.TEMPERATURE
+
+
+class TestManualMeasure:
+    """Tests for ManualMeasure model."""
+
+    def test_creation(self) -> None:
+        """ManualMeasure should be created with valid values."""
+        ts = datetime(2025, 7, 15, 10, 0, tzinfo=UTC)
+        measure = ManualMeasure(
+            parameter=MeasureParameter.PH,
+            value=7.2,
+            measured_at=ts,
+        )
+        assert measure.parameter == MeasureParameter.PH
+        assert measure.value == 7.2
+        assert measure.measured_at == ts
+
+    def test_frozen(self) -> None:
+        """ManualMeasure should be immutable (frozen)."""
+        from pydantic import ValidationError
+
+        ts = datetime(2025, 7, 15, 10, 0, tzinfo=UTC)
+        measure = ManualMeasure(
+            parameter=MeasureParameter.ORP,
+            value=750.0,
+            measured_at=ts,
+        )
+        with pytest.raises(ValidationError):
+            measure.value = 800.0  # type: ignore[misc]  # ty: ignore[invalid-assignment]
+
+    def test_equality(self) -> None:
+        """Two ManualMeasures with same values should be equal."""
+        ts = datetime(2025, 7, 15, 10, 0, tzinfo=UTC)
+        m1 = ManualMeasure(parameter=MeasureParameter.PH, value=7.2, measured_at=ts)
+        m2 = ManualMeasure(parameter=MeasureParameter.PH, value=7.2, measured_at=ts)
+        assert m1 == m2
+
+
+class TestPoolStateManualMeasures:
+    """Tests for PoolState manual_measures and reading_sources fields."""
+
+    def test_default_empty(self) -> None:
+        """Default PoolState should have empty manual_measures and reading_sources."""
+        state = PoolState()
+        assert state.manual_measures == {}
+        assert state.reading_sources == {}
+
+    def test_with_manual_measures(self) -> None:
+        """PoolState should store manual measures."""
+        ts = datetime(2025, 7, 15, 10, 0, tzinfo=UTC)
+        measures = {
+            MeasureParameter.PH: ManualMeasure(
+                parameter=MeasureParameter.PH, value=7.2, measured_at=ts
+            ),
+        }
+        state = PoolState(manual_measures=measures)
+        assert MeasureParameter.PH in state.manual_measures
+        assert state.manual_measures[MeasureParameter.PH].value == 7.2
+
+    def test_with_reading_sources(self) -> None:
+        """PoolState should store reading sources."""
+        state = PoolState(reading_sources={"ph": "sensor", "orp": "manual"})
+        assert state.reading_sources["ph"] == "sensor"
+        assert state.reading_sources["orp"] == "manual"

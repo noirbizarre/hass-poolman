@@ -374,6 +374,66 @@
             }
           }
         }
+      },
+      "measure_ph": {
+        "name": "Mesure pH",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Mesuré"
+            }
+          }
+        }
+      },
+      "measure_orp": {
+        "name": "Mesure ORP",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Mesuré"
+            }
+          }
+        }
+      },
+      "measure_tac": {
+        "name": "Mesure TAC",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Mesuré"
+            }
+          }
+        }
+      },
+      "measure_cya": {
+        "name": "Mesure CYA",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Mesuré"
+            }
+          }
+        }
+      },
+      "measure_hardness": {
+        "name": "Mesure dureté",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Mesuré"
+            }
+          }
+        }
+      },
+      "measure_temperature": {
+        "name": "Mesure température",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Mesuré"
+            }
+          }
+        }
       }
     },
     "select": {
@@ -454,6 +514,16 @@
         "calcium_hardness_increaser": "Correcteur de duret\u00e9 calcique",
         "winterizing_product": "Produit d'hivernage"
       }
+    },
+    "measure_parameter": {
+      "options": {
+        "ph": "pH",
+        "orp": "ORP",
+        "tac": "Alcalinit\u00e9 totale (TAC)",
+        "cya": "Acide cyanurique (CYA)",
+        "hardness": "Duret\u00e9 calcique",
+        "temperature": "Temp\u00e9rature"
+      }
     }
   },
   "services": {
@@ -476,6 +546,28 @@
         "notes": {
           "name": "Notes",
           "description": "Notes optionnelles sur le traitement."
+        }
+      }
+    },
+    "record_measure": {
+      "name": "Enregistrer une mesure",
+      "description": "Enregistrer une mesure manuelle de la chimie de l'eau.",
+      "fields": {
+        "device_id": {
+          "name": "Appareil piscine",
+          "description": "La piscine pour laquelle enregistrer la mesure."
+        },
+        "parameter": {
+          "name": "Param\u00e8tre",
+          "description": "Le param\u00e8tre de l'eau mesur\u00e9."
+        },
+        "value": {
+          "name": "Valeur",
+          "description": "La valeur mesur\u00e9e."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Notes optionnelles sur la mesure."
         }
       }
     }

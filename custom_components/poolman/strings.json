@@ -374,6 +374,66 @@
             }
           }
         }
+      },
+      "measure_ph": {
+        "name": "pH measurement",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Measured"
+            }
+          }
+        }
+      },
+      "measure_orp": {
+        "name": "ORP measurement",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Measured"
+            }
+          }
+        }
+      },
+      "measure_tac": {
+        "name": "TAC measurement",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Measured"
+            }
+          }
+        }
+      },
+      "measure_cya": {
+        "name": "CYA measurement",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Measured"
+            }
+          }
+        }
+      },
+      "measure_hardness": {
+        "name": "Hardness measurement",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Measured"
+            }
+          }
+        }
+      },
+      "measure_temperature": {
+        "name": "Temperature measurement",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Measured"
+            }
+          }
+        }
       }
     },
     "select": {
@@ -454,6 +514,16 @@
         "calcium_hardness_increaser": "Calcium hardness increaser",
         "winterizing_product": "Winterizing product"
       }
+    },
+    "measure_parameter": {
+      "options": {
+        "ph": "pH",
+        "orp": "ORP",
+        "tac": "Total alkalinity (TAC)",
+        "cya": "Cyanuric acid (CYA)",
+        "hardness": "Calcium hardness",
+        "temperature": "Temperature"
+      }
     }
   },
   "services": {
@@ -476,6 +546,28 @@
         "notes": {
           "name": "Notes",
           "description": "Optional notes about the treatment."
+        }
+      }
+    },
+    "record_measure": {
+      "name": "Record measure",
+      "description": "Record a manual water chemistry measurement.",
+      "fields": {
+        "device_id": {
+          "name": "Pool device",
+          "description": "The pool to record the measurement for."
+        },
+        "parameter": {
+          "name": "Parameter",
+          "description": "The water parameter being measured."
+        },
+        "value": {
+          "name": "Value",
+          "description": "The measured value."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Optional notes about the measurement."
         }
       }
     }

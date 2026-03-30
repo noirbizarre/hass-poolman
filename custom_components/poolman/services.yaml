@@ -49,3 +49,41 @@ add_treatment:
       description: Optional notes about the treatment.
       selector:
         text:
+
+record_measure:
+  name: Record measure
+  description: Record a manual water chemistry measurement.
+  fields:
+    device_id:
+      name: Pool device
+      description: The pool to record the measurement for.
+      required: true
+      selector:
+        device:
+          integration: poolman
+    parameter:
+      name: Parameter
+      description: The water parameter being measured.
+      required: true
+      selector:
+        select:
+          translation_key: measure_parameter
+          options:
+            - "ph"
+            - "orp"
+            - "tac"
+            - "cya"
+            - "hardness"
+            - "temperature"
+    value:
+      name: Value
+      description: The measured value.
+      required: true
+      selector:
+        number:
+          mode: box
+    notes:
+      name: Notes
+      description: Optional notes about the measurement.
+      selector:
+        text:

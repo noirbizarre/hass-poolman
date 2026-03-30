@@ -56,6 +56,21 @@ class FiltrationDurationMode(StrEnum):
     DYNAMIC = "dynamic"
 
 
+class MeasureParameter(StrEnum):
+    """Pool parameters that support manual measurement.
+
+    These correspond to the chemistry and temperature readings that users
+    can record manually when no connected sensor is available.
+    """
+
+    PH = "ph"
+    ORP = "orp"
+    TAC = "tac"
+    CYA = "cya"
+    HARDNESS = "hardness"
+    TEMPERATURE = "temperature"
+
+
 class ChemicalProduct(StrEnum):
     """Chemical products for pool treatment."""
 
@@ -213,6 +228,20 @@ class Recommendation(BaseModel):
         return self.message
 
 
+class ManualMeasure(BaseModel, frozen=True):
+    """A manual measurement recorded by the user.
+
+    Attributes:
+        parameter: Which pool parameter was measured.
+        value: The measured value.
+        measured_at: When the measurement was recorded.
+    """
+
+    parameter: MeasureParameter
+    value: float
+    measured_at: datetime
+
+
 class ActiveTreatment(BaseModel, frozen=True):
     """A chemical treatment that is currently active or within its safety window.
 
@@ -243,6 +272,8 @@ class PoolState(BaseModel):
     active_treatments: list[ActiveTreatment] = Field(default_factory=list)
     swimming_safe: bool = True
     safe_at: datetime | None = None
+    manual_measures: dict[MeasureParameter, ManualMeasure] = Field(default_factory=dict)
+    reading_sources: dict[str, str] = Field(default_factory=dict)
 
     @property
     def water_ok(self) -> bool:
