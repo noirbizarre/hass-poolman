@@ -131,6 +131,66 @@ class TestPoolModeSelect:
         assert options is not None
         assert set(options) == {m.value for m in PoolMode}
 
+    async def test_restore_winter_passive(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Should restore winter_passive mode from previous state."""
+        from pytest_homeassistant_custom_component.common import mock_restore_cache
+
+        mock_restore_cache(
+            hass,
+            [State("select.test_pool_pool_mode", "winter_passive")],
+        )
+        coordinator = await _setup_integration(hass, mock_config_entry)
+        assert coordinator.mode == PoolMode.WINTER_PASSIVE
+
+    async def test_restore_hibernating(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Should restore hibernating mode from previous state."""
+        from pytest_homeassistant_custom_component.common import mock_restore_cache
+
+        mock_restore_cache(
+            hass,
+            [State("select.test_pool_pool_mode", "hibernating")],
+        )
+        coordinator = await _setup_integration(hass, mock_config_entry)
+        assert coordinator.mode == PoolMode.HIBERNATING
+
+    async def test_restore_invalid_mode_uses_active(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Should fall back to ACTIVE when restored mode is invalid."""
+        from pytest_homeassistant_custom_component.common import mock_restore_cache
+
+        mock_restore_cache(
+            hass,
+            [State("select.test_pool_pool_mode", "invalid_mode")],
+        )
+        coordinator = await _setup_integration(hass, mock_config_entry)
+        assert coordinator.mode == PoolMode.ACTIVE
+
+    async def test_restore_winter_passive_pauses_scheduler(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Restoring WINTER_PASSIVE should pause the scheduler."""
+        from pytest_homeassistant_custom_component.common import mock_restore_cache
+
+        mock_restore_cache(
+            hass,
+            [State("select.test_pool_pool_mode", "winter_passive")],
+        )
+        coordinator = await _setup_integration(hass, mock_config_entry)
+        assert coordinator.scheduler is not None
+        assert coordinator.scheduler.paused is True
+
+    async def test_restore_no_previous_state_uses_active(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """No previous state should keep default ACTIVE mode."""
+        coordinator = await _setup_integration(hass, mock_config_entry)
+        assert coordinator.mode == PoolMode.ACTIVE
+
 
 class TestFiltrationDurationModeSelect:
     """Tests for the PoolmanFiltrationDurationModeSelect entity."""

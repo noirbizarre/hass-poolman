@@ -101,6 +101,7 @@ class FiltrationScheduler:
         self._hass = hass
         self._pump_entity_id = pump_entity_id
         self._enabled = False
+        self._paused = False
         self._periods: list[FiltrationPeriod] = [FiltrationPeriod()]
         self._unsub_triggers: list[CALLBACK_TYPE] = []
         self._listeners: list[EventCallback] = []
@@ -116,6 +117,17 @@ class FiltrationScheduler:
     def enabled(self) -> bool:
         """Return whether the scheduler is currently active."""
         return self._enabled
+
+    @property
+    def paused(self) -> bool:
+        """Return whether the scheduler is paused by the pool mode.
+
+        A paused scheduler keeps its enabled state but suppresses all
+        pump operations.  This is used by ``WINTER_PASSIVE`` mode to
+        prevent pump starts without changing the user's enable/disable
+        preference.
+        """
+        return self._paused
 
     @property
     def periods(self) -> list[FiltrationPeriod]:
@@ -284,10 +296,16 @@ class FiltrationScheduler:
         """Enable the filtration schedule.
 
         Sets up daily time triggers for pump start and stop for all periods.
-        If the current time falls within any active window, the pump is
-        turned on immediately.
+        If the current time falls within any active window and the scheduler
+        is not paused, the pump is turned on immediately.
         """
         self._enabled = True
+        if self._paused:
+            _LOGGER.debug(
+                "Filtration control enabled (paused, pump: %s)",
+                self._pump_entity_id,
+            )
+            return
         self._setup_triggers()
 
         if self.is_in_active_window():
@@ -309,6 +327,39 @@ class FiltrationScheduler:
         self._clear_boost()
         await self._async_stop_pump()
         _LOGGER.debug("Filtration control disabled (pump: %s)", self._pump_entity_id)
+
+    async def async_pause(self) -> None:
+        """Pause the scheduler due to pool mode (e.g. passive wintering).
+
+        Stops the pump immediately, cancels any active boost, and
+        suppresses future pump starts.  Unlike :meth:`async_disable`,
+        the scheduler remains enabled so that the user's switch
+        preference is preserved.
+        """
+        if self._paused:
+            return
+        self._paused = True
+        self._clear_boost()
+        if self._enabled:
+            self._cancel_triggers()
+        await self._async_stop_pump()
+        _LOGGER.debug("Filtration scheduler paused (pump: %s)", self._pump_entity_id)
+
+    async def async_resume(self) -> None:
+        """Resume the scheduler after a pause.
+
+        Clears the paused flag and, if the scheduler is enabled,
+        re-registers time triggers and starts the pump if the
+        current time falls within an active window.
+        """
+        if not self._paused:
+            return
+        self._paused = False
+        if self._enabled:
+            self._setup_triggers()
+            if self.is_in_active_window():
+                await self._async_start_pump()
+        _LOGGER.debug("Filtration scheduler resumed (pump: %s)", self._pump_entity_id)
 
     # ── Schedule management ─────────────────────────────────────
 
@@ -343,6 +394,9 @@ class FiltrationScheduler:
             period.duration_hours = duration_hours
 
         if not self._enabled:
+            return
+
+        if self._paused:
             return
 
         self._cancel_triggers()
@@ -392,6 +446,9 @@ class FiltrationScheduler:
         if not self._enabled:
             return
 
+        if self._paused:
+            return
+
         self._cancel_triggers()
         self._setup_triggers()
 
@@ -420,9 +477,15 @@ class FiltrationScheduler:
 
         A new boost replaces any previously active boost.
 
+        Has no effect when the scheduler is paused (e.g. passive wintering).
+
         Args:
             hours: Number of extra filtration hours (must be > 0).
         """
+        if self._paused:
+            _LOGGER.debug("Boost request ignored: scheduler is paused")
+            return
+
         if hours <= 0:
             await self.async_cancel_boost()
             return
@@ -589,7 +652,7 @@ class FiltrationScheduler:
         """
 
         async def _on_start_time(_now: datetime) -> None:
-            if self._enabled:
+            if self._enabled and not self._paused:
                 await self._async_start_pump(period_index)
 
         return _on_start_time

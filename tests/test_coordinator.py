@@ -477,3 +477,75 @@ class TestReadingSourceTracking:
 
         assert MeasureParameter.PH in coordinator.data.manual_measures
         assert coordinator.data.manual_measures[MeasureParameter.PH].value == pytest.approx(7.1)
+
+
+class TestAsyncSetMode:
+    """Tests for async_set_mode transition side effects."""
+
+    async def test_set_mode_updates_mode(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Setting mode via async_set_mode should update the mode property."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        await coordinator.async_set_mode(PoolMode.WINTER_ACTIVE)
+        assert coordinator.mode == PoolMode.WINTER_ACTIVE
+
+    async def test_entering_winter_passive_pauses_scheduler(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Entering WINTER_PASSIVE should pause the scheduler."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        assert coordinator.scheduler is not None
+        assert coordinator.scheduler.paused is False
+
+        await coordinator.async_set_mode(PoolMode.WINTER_PASSIVE)
+        assert coordinator.scheduler.paused is True
+
+    async def test_leaving_winter_passive_resumes_scheduler(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Leaving WINTER_PASSIVE should resume the scheduler."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        assert coordinator.scheduler is not None
+
+        await coordinator.async_set_mode(PoolMode.WINTER_PASSIVE)
+        assert coordinator.scheduler.paused is True
+
+        await coordinator.async_set_mode(PoolMode.ACTIVE)
+        assert coordinator.scheduler.paused is False
+
+    async def test_non_passive_to_non_passive_no_pause(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Switching between non-WINTER_PASSIVE modes should not pause."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        assert coordinator.scheduler is not None
+
+        await coordinator.async_set_mode(PoolMode.HIBERNATING)
+        assert coordinator.scheduler.paused is False
+
+        await coordinator.async_set_mode(PoolMode.WINTER_ACTIVE)
+        assert coordinator.scheduler.paused is False
+
+    async def test_winter_passive_no_scheduler(
+        self, hass: HomeAssistant, mock_config_entry_no_pump: MockConfigEntry
+    ) -> None:
+        """Entering WINTER_PASSIVE with no scheduler should not raise."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry_no_pump)
+        assert coordinator.scheduler is None
+        await coordinator.async_set_mode(PoolMode.WINTER_PASSIVE)
+        assert coordinator.mode == PoolMode.WINTER_PASSIVE
+
+    async def test_passive_to_passive_noop(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Setting WINTER_PASSIVE when already in WINTER_PASSIVE should be idempotent."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        assert coordinator.scheduler is not None
+
+        await coordinator.async_set_mode(PoolMode.WINTER_PASSIVE)
+        assert coordinator.scheduler.paused is True
+
+        # Second call should not error
+        await coordinator.async_set_mode(PoolMode.WINTER_PASSIVE)
+        assert coordinator.scheduler.paused is True

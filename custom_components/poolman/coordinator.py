@@ -150,8 +150,40 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
 
     @mode.setter
     def mode(self, value: PoolMode) -> None:
-        """Set the pool mode and trigger a refresh."""
+        """Set the pool mode.
+
+        For mode changes that require side effects (e.g. pausing the
+        scheduler), use :meth:`async_set_mode` instead.
+        """
         self._mode = value
+
+    async def async_set_mode(self, mode: PoolMode) -> None:
+        """Set the pool mode with transition side effects.
+
+        Handles scheduler pause/resume when entering or leaving
+        ``WINTER_PASSIVE`` mode.  The pump is stopped immediately
+        on entering passive wintering and resumed when leaving it.
+
+        Args:
+            mode: The new pool mode to set.
+        """
+        old_mode = self._mode
+        self._mode = mode
+
+        if (
+            mode == PoolMode.WINTER_PASSIVE
+            and old_mode != PoolMode.WINTER_PASSIVE
+            and self.scheduler is not None
+        ):
+            # Entering passive wintering: pause the scheduler
+            await self.scheduler.async_pause()
+        elif (
+            mode != PoolMode.WINTER_PASSIVE
+            and old_mode == PoolMode.WINTER_PASSIVE
+            and self.scheduler is not None
+        ):
+            # Leaving passive wintering: resume the scheduler
+            await self.scheduler.async_resume()
 
     @property
     def min_dynamic_period_duration(self) -> float:

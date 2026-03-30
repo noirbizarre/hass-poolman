@@ -195,11 +195,14 @@ class FiltrationRule(Rule):
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
     ) -> list[Recommendation]:
         """Recommend filtration duration."""
+        if mode == PoolMode.WINTER_PASSIVE:
+            return []
+
         hours = compute_filtration_duration(pool, reading, mode)
         if hours is None:
             return []
 
-        if mode in (PoolMode.WINTER_ACTIVE, PoolMode.WINTER_PASSIVE, PoolMode.HIBERNATING):
+        if mode in (PoolMode.WINTER_ACTIVE, PoolMode.HIBERNATING):
             priority = RecommendationPriority.LOW
         elif hours >= 12:
             priority = RecommendationPriority.MEDIUM

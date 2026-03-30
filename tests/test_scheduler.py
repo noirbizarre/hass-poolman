@@ -1057,3 +1057,240 @@ class TestBoostEventData:
         data = scheduler._boost_event_data()
         assert data["boost_hours"] == 4.0
         assert data["boost_end"] == end.isoformat()
+
+
+# ---------- Pause / Resume tests ----------
+
+
+class TestPauseDefaults:
+    """Tests for default pause state."""
+
+    def test_not_paused_by_default(self, scheduler: FiltrationScheduler) -> None:
+        """Scheduler should not be paused by default."""
+        assert scheduler.paused is False
+
+
+class TestPause:
+    """Tests for pausing the scheduler."""
+
+    @pytest.mark.asyncio
+    async def test_pause_sets_flag(self, scheduler: FiltrationScheduler) -> None:
+        """Pausing should set the paused flag."""
+        await scheduler.async_pause()
+        assert scheduler.paused is True
+
+    @pytest.mark.asyncio
+    async def test_pause_stops_pump(self, scheduler: FiltrationScheduler, hass: MagicMock) -> None:
+        """Pausing should immediately turn off the pump."""
+        await scheduler.async_pause()
+        hass.services.async_call.assert_called_once_with(
+            "switch", "turn_off", {"entity_id": "switch.pool_pump"}
+        )
+
+    @pytest.mark.asyncio
+    async def test_pause_clears_boost(self, scheduler: FiltrationScheduler) -> None:
+        """Pausing should cancel any active boost."""
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_boost(4.0)
+        assert scheduler.boost_active is True
+
+        await scheduler.async_pause()
+        assert scheduler.boost_active is False
+
+    @pytest.mark.asyncio
+    async def test_pause_cancels_triggers_when_enabled(
+        self, scheduler: FiltrationScheduler
+    ) -> None:
+        """Pausing an enabled scheduler should cancel time triggers."""
+        unsub1 = MagicMock()
+        unsub2 = MagicMock()
+        scheduler._enabled = True
+        scheduler._unsub_triggers = [unsub1, unsub2]
+
+        await scheduler.async_pause()
+
+        unsub1.assert_called_once()
+        unsub2.assert_called_once()
+        assert len(scheduler._unsub_triggers) == 0
+
+    @pytest.mark.asyncio
+    async def test_pause_preserves_enabled(self, scheduler: FiltrationScheduler) -> None:
+        """Pausing should not change the enabled state."""
+        with patch.object(scheduler, "_setup_triggers"):
+            await scheduler.async_enable()
+        assert scheduler.enabled is True
+
+        await scheduler.async_pause()
+        assert scheduler.enabled is True
+        assert scheduler.paused is True
+
+    @pytest.mark.asyncio
+    async def test_pause_idempotent(self, scheduler: FiltrationScheduler, hass: MagicMock) -> None:
+        """Pausing twice should be a no-op on the second call."""
+        await scheduler.async_pause()
+        hass.services.async_call.reset_mock()
+
+        await scheduler.async_pause()
+        hass.services.async_call.assert_not_called()
+
+
+class TestResume:
+    """Tests for resuming the scheduler."""
+
+    @pytest.mark.asyncio
+    async def test_resume_clears_flag(self, scheduler: FiltrationScheduler) -> None:
+        """Resuming should clear the paused flag."""
+        await scheduler.async_pause()
+        assert scheduler.paused is True
+
+        with patch.object(scheduler, "_setup_triggers"):
+            await scheduler.async_resume()
+        assert scheduler.paused is False
+
+    @pytest.mark.asyncio
+    async def test_resume_restarts_pump_in_window(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Resuming an enabled scheduler in active window should start the pump."""
+        scheduler._enabled = True
+        await scheduler.async_pause()
+        hass.services.async_call.reset_mock()
+
+        with (
+            patch.object(scheduler, "_setup_triggers"),
+            patch.object(scheduler, "is_in_active_window", return_value=True),
+        ):
+            await scheduler.async_resume()
+
+        hass.services.async_call.assert_called_once_with(
+            "switch", "turn_on", {"entity_id": "switch.pool_pump"}
+        )
+
+    @pytest.mark.asyncio
+    async def test_resume_does_not_start_pump_outside_window(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Resuming an enabled scheduler outside active window should not start pump."""
+        scheduler._enabled = True
+        await scheduler.async_pause()
+        hass.services.async_call.reset_mock()
+
+        with (
+            patch.object(scheduler, "_setup_triggers"),
+            patch.object(scheduler, "is_in_active_window", return_value=False),
+        ):
+            await scheduler.async_resume()
+
+        hass.services.async_call.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_resume_sets_up_triggers_when_enabled(
+        self, scheduler: FiltrationScheduler
+    ) -> None:
+        """Resuming an enabled scheduler should re-register time triggers."""
+        scheduler._enabled = True
+        await scheduler.async_pause()
+
+        with patch.object(scheduler, "_setup_triggers") as mock_setup:
+            await scheduler.async_resume()
+        mock_setup.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_resume_noop_when_disabled(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Resuming a disabled scheduler should not set up triggers or start pump."""
+        await scheduler.async_pause()
+        hass.services.async_call.reset_mock()
+
+        await scheduler.async_resume()
+        hass.services.async_call.assert_not_called()
+        assert scheduler.paused is False
+
+    @pytest.mark.asyncio
+    async def test_resume_idempotent(self, scheduler: FiltrationScheduler) -> None:
+        """Resuming when not paused should be a no-op."""
+        assert scheduler.paused is False
+        with patch.object(scheduler, "_setup_triggers") as mock_setup:
+            await scheduler.async_resume()
+        mock_setup.assert_not_called()
+
+
+class TestPausedBehavior:
+    """Tests for scheduler behavior while paused."""
+
+    @pytest.mark.asyncio
+    async def test_enable_while_paused_sets_enabled_but_no_pump(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Enabling while paused should set enabled flag but not start pump."""
+        await scheduler.async_pause()
+        hass.services.async_call.reset_mock()
+
+        await scheduler.async_enable()
+        assert scheduler.enabled is True
+        assert scheduler.paused is True
+        hass.services.async_call.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_start_callback_suppressed_while_paused(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Start callback should not start pump when scheduler is paused."""
+        scheduler._enabled = True
+        scheduler._paused = True
+        cb = scheduler._make_start_callback(0)
+        await cb(datetime.now())
+        hass.services.async_call.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_boost_rejected_while_paused(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Boost request should be ignored when scheduler is paused."""
+        scheduler._paused = True
+        with patch.object(scheduler, "is_in_active_window", return_value=False):
+            await scheduler.async_boost(4.0)
+        assert scheduler.boost_active is False
+        hass.services.async_call.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_update_schedule_while_paused_stores_values(
+        self, scheduler: FiltrationScheduler
+    ) -> None:
+        """Updating schedule while paused should store values but not adjust pump."""
+        scheduler._enabled = True
+        scheduler._paused = True
+        await scheduler.async_update_schedule(start_time=time(14, 0), duration_hours=6.0)
+        assert scheduler.start_time == time(14, 0)
+        assert scheduler.duration_hours == 6.0
+
+    @pytest.mark.asyncio
+    async def test_update_schedule_while_paused_does_not_touch_pump(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Updating schedule while paused should not call any services."""
+        scheduler._enabled = True
+        scheduler._paused = True
+        await scheduler.async_update_schedule(start_time=time(14, 0))
+        hass.services.async_call.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_set_split_while_paused_stores_periods(
+        self, scheduler: FiltrationScheduler
+    ) -> None:
+        """Enabling split while paused should add period but not touch pump."""
+        scheduler._enabled = True
+        scheduler._paused = True
+        await scheduler.async_set_split(enabled=True)
+        assert len(scheduler.periods) == 2
+
+    @pytest.mark.asyncio
+    async def test_set_split_while_paused_does_not_touch_pump(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Enabling split while paused should not call any services."""
+        scheduler._enabled = True
+        scheduler._paused = True
+        await scheduler.async_set_split(enabled=True)
+        hass.services.async_call.assert_not_called()
