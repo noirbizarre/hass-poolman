@@ -13,6 +13,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from . import PoolmanConfigEntry
 from .const import DEFAULT_FILTRATION_DURATION_HOURS
 from .coordinator import PoolmanCoordinator
+from .domain.model import FiltrationDurationMode
 from .entity import PoolmanEntity
 
 
@@ -32,6 +33,10 @@ class PoolmanFiltrationDuration(PoolmanEntity, NumberEntity, RestoreEntity):
 
     The value is persisted across restarts via RestoreEntity. Changes
     immediately recalculate the scheduler triggers.
+
+    In dynamic mode, the displayed value is automatically updated to
+    match the computed recommended filtration duration on each
+    coordinator refresh.
     """
 
     _attr_translation_key = "filtration_duration_setting"
@@ -73,3 +78,18 @@ class PoolmanFiltrationDuration(PoolmanEntity, NumberEntity, RestoreEntity):
         if self.coordinator.scheduler is not None:
             await self.coordinator.scheduler.async_update_schedule(duration_hours=value)
         self.async_write_ha_state()
+
+    def _handle_coordinator_update(self) -> None:
+        """Update displayed value when dynamic mode syncs the scheduler.
+
+        In dynamic mode, the coordinator auto-syncs the scheduler duration
+        from the computed recommendation. This method mirrors that value
+        into the number entity so the UI reflects the active duration.
+        """
+        if (
+            self.coordinator.filtration_duration_mode == FiltrationDurationMode.DYNAMIC
+            and self.coordinator.data is not None
+            and self.coordinator.data.filtration_hours is not None
+        ):
+            self._attr_native_value = self.coordinator.data.filtration_hours
+        super()._handle_coordinator_update()

@@ -45,6 +45,17 @@ class PoolMode(StrEnum):
     WINTER_PASSIVE = "winter_passive"
 
 
+class FiltrationDurationMode(StrEnum):
+    """Filtration duration control mode.
+
+    Determines whether the daily filtration duration is set manually
+    by the user or computed dynamically from pool conditions.
+    """
+
+    MANUAL = "manual"
+    DYNAMIC = "dynamic"
+
+
 class ChemicalProduct(StrEnum):
     """Chemical products for pool treatment."""
 

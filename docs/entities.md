@@ -112,11 +112,11 @@ See [Chemistry Tracking](chemistry-tracking.md) for the full list of products, s
 
 ## Select
 
-The integration creates 1 select entity to control the operational mode:
+The integration creates select entities to control operational settings:
 
-| Entity | Name | Options | Description |
-| --- | --- | --- | --- |
-| `select.{pool}_mode` | Pool mode | `running`, `winter_active`, `winter_passive` | Controls the current operational mode. See [Pool Modes](pool-modes.md) for details on each mode. |
+| Entity | Name | Options | Default | Description |
+| --- | --- | --- | --- | --- |
+| `select.{pool}_mode` | Pool mode | `running`, `winter_active`, `winter_passive` | `running` | Controls the current operational mode. See [Pool Modes](pool-modes.md) for details on each mode. |
 
 Changing the mode immediately triggers a data refresh and recalculation of all computed values.
 
@@ -135,6 +135,12 @@ scheduling behavior, cross-midnight support, and automation examples.
 | --- | --- | --- |
 | `switch.{pool}_filtration_control` | Filtration control | Enables or disables automatic daily pump scheduling. Turning off immediately stops the pump. |
 
+### Duration Mode Select
+
+| Entity | Name | Default | Options | Description |
+| --- | --- | --- | --- | --- |
+| `select.{pool}_filtration_duration_mode` | Filtration duration mode | Dynamic | `manual`, `dynamic` | Controls whether filtration duration is set manually or computed dynamically. See [Filtration Control -- Duration Mode](filtration-control.md#duration-mode). |
+
 ### Time
 
 | Entity | Name | Default | Description |
@@ -145,7 +151,7 @@ scheduling behavior, cross-midnight support, and automation examples.
 
 | Entity | Name | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| `number.{pool}_filtration_duration_setting` | Filtration duration | 8 h | 1--24 h (step 0.5) | Duration of each daily filtration cycle |
+| `number.{pool}_filtration_duration_setting` | Filtration duration | 8 h | 1--24 h (step 0.5) | Duration of each daily filtration cycle. In dynamic mode, this value is automatically updated to match the recommendation. |
 
 ### Event
 
