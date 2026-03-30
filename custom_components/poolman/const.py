@@ -113,6 +113,26 @@ DEFAULT_FILTRATION_START_TIME_2: Final = time(16, 0)
 DEFAULT_FILTRATION_DURATION_HOURS_2: Final = 4.0
 DEFAULT_MIN_DYNAMIC_DURATION_HOURS: Final = 0.0
 
+# Wizard subentry types
+SUBENTRY_HIBERNATION: Final = "hibernation"
+SUBENTRY_ACTIVATION: Final = "activation"
+
+# Wizard subentry data keys
+CONF_TARGET_MODE: Final = "target_mode"
+CONF_STARTED_AT: Final = "started_at"
+CONF_COMPLETED_AT: Final = "completed_at"
+CONF_STEPS: Final = "steps"
+
+# Hibernation wizard
+HIBERNATION_TARGET_MODES: Final = [MODE_WINTER_PASSIVE, MODE_WINTER_ACTIVE]
+
+# Activation wizard: modes from which activation can be started
+ACTIVATION_SOURCE_MODES: Final = [
+    MODE_HIBERNATING,
+    MODE_WINTER_ACTIVE,
+    MODE_WINTER_PASSIVE,
+]
+
 # Service names
 SERVICE_ADD_TREATMENT: Final = "add_treatment"
 SERVICE_RECORD_MEASURE: Final = "record_measure"

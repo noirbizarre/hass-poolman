@@ -60,6 +60,73 @@
       "already_configured": "L'appareil est d\u00e9j\u00e0 configur\u00e9"
     }
   },
+  "config_subentries": {
+    "hibernation": {
+      "entry_type": "Hivernage",
+      "initiate_flow": {
+        "user": "D\u00e9marrer l'hivernage",
+        "reconfigure": "Terminer l'hivernage"
+      },
+      "abort": {
+        "already_wintering": "La piscine est d\u00e9j\u00e0 en mode hivernage ou mise en hivernage. Repassez en mode actif avant de lancer un nouvel hivernage.",
+        "hibernation_in_progress": "Un processus d'hivernage est d\u00e9j\u00e0 en cours. Terminez-le ou supprimez-le avant d'en lancer un nouveau.",
+        "already_completed": "Cet hivernage est d\u00e9j\u00e0 termin\u00e9.",
+        "reconfigure_successful": "Hivernage termin\u00e9 avec succ\u00e8s."
+      },
+      "error": {
+        "must_confirm": "Vous devez confirmer que toutes les actions ont \u00e9t\u00e9 effectu\u00e9es."
+      },
+      "step": {
+        "user": {
+          "title": "D\u00e9marrer l'hivernage",
+          "description": "Choisissez le type d'hivernage pour votre piscine.\n\n**Hivernage passif** : la piscine est compl\u00e8tement arr\u00eat\u00e9e. Pas de filtration ni de surveillance de la chimie.\n\n**Hivernage actif** : fonctionnement r\u00e9duit. La filtration tourne 4 heures par jour et les r\u00e8gles de chimie restent actives.",
+          "data": {
+            "target_mode": "Type d'hivernage"
+          },
+          "data_description": {
+            "target_mode": "Le mode d'hivernage cible une fois le processus de mise en hivernage termin\u00e9."
+          }
+        },
+        "reconfigure": {
+          "title": "Terminer l'hivernage",
+          "description": "Avant de finaliser l'hivernage, assurez-vous d'avoir effectu\u00e9 les actions suivantes :\n\n- Baisser le niveau d'eau sous les skimmers\n- Nettoyer le filtre, les skimmers et les paniers\n- Ajouter le produit d'hivernage\n- Couvrir la piscine avec une b\u00e2che d'hivernage\n\nUne fois toutes les actions effectu\u00e9es, confirmez ci-dessous pour finaliser l'hivernage.",
+          "data": {
+            "confirm": "J'ai effectu\u00e9 toutes les actions d'hivernage"
+          }
+        }
+      }
+    },
+    "activation": {
+      "entry_type": "Remise en route",
+      "initiate_flow": {
+        "user": "Démarrer la remise en route",
+        "reconfigure": "Voir la progression de la remise en route"
+      },
+      "abort": {
+        "not_wintering": "La piscine doit être en mode hivernage ou mise en hivernage pour démarrer la remise en route.",
+        "activation_in_progress": "Un processus de remise en route est déjà en cours. Terminez-le ou supprimez-le avant d'en lancer un nouveau.",
+        "already_completed": "Cette remise en route est déjà terminée.",
+        "activation_incomplete": "La remise en route est toujours en cours. Confirmez les étapes restantes via le service confirm_activation_step ou attendez la détection automatique.",
+        "reconfigure_successful": "Remise en route terminée avec succès."
+      },
+      "error": {
+        "must_confirm": "Vous devez confirmer pour démarrer le processus de remise en route."
+      },
+      "step": {
+        "user": {
+          "title": "Démarrer la remise en route",
+          "description": "Démarrez le processus de remise en route pour sortir votre piscine du mode hivernage.\n\nLes étapes suivantes devront être complétées :\n\n1. **Retirer la couverture** - Retirer la bâche d'hivernage de la piscine\n2. **Remonter le niveau d'eau** - Rétablir le niveau d'eau au-dessus des skimmers\n3. **Nettoyer la piscine et le filtre** - Nettoyer la piscine, le filtre, les skimmers et les paniers\n4. **Traitement choc** - Appliquer un traitement choc (détecté automatiquement à l'enregistrement)\n5. **Filtration intensive** - Effectuer un cycle de filtration intensive (détecté automatiquement à la fin)\n\nConfirmez ci-dessous pour démarrer le processus de remise en route.",
+          "data": {
+            "confirm": "Je souhaite démarrer le processus de remise en route"
+          }
+        },
+        "reconfigure": {
+          "title": "Progression de la remise en route",
+          "description": "Toutes les étapes de remise en route ont été complétées. Confirmez pour finaliser la remise en route et passer la piscine en mode actif."
+        }
+      }
+    }
+  },
   "options": {
     "step": {
       "init": {
@@ -568,6 +635,12 @@
         "clean_pool_and_filter": "Nettoyer la piscine et le filtre",
         "shock_treatment": "Traitement choc",
         "intensive_filtration": "Filtration intensive"
+      }
+    },
+    "hibernation_target_mode": {
+      "options": {
+        "winter_passive": "Hivernage passif",
+        "winter_active": "Hivernage actif"
       }
     }
   },

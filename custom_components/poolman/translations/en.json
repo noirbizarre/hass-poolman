@@ -60,6 +60,73 @@
       "already_configured": "Device is already configured"
     }
   },
+  "config_subentries": {
+    "hibernation": {
+      "entry_type": "Hibernation",
+      "initiate_flow": {
+        "user": "Start hibernation",
+        "reconfigure": "Complete hibernation"
+      },
+      "abort": {
+        "already_wintering": "The pool is already in a winter or hibernating mode. Switch back to active mode before starting a new hibernation.",
+        "hibernation_in_progress": "A hibernation process is already in progress. Complete or remove it before starting a new one.",
+        "already_completed": "This hibernation has already been completed.",
+        "reconfigure_successful": "Hibernation completed successfully."
+      },
+      "error": {
+        "must_confirm": "You must confirm that all actions have been completed."
+      },
+      "step": {
+        "user": {
+          "title": "Start hibernation",
+          "description": "Choose the type of wintering for your pool.\n\n**Passive wintering**: the pool is completely shut down. No filtration or chemistry monitoring.\n\n**Active wintering**: reduced operation. Filtration runs 4 hours daily and chemistry rules remain active.",
+          "data": {
+            "target_mode": "Wintering type"
+          },
+          "data_description": {
+            "target_mode": "The target wintering mode once the hibernation process is complete."
+          }
+        },
+        "reconfigure": {
+          "title": "Complete hibernation",
+          "description": "Before completing the hibernation, ensure you have performed the following actions:\n\n- Lower the water level below the skimmers\n- Clean the filter, skimmers, and baskets\n- Add winterizing product\n- Cover the pool with a winter cover\n\nOnce all actions are completed, confirm below to finalize the hibernation.",
+          "data": {
+            "confirm": "I have completed all winterizing actions"
+          }
+        }
+      }
+    },
+    "activation": {
+      "entry_type": "Activation",
+      "initiate_flow": {
+        "user": "Start activation",
+        "reconfigure": "View activation progress"
+      },
+      "abort": {
+        "not_wintering": "The pool must be in a winter or hibernating mode to start activation.",
+        "activation_in_progress": "An activation process is already in progress. Complete or remove it before starting a new one.",
+        "already_completed": "This activation has already been completed.",
+        "activation_incomplete": "The activation is still in progress. Confirm remaining steps using the confirm_activation_step service or wait for auto-detection.",
+        "reconfigure_successful": "Activation completed successfully."
+      },
+      "error": {
+        "must_confirm": "You must confirm to start the activation process."
+      },
+      "step": {
+        "user": {
+          "title": "Start activation",
+          "description": "Start the pool activation process to bring your pool out of winter mode.\n\nThe following steps will need to be completed:\n\n1. **Remove cover** - Remove the winter cover from the pool\n2. **Raise water level** - Restore the water level above the skimmers\n3. **Clean pool and filter** - Clean the pool, filter, skimmers, and baskets\n4. **Shock treatment** - Apply a shock treatment (auto-detected when recorded)\n5. **Intensive filtration** - Run an intensive filtration cycle (auto-detected when completed)\n\nConfirm below to start the activation process.",
+          "data": {
+            "confirm": "I want to start the activation process"
+          }
+        },
+        "reconfigure": {
+          "title": "Activation progress",
+          "description": "All activation steps have been completed. Confirm to finalize the activation and switch the pool to active mode."
+        }
+      }
+    }
+  },
   "options": {
     "step": {
       "init": {
@@ -568,6 +635,12 @@
         "clean_pool_and_filter": "Clean pool and filter",
         "shock_treatment": "Shock treatment",
         "intensive_filtration": "Intensive filtration"
+      }
+    },
+    "hibernation_target_mode": {
+      "options": {
+        "winter_passive": "Passive wintering",
+        "winter_active": "Active wintering"
       }
     }
   },

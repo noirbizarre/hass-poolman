@@ -13,16 +13,15 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN, UnitOfTemperature, UnitOfTime
+from homeassistant.const import UnitOfTemperature, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.typing import StateType
 
 from . import PoolmanConfigEntry
 from .coordinator import PoolmanCoordinator
-from .domain.activation import ActivationChecklist, ActivationStep
-from .domain.model import ActionKind, ChemistryStatus, ParameterReport, PoolMode, PoolState
+from .domain.activation import ActivationStep
+from .domain.model import ActionKind, ChemistryStatus, ParameterReport, PoolState
 from .entity import PoolmanEntity
 
 
@@ -315,12 +314,13 @@ class PoolmanSensor(PoolmanEntity, SensorEntity):
         return None
 
 
-class PoolmanActivationStepSensor(PoolmanEntity, SensorEntity, RestoreEntity):
+class PoolmanActivationStepSensor(PoolmanEntity, SensorEntity):
     """Sensor showing the current activation wizard step.
 
     Displays the next pending activation step or None when the pool is
-    not in activating mode. Persists the activation checklist state
-    across HA restarts via RestoreEntity.
+    not in activating mode. State persistence is handled by the
+    activation subentry; the coordinator restores the checklist on
+    startup from subentry data.
     """
 
     _attr_translation_key = "activation_step"
@@ -343,7 +343,7 @@ class PoolmanActivationStepSensor(PoolmanEntity, SensorEntity, RestoreEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return activation progress details for persistence and display.
+        """Return activation progress details for display.
 
         Returns:
             Dictionary with completed_steps, pending_steps, progress,
@@ -359,40 +359,3 @@ class PoolmanActivationStepSensor(PoolmanEntity, SensorEntity, RestoreEntity):
             "progress": f"{completed}/{total}",
             "started_at": activation.started_at.isoformat(),
         }
-
-    async def async_added_to_hass(self) -> None:
-        """Restore activation checklist from persisted state after HA restart."""
-        await super().async_added_to_hass()
-        if self.coordinator.mode != PoolMode.ACTIVATING:
-            return
-
-        last_state = await self.async_get_last_state()
-        if last_state is None or last_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-            return
-
-        # Restore the activation checklist from persisted attributes
-        attrs = last_state.attributes
-        completed_steps_raw = attrs.get("completed_steps", [])
-        started_at_raw = attrs.get("started_at")
-
-        if started_at_raw is None:
-            return
-
-        try:
-            started_at = datetime.fromisoformat(started_at_raw)
-        except (ValueError, TypeError):
-            return
-
-        # Rebuild the checklist with restored completion status
-        steps = dict.fromkeys(ActivationStep, False)
-        for step_value in completed_steps_raw:
-            try:
-                step = ActivationStep(step_value)
-                steps[step] = True
-            except ValueError:
-                continue
-
-        self.coordinator.activation = ActivationChecklist(
-            started_at=started_at,
-            steps=steps,
-        )

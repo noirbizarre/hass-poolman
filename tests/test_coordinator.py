@@ -8,15 +8,20 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.poolman.const import (
+    CONF_COMPLETED_AT,
     CONF_CYA_ENTITY,
     CONF_HARDNESS_ENTITY,
     CONF_OUTDOOR_TEMPERATURE_ENTITY,
+    CONF_STARTED_AT,
+    CONF_STEPS,
     CONF_TAC_ENTITY,
     CONF_WEATHER_ENTITY,
     DOMAIN,
     EVENT_POOLMAN,
+    SUBENTRY_ACTIVATION,
 )
 from custom_components.poolman.coordinator import PoolmanCoordinator
+from custom_components.poolman.domain.activation import ActivationStep
 from custom_components.poolman.domain.model import ChemicalProduct, MeasureParameter, PoolMode
 from tests.conftest import MOCK_CONFIG_DATA, setup_mock_states
 
@@ -818,3 +823,254 @@ class TestAsyncSetMode:
         # Second call should not error
         await coordinator.async_set_mode(PoolMode.WINTER_PASSIVE)
         assert coordinator.scheduler.paused is True
+
+
+class TestActivationSubentryPersistence:
+    """Tests for activation step persistence to subentry data."""
+
+    async def test_confirm_step_persists_to_subentry(
+        self,
+        hass: HomeAssistant,
+    ) -> None:
+        """Confirming a step should update the subentry data."""
+        steps = {step.value: False for step in ActivationStep}
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Test Pool",
+            data=MOCK_CONFIG_DATA.copy(),
+            version=1,
+            minor_version=3,
+            subentries_data=[
+                {
+                    "data": {
+                        CONF_STARTED_AT: "2025-04-01T10:00:00+00:00",
+                        CONF_COMPLETED_AT: None,
+                        CONF_STEPS: steps,
+                    },
+                    "subentry_type": SUBENTRY_ACTIVATION,
+                    "title": "Activation",
+                    "unique_id": None,
+                    "subentry_id": "act_sub_id",
+                },
+            ],
+        )
+        coordinator = await _setup_coordinator(hass, entry)
+        assert coordinator.mode == PoolMode.ACTIVATING
+
+        await coordinator.async_confirm_activation_step(ActivationStep.REMOVE_COVER)
+        await hass.async_block_till_done()
+
+        subentry = entry.subentries["act_sub_id"]
+        assert subentry.data[CONF_STEPS]["remove_cover"] is True
+        assert subentry.data[CONF_COMPLETED_AT] is None
+
+    async def test_confirm_all_steps_persists_completion(
+        self,
+        hass: HomeAssistant,
+    ) -> None:
+        """Confirming all steps should set completed_at and update title."""
+        steps = {step.value: False for step in ActivationStep}
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Test Pool",
+            data=MOCK_CONFIG_DATA.copy(),
+            version=1,
+            minor_version=3,
+            subentries_data=[
+                {
+                    "data": {
+                        CONF_STARTED_AT: "2025-04-01T10:00:00+00:00",
+                        CONF_COMPLETED_AT: None,
+                        CONF_STEPS: steps,
+                    },
+                    "subentry_type": SUBENTRY_ACTIVATION,
+                    "title": "Activation",
+                    "unique_id": None,
+                    "subentry_id": "act_sub_id",
+                },
+            ],
+        )
+        coordinator = await _setup_coordinator(hass, entry)
+
+        for step in ActivationStep:
+            await coordinator.async_confirm_activation_step(step)
+            await hass.async_block_till_done()
+
+        subentry = entry.subentries["act_sub_id"]
+        assert subentry.data[CONF_COMPLETED_AT] is not None
+        assert all(subentry.data[CONF_STEPS].values())
+        assert "completed" in subentry.title.lower()
+        assert coordinator.mode == PoolMode.ACTIVE
+
+    async def test_shock_auto_confirm_persists_to_subentry(
+        self,
+        hass: HomeAssistant,
+    ) -> None:
+        """Auto-confirming shock_treatment via add_treatment should persist to subentry."""
+        steps = {step.value: False for step in ActivationStep}
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Test Pool",
+            data=MOCK_CONFIG_DATA.copy(),
+            version=1,
+            minor_version=3,
+            subentries_data=[
+                {
+                    "data": {
+                        CONF_STARTED_AT: "2025-04-01T10:00:00+00:00",
+                        CONF_COMPLETED_AT: None,
+                        CONF_STEPS: steps,
+                    },
+                    "subentry_type": SUBENTRY_ACTIVATION,
+                    "title": "Activation",
+                    "unique_id": None,
+                    "subentry_id": "act_sub_id",
+                },
+            ],
+        )
+        coordinator = await _setup_coordinator(hass, entry)
+        assert coordinator.mode == PoolMode.ACTIVATING
+
+        await coordinator.async_add_treatment(ChemicalProduct.CHLORE_CHOC, 200.0)
+        await hass.async_block_till_done()
+
+        subentry = entry.subentries["act_sub_id"]
+        assert subentry.data[CONF_STEPS]["shock_treatment"] is True
+
+    async def test_filtration_auto_confirm_persists_to_subentry(
+        self,
+        hass: HomeAssistant,
+    ) -> None:
+        """Auto-confirming intensive_filtration via scheduler should persist to subentry."""
+        from custom_components.poolman.const import EVENT_FILTRATION_STOPPED
+
+        steps = {step.value: False for step in ActivationStep}
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Test Pool",
+            data=MOCK_CONFIG_DATA.copy(),
+            version=1,
+            minor_version=3,
+            subentries_data=[
+                {
+                    "data": {
+                        CONF_STARTED_AT: "2025-04-01T10:00:00+00:00",
+                        CONF_COMPLETED_AT: None,
+                        CONF_STEPS: steps,
+                    },
+                    "subentry_type": SUBENTRY_ACTIVATION,
+                    "title": "Activation",
+                    "unique_id": None,
+                    "subentry_id": "act_sub_id",
+                },
+            ],
+        )
+        coordinator = await _setup_coordinator(hass, entry)
+        assert coordinator.mode == PoolMode.ACTIVATING
+
+        coordinator._on_scheduler_event(EVENT_FILTRATION_STOPPED, {})
+        await hass.async_block_till_done()
+
+        subentry = entry.subentries["act_sub_id"]
+        assert subentry.data[CONF_STEPS]["intensive_filtration"] is True
+
+    async def test_no_subentry_does_not_crash(
+        self,
+        hass: HomeAssistant,
+        mock_config_entry: MockConfigEntry,
+    ) -> None:
+        """Confirming a step without an activation subentry should not crash."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.ACTIVATING
+
+        # No subentry exists, but in-memory checklist does
+        await coordinator.async_confirm_activation_step(ActivationStep.REMOVE_COVER)
+        await hass.async_block_till_done()
+
+        # Should not crash; in-memory state is updated
+        assert coordinator.activation is not None
+        assert ActivationStep.REMOVE_COVER in coordinator.activation.completed_steps
+
+    async def test_shock_auto_complete_persists_completion(
+        self,
+        hass: HomeAssistant,
+    ) -> None:
+        """When shock is the last step, auto-confirm should persist completion to subentry."""
+        # Pre-complete all steps except shock_treatment
+        steps = {step.value: True for step in ActivationStep}
+        steps["shock_treatment"] = False
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Test Pool",
+            data=MOCK_CONFIG_DATA.copy(),
+            version=1,
+            minor_version=3,
+            subentries_data=[
+                {
+                    "data": {
+                        CONF_STARTED_AT: "2025-04-01T10:00:00+00:00",
+                        CONF_COMPLETED_AT: None,
+                        CONF_STEPS: steps,
+                    },
+                    "subentry_type": SUBENTRY_ACTIVATION,
+                    "title": "Activation",
+                    "unique_id": None,
+                    "subentry_id": "act_sub_id",
+                },
+            ],
+        )
+        coordinator = await _setup_coordinator(hass, entry)
+        assert coordinator.mode == PoolMode.ACTIVATING
+
+        # Confirm all steps except shock via confirm_activation_step
+        # (shock will be the only pending step since we restored from subentry)
+        await coordinator.async_add_treatment(ChemicalProduct.CHLORE_CHOC, 200.0)
+        await hass.async_block_till_done()
+
+        subentry = entry.subentries["act_sub_id"]
+        assert subentry.data[CONF_COMPLETED_AT] is not None
+        assert all(subentry.data[CONF_STEPS].values())
+        assert "completed" in subentry.title.lower()
+        assert coordinator.mode == PoolMode.ACTIVE
+
+    async def test_filtration_auto_complete_persists_completion(
+        self,
+        hass: HomeAssistant,
+    ) -> None:
+        """When filtration is the last step, auto-confirm should persist completion."""
+        from custom_components.poolman.const import EVENT_FILTRATION_STOPPED
+
+        # Pre-complete all steps except intensive_filtration
+        steps = {step.value: True for step in ActivationStep}
+        steps["intensive_filtration"] = False
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Test Pool",
+            data=MOCK_CONFIG_DATA.copy(),
+            version=1,
+            minor_version=3,
+            subentries_data=[
+                {
+                    "data": {
+                        CONF_STARTED_AT: "2025-04-01T10:00:00+00:00",
+                        CONF_COMPLETED_AT: None,
+                        CONF_STEPS: steps,
+                    },
+                    "subentry_type": SUBENTRY_ACTIVATION,
+                    "title": "Activation",
+                    "unique_id": None,
+                    "subentry_id": "act_sub_id",
+                },
+            ],
+        )
+        coordinator = await _setup_coordinator(hass, entry)
+        assert coordinator.mode == PoolMode.ACTIVATING
+
+        coordinator._on_scheduler_event(EVENT_FILTRATION_STOPPED, {})
+        await hass.async_block_till_done()
+
+        subentry = entry.subentries["act_sub_id"]
+        assert subentry.data[CONF_COMPLETED_AT] is not None
+        assert all(subentry.data[CONF_STEPS].values())
+        assert "completed" in subentry.title.lower()
+        assert coordinator.mode == PoolMode.ACTIVE

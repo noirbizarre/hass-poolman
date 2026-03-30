@@ -162,6 +162,47 @@ during this phase include:
 - Adding winterizing product
 - Covering the pool
 
+### Hibernation wizard
+
+Pool Manager provides a guided **Hibernation wizard** to walk you through
+the winterizing process in two sessions:
+
+#### Session 1 — Start hibernation
+
+1. Open the config entry and select **Start hibernation** from the
+   subentry actions.
+2. Choose your target wintering mode:
+   - **Passive wintering** — full shutdown, no filtration or monitoring.
+   - **Active wintering** — reduced operation with 4 hours daily
+     filtration and active chemistry rules.
+3. The wizard creates a hibernation subentry and immediately sets the pool
+   mode to **Hibernating**.
+
+#### Session 2 — Complete hibernation
+
+1. Once you have performed all winterizing tasks, open the hibernation
+   subentry and select **Complete hibernation** (reconfigure).
+2. Review the checklist of recommended actions and confirm completion.
+3. The pool transitions to your chosen winter mode and the subentry is
+   marked as completed with a timestamp.
+
+The completed subentry remains as a record of when the pool was winterized.
+
+!!! tip
+
+    You can also switch to **Hibernating** mode directly via the
+    `select.{pool}_mode` entity without using the wizard. The wizard
+    simply provides a structured, two-session workflow.
+
+!!! note
+
+    The wizard prevents starting a new hibernation if the pool is already
+    in Hibernating, Active Wintering, or Passive Wintering mode, or if an
+    uncompleted hibernation subentry already exists.
+
+    On Home Assistant restart, the pool mode is automatically restored to
+    **Hibernating** if an uncompleted hibernation subentry is found.
+
 ### Hibernating filtration
 
 Fixed at **4 hours** per day, regardless of water temperature. This keeps
@@ -241,10 +282,35 @@ not yet ready for swimming and typically requires:
 
 ### Activation Wizard
 
-When the pool mode is set to **Activating**, an activation wizard guides you
-through the five steps needed to bring the pool back to full operation.
-Progress is tracked via the `sensor.{pool}_activation_step` entity, which
-shows the current (next pending) step.
+Pool Manager provides a guided **Activation wizard** to walk you through
+the activation process. Like the hibernation wizard, it uses a two-session
+subentry flow.
+
+#### Session 1 — Start activation
+
+1. Open the config entry and select **Start activation** from the
+   subentry actions.
+2. The pool must be in **Hibernating**, **Active Wintering**, or
+   **Passive Wintering** mode.
+3. Review the list of required steps and confirm to start.
+4. The wizard creates an activation subentry and immediately sets the pool
+   mode to **Activating**.
+
+#### Session 2 — Complete activation
+
+Once all five steps have been confirmed (via the service or auto-detection),
+open the activation subentry and select **View activation progress**
+(reconfigure). If all steps are done, confirm to finalize.
+
+The pool transitions to **Active** mode and the subentry is marked as
+completed with a timestamp.
+
+!!! tip
+
+    Steps can also be completed automatically without using the
+    reconfigure flow. When the last step is confirmed via the service
+    or auto-detection, the pool transitions to Active mode and the
+    subentry is marked as completed automatically.
 
 #### Wizard steps
 
@@ -269,6 +335,9 @@ auto-detectable steps are confirmed automatically:
 When all five steps are confirmed, the pool mode automatically switches
 to **Active** and the activation checklist is cleared.
 
+Progress is tracked via the `sensor.{pool}_activation_step` entity, which
+shows the current (next pending) step.
+
 #### Confirming steps manually
 
 Use the `poolman.confirm_activation_step` service:
@@ -285,10 +354,21 @@ Valid step values: `remove_cover`, `raise_water_level`,
 
 #### Persistence
 
-The activation checklist persists across Home Assistant restarts. When
-HA restarts while the pool is in activating mode, already-confirmed
-steps are restored from the `activation_step` sensor's persisted state
-attributes.
+The activation state is persisted in the activation subentry data. On
+Home Assistant restart, the pool mode is automatically restored to
+**Activating** if an uncompleted activation subentry is found. The
+checklist step state is rebuilt from the persisted subentry data, so
+already-confirmed steps are preserved across restarts.
+
+!!! note
+
+    The wizard prevents starting a new activation if the pool is not
+    in a winter or hibernating mode, or if an uncompleted activation
+    subentry already exists.
+
+    You can also switch to **Activating** mode directly via the
+    `select.{pool}_mode` entity without using the wizard. The wizard
+    provides a structured workflow with persistent step tracking.
 
 ### Activating filtration
 
