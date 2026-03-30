@@ -2,7 +2,7 @@ services:
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant:stable
     volumes:
-      - ha-config:/config
+      - /config
       - ./custom_components/poolman:/config/custom_components/poolman:ro
       - ./demo/fake_pool_sensor:/config/custom_components/fake_pool_sensor:ro
     ports:
@@ -24,6 +24,3 @@ services:
     depends_on:
       homeassistant:
         condition: service_healthy
-
-volumes:
-  ha-config:
