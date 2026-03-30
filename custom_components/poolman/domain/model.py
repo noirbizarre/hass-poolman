@@ -287,6 +287,7 @@ class PoolState(BaseModel):
     safe_at: datetime | None = None
     manual_measures: dict[MeasureParameter, ManualMeasure] = Field(default_factory=dict)
     reading_sources: dict[str, str] = Field(default_factory=dict)
+    boost_remaining: float = Field(0.0, ge=0, description="Remaining boost filtration hours")
 
     @property
     def water_ok(self) -> bool:

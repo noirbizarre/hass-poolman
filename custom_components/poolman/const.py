@@ -83,6 +83,15 @@ FILTRATION_DURATION_MODES: Final = [
 EVENT_FILTRATION_STARTED: Final = "filtration_started"
 EVENT_FILTRATION_STOPPED: Final = "filtration_stopped"
 
+# Boost event types
+EVENT_BOOST_STARTED: Final = "boost_started"
+EVENT_BOOST_CONSUMED: Final = "boost_consumed"
+EVENT_BOOST_CANCELLED: Final = "boost_cancelled"
+
+# Boost presets (hours) exposed by the select entity
+BOOST_PRESET_NONE: Final = "none"
+BOOST_PRESETS: Final = [BOOST_PRESET_NONE, "2", "4", "8", "24"]
+
 # Default values
 DEFAULT_VOLUME_M3: Final = 50.0
 DEFAULT_TREATMENT: Final = TREATMENT_CHLORINE
@@ -99,3 +108,4 @@ DEFAULT_MIN_DYNAMIC_DURATION_HOURS: Final = 0.0
 # Service names
 SERVICE_ADD_TREATMENT: Final = "add_treatment"
 SERVICE_RECORD_MEASURE: Final = "record_measure"
+SERVICE_BOOST_FILTRATION: Final = "boost_filtration"

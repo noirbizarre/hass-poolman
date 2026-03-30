@@ -269,3 +269,118 @@ turns the pump on and off.
 - In **split (dynamic) mode**, the recommendation drives the second
   period's duration: the remaining hours after subtracting period 1's
   duration are assigned to period 2.
+
+## Filtration Boost
+
+The **filtration boost** lets you manually trigger extra continuous
+filtration time on top of the daily schedule. This is useful when you
+need additional circulation -- for example, after adding chemicals, after
+a pool party, or during a heat wave.
+
+### How it works
+
+- **Inside a scheduled window**: the boost extends the pump run past
+  the next natural stop. The pump continues running without
+  interruption until the boost expires.
+- **Outside a scheduled window**: the pump starts **immediately** and
+  runs for the boost duration.
+- **Split mode**: while a boost is active the pump does **not** stop
+  between periods. The boost keeps the pump running continuously until
+  it expires.
+- A new boost **replaces** any previously active boost.
+
+### Boost entities
+
+| Entity | Name | Type | Options | Description |
+| --- | --- | --- | --- | --- |
+| `select.{pool}_filtration_boost` | Filtration boost | Select | `none`, `+2h`, `+4h`, `+8h`, `+24h` | Activate a preset boost duration or cancel the current boost |
+| `sensor.{pool}_filtration_boost_remaining` | Filtration boost remaining | Sensor (hours) | -- | Remaining boost hours (0 when no boost is active) |
+
+The filtration event entity (`event.{pool}_filtration`) also fires boost
+events:
+
+| Event type | Description |
+| --- | --- |
+| `boost_started` | A boost has been activated |
+| `boost_consumed` | The boost has expired naturally |
+| `boost_cancelled` | The boost was cancelled by the user |
+
+Boost events include the following attributes:
+
+| Attribute | Type | Example | Description |
+| --- | --- | --- | --- |
+| `boost_hours` | float | `4.0` | Requested boost duration in hours |
+| `boost_end` | string (ISO datetime) | `"2025-07-15T22:00:00"` | When the boost expires (only present once consumption has started) |
+
+### Service
+
+You can also activate a boost with a custom duration using the
+`poolman.boost_filtration` service:
+
+```yaml
+service: poolman.boost_filtration
+data:
+  device_id: "your_pool_device_id"
+  hours: 6.0
+```
+
+Set `hours` to `0` to cancel an active boost.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `device_id` | string | yes | The pool device to boost |
+| `hours` | float | yes | Extra filtration hours (0 to cancel, max 48) |
+
+### Persistence
+
+The boost end time is persisted via the select entity's extra state
+attributes. After a Home Assistant restart, the integration restores
+any active boost and resumes the countdown. If the boost has already
+expired during the downtime, it is silently discarded.
+
+### Cancellation
+
+A boost can be cancelled by:
+
+- Selecting **None** in the boost select entity
+- Calling `poolman.boost_filtration` with `hours: 0`
+- Disabling the filtration control switch (which also stops the pump)
+
+If the pump was only running because of the boost (outside the normal
+schedule), it is turned off upon cancellation.
+
+### Automation examples
+
+#### Boost filtration after a treatment
+
+```yaml
+automation:
+  - alias: "Boost after shock chlorine"
+    trigger:
+      - platform: state
+        entity_id: event.demo_pool_chlore_choc
+        attribute: event_type
+        to: "applied"
+    action:
+      - action: poolman.boost_filtration
+        data:
+          device_id: "your_pool_device_id"
+          hours: 8.0
+```
+
+#### Notify when boost expires
+
+```yaml
+automation:
+  - alias: "Notify boost consumed"
+    trigger:
+      - platform: state
+        entity_id: event.demo_pool_filtration
+        attribute: event_type
+        to: "boost_consumed"
+    action:
+      - action: notify.notify
+        data:
+          title: "Pool"
+          message: "Filtration boost has finished"
+```

@@ -87,3 +87,26 @@ record_measure:
       description: Optional notes about the measurement.
       selector:
         text:
+
+boost_filtration:
+  name: Boost filtration
+  description: Activate a manual filtration boost for extra continuous pump time.
+  fields:
+    device_id:
+      name: Pool device
+      description: The pool to boost filtration for.
+      required: true
+      selector:
+        device:
+          integration: poolman
+    hours:
+      name: Duration (hours)
+      description: Number of extra filtration hours to add. Set to 0 to cancel an active boost.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 48
+          step: 0.5
+          unit_of_measurement: h
+          mode: box

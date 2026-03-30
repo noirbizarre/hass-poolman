@@ -255,6 +255,18 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
     ),
 )
 
+FILTRATION_SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
+    PoolmanSensorEntityDescription(
+        key="filtration_boost_remaining",
+        translation_key="filtration_boost_remaining",
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        icon="mdi:pump",
+        value_fn=lambda state: state.boost_remaining,
+    ),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -263,9 +275,10 @@ async def async_setup_entry(
 ) -> None:
     """Set up Pool Manager sensors."""
     coordinator: PoolmanCoordinator = entry.runtime_data
-    async_add_entities(
-        PoolmanSensor(coordinator, description) for description in SENSOR_DESCRIPTIONS
-    )
+    descriptions = list(SENSOR_DESCRIPTIONS)
+    if coordinator.scheduler is not None:
+        descriptions.extend(FILTRATION_SENSOR_DESCRIPTIONS)
+    async_add_entities(PoolmanSensor(coordinator, description) for description in descriptions)
 
 
 class PoolmanSensor(PoolmanEntity, SensorEntity):

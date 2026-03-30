@@ -175,6 +175,27 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         if self.scheduler is not None:
             self.hass.async_create_task(self.scheduler.async_set_split(value.is_split))
 
+    async def async_boost_filtration(self, hours: float) -> None:
+        """Activate a filtration boost for the given number of extra hours.
+
+        Delegates to the scheduler.  Has no effect if no pump is configured.
+
+        Args:
+            hours: Extra filtration hours to add.
+        """
+        if self.scheduler is not None:
+            await self.scheduler.async_boost(hours)
+            await self.async_request_refresh()
+
+    async def async_cancel_boost(self) -> None:
+        """Cancel any active filtration boost.
+
+        Delegates to the scheduler.  Has no effect if no pump is configured.
+        """
+        if self.scheduler is not None:
+            await self.scheduler.async_cancel_boost()
+            await self.async_request_refresh()
+
     def register_treatment_entity(
         self,
         product: ChemicalProduct,
@@ -511,6 +532,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             safe_at=safe_at,
             manual_measures=manual_measures,
             reading_sources=reading_sources,
+            boost_remaining=(self.scheduler.boost_remaining if self.scheduler is not None else 0.0),
         )
 
         self._fire_status_change_events(new_state)

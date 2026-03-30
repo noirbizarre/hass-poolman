@@ -170,6 +170,9 @@
       },
       "safe_at": {
         "name": "Baignade sûre à"
+      },
+      "filtration_boost_remaining": {
+        "name": "Boost de filtration restant"
       }
     },
     "binary_sensor": {
@@ -370,7 +373,10 @@
           "event_type": {
             "state": {
               "filtration_started": "Filtration démarrée",
-              "filtration_stopped": "Filtration arrêtée"
+              "filtration_stopped": "Filtration arrêtée",
+              "boost_started": "Boost démarré",
+              "boost_consumed": "Boost consommé",
+              "boost_cancelled": "Boost annulé"
             }
           }
         }
@@ -452,6 +458,16 @@
           "dynamic": "Dynamique",
           "split_static": "Répartie (statique)",
           "split_dynamic": "Répartie (dynamique)"
+        }
+      },
+      "filtration_boost": {
+        "name": "Boost de filtration",
+        "state": {
+          "none": "Aucun",
+          "2": "+2 heures",
+          "4": "+4 heures",
+          "8": "+8 heures",
+          "24": "+24 heures"
         }
       }
     },
@@ -576,6 +592,20 @@
         "notes": {
           "name": "Notes",
           "description": "Notes optionnelles sur la mesure."
+        }
+      }
+    },
+    "boost_filtration": {
+      "name": "Boost de filtration",
+      "description": "Activer un boost de filtration manuel pour un temps de pompe continu suppl\u00e9mentaire.",
+      "fields": {
+        "device_id": {
+          "name": "Appareil piscine",
+          "description": "La piscine pour laquelle booster la filtration."
+        },
+        "hours": {
+          "name": "Heures",
+          "description": "Nombre d'heures de filtration suppl\u00e9mentaires (0 pour annuler)."
         }
       }
     }

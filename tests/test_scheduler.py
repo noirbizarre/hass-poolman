@@ -12,6 +12,9 @@ from custom_components.poolman.const import (
     DEFAULT_FILTRATION_DURATION_HOURS_2,
     DEFAULT_FILTRATION_START_TIME,
     DEFAULT_FILTRATION_START_TIME_2,
+    EVENT_BOOST_CANCELLED,
+    EVENT_BOOST_CONSUMED,
+    EVENT_BOOST_STARTED,
     EVENT_FILTRATION_STARTED,
     EVENT_FILTRATION_STOPPED,
 )
@@ -650,3 +653,407 @@ class TestMultiPeriodEvents:
         event_type, event_data = listener.call_args[0]
         assert event_type == EVENT_FILTRATION_STOPPED
         assert event_data["period_index"] == 0
+
+
+# ---------- Boost tests ----------
+
+
+class TestBoostDefaults:
+    """Tests for default boost state."""
+
+    def test_boost_not_active_by_default(self, scheduler: FiltrationScheduler) -> None:
+        """Boost should be inactive by default."""
+        assert scheduler.boost_active is False
+
+    def test_boost_remaining_zero_by_default(self, scheduler: FiltrationScheduler) -> None:
+        """Boost remaining should be 0 by default."""
+        assert scheduler.boost_remaining == 0.0
+
+    def test_boost_end_none_by_default(self, scheduler: FiltrationScheduler) -> None:
+        """Boost end should be None by default."""
+        assert scheduler.boost_end is None
+
+
+class TestBoostActivation:
+    """Tests for activating a filtration boost."""
+
+    @pytest.mark.asyncio
+    async def test_boost_outside_window_starts_pump(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Boost outside schedule window should start the pump immediately."""
+        with patch.object(scheduler, "is_in_active_window", return_value=False):
+            await scheduler.async_boost(4.0)
+        hass.services.async_call.assert_called_once_with(
+            "switch", "turn_on", {"entity_id": "switch.pool_pump"}
+        )
+
+    @pytest.mark.asyncio
+    async def test_boost_outside_window_sets_boost_end(
+        self, scheduler: FiltrationScheduler
+    ) -> None:
+        """Boost outside window should set boost_end immediately."""
+        with (
+            patch.object(scheduler, "is_in_active_window", return_value=False),
+            patch("custom_components.poolman.scheduler.async_track_point_in_time") as mock_track,
+        ):
+            mock_track.return_value = MagicMock()
+            await scheduler.async_boost(4.0)
+        assert scheduler.boost_active is True
+        assert scheduler.boost_end is not None
+
+    @pytest.mark.asyncio
+    async def test_boost_inside_window_does_not_start_pump(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Boost inside schedule window should not call start_pump (already running)."""
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_boost(4.0)
+        hass.services.async_call.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_boost_inside_window_defers_boost_end(
+        self, scheduler: FiltrationScheduler
+    ) -> None:
+        """Boost inside window should defer boost_end until first stop is suppressed."""
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_boost(4.0)
+        assert scheduler.boost_active is True
+        assert scheduler.boost_end is None  # Deferred
+        assert scheduler.boost_remaining == 4.0
+
+    @pytest.mark.asyncio
+    async def test_boost_notifies_listeners(self, scheduler: FiltrationScheduler) -> None:
+        """Boost activation should notify listeners with boost_started."""
+        listener = MagicMock()
+        scheduler.on_event(listener)
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_boost(2.0)
+        listener.assert_called_once()
+        event_type, event_data = listener.call_args[0]
+        assert event_type == EVENT_BOOST_STARTED
+        assert event_data["boost_hours"] == 2.0
+
+    @pytest.mark.asyncio
+    async def test_boost_zero_hours_cancels(self, scheduler: FiltrationScheduler) -> None:
+        """Calling boost with 0 hours should cancel any active boost."""
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_boost(4.0)
+        assert scheduler.boost_active is True
+
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_boost(0)
+        assert scheduler.boost_active is False
+
+    @pytest.mark.asyncio
+    async def test_new_boost_replaces_previous(self, scheduler: FiltrationScheduler) -> None:
+        """A new boost should replace any previous boost."""
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_boost(4.0)
+        assert scheduler.boost_remaining == 4.0
+
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_boost(8.0)
+        assert scheduler.boost_remaining == 8.0
+
+
+class TestBoostCancellation:
+    """Tests for cancelling a filtration boost."""
+
+    @pytest.mark.asyncio
+    async def test_cancel_boost_clears_state(self, scheduler: FiltrationScheduler) -> None:
+        """Cancelling boost should reset all boost state."""
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_boost(4.0)
+        assert scheduler.boost_active is True
+
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_cancel_boost()
+        assert scheduler.boost_active is False
+        assert scheduler.boost_remaining == 0.0
+        assert scheduler.boost_end is None
+
+    @pytest.mark.asyncio
+    async def test_cancel_boost_stops_pump_outside_window(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Cancelling boost outside schedule should stop the pump."""
+        with (
+            patch.object(scheduler, "is_in_active_window", return_value=False),
+            patch("custom_components.poolman.scheduler.async_track_point_in_time") as mock_track,
+        ):
+            mock_track.return_value = MagicMock()
+            await scheduler.async_boost(4.0)
+        hass.services.async_call.reset_mock()
+
+        with patch.object(scheduler, "is_in_active_window", return_value=False):
+            await scheduler.async_cancel_boost()
+        hass.services.async_call.assert_called_once_with(
+            "switch", "turn_off", {"entity_id": "switch.pool_pump"}
+        )
+
+    @pytest.mark.asyncio
+    async def test_cancel_boost_does_not_stop_pump_inside_window(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Cancelling boost inside schedule should not stop the pump."""
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_boost(4.0)
+        hass.services.async_call.reset_mock()
+
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_cancel_boost()
+        hass.services.async_call.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_cancel_boost_notifies_listeners(self, scheduler: FiltrationScheduler) -> None:
+        """Cancelling boost should notify listeners with boost_cancelled."""
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_boost(4.0)
+
+        listener = MagicMock()
+        scheduler.on_event(listener)
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_cancel_boost()
+        listener.assert_called_once()
+        event_type, _ = listener.call_args[0]
+        assert event_type == EVENT_BOOST_CANCELLED
+
+    @pytest.mark.asyncio
+    async def test_cancel_noop_when_no_boost(self, scheduler: FiltrationScheduler) -> None:
+        """Cancelling when no boost is active should be a no-op."""
+        listener = MagicMock()
+        scheduler.on_event(listener)
+        await scheduler.async_cancel_boost()
+        listener.assert_not_called()
+
+
+class TestBoostStopSuppression:
+    """Tests for boost suppressing scheduled stops."""
+
+    @pytest.mark.asyncio
+    async def test_stop_callback_suppressed_during_boost(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Stop callback should be suppressed when boost is active."""
+        scheduler._enabled = True
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_boost(4.0)
+        hass.services.async_call.reset_mock()
+
+        # Simulate stop callback firing
+        with patch("custom_components.poolman.scheduler.async_track_point_in_time") as mock_track:
+            mock_track.return_value = MagicMock()
+            cb = scheduler._make_stop_callback(0)
+            now = datetime(2025, 7, 15, 18, 0, 0)
+            await cb(now)
+
+        # Pump should NOT have been stopped
+        hass.services.async_call.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_first_suppressed_stop_sets_boost_end(
+        self, scheduler: FiltrationScheduler
+    ) -> None:
+        """First suppressed stop should calculate and set boost_end."""
+        scheduler._enabled = True
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_boost(4.0)
+        assert scheduler.boost_end is None  # Not yet set
+
+        with patch("custom_components.poolman.scheduler.async_track_point_in_time") as mock_track:
+            mock_track.return_value = MagicMock()
+            cb = scheduler._make_stop_callback(0)
+            now = datetime(2025, 7, 15, 18, 0, 0)
+            await cb(now)
+
+        # Now boost_end should be set
+        from datetime import timedelta
+
+        expected_end = now + timedelta(hours=4.0)
+        assert scheduler.boost_end == expected_end
+
+    @pytest.mark.asyncio
+    async def test_second_suppressed_stop_does_not_change_boost_end(
+        self, scheduler: FiltrationScheduler
+    ) -> None:
+        """Subsequent suppressed stops should not change boost_end."""
+        scheduler._enabled = True
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_boost(4.0)
+
+        with patch("custom_components.poolman.scheduler.async_track_point_in_time") as mock_track:
+            mock_track.return_value = MagicMock()
+            cb = scheduler._make_stop_callback(0)
+            now1 = datetime(2025, 7, 15, 18, 0, 0)
+            await cb(now1)
+
+        first_end = scheduler.boost_end
+
+        with patch("custom_components.poolman.scheduler.async_track_point_in_time") as mock_track:
+            mock_track.return_value = MagicMock()
+            cb2 = scheduler._make_stop_callback(1)
+            now2 = datetime(2025, 7, 15, 20, 0, 0)
+            await cb2(now2)
+
+        assert scheduler.boost_end == first_end  # Unchanged
+
+
+class TestBoostConsumed:
+    """Tests for natural boost expiry."""
+
+    @pytest.mark.asyncio
+    async def test_boost_consumed_clears_state(self, scheduler: FiltrationScheduler) -> None:
+        """Boost consumed should reset boost state."""
+        scheduler._boost_hours = 4.0
+        scheduler._boost_end = datetime(2025, 7, 15, 22, 0, 0)
+
+        with patch.object(scheduler, "is_in_active_window", return_value=False):
+            await scheduler._async_on_boost_consumed()
+
+        assert scheduler.boost_active is False
+        assert scheduler.boost_remaining == 0.0
+        assert scheduler.boost_end is None
+
+    @pytest.mark.asyncio
+    async def test_boost_consumed_stops_pump_outside_window(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Boost consumed outside schedule should stop the pump."""
+        scheduler._boost_hours = 4.0
+        scheduler._boost_end = datetime(2025, 7, 15, 22, 0, 0)
+
+        with patch.object(scheduler, "is_in_active_window", return_value=False):
+            await scheduler._async_on_boost_consumed()
+
+        hass.services.async_call.assert_called_once_with(
+            "switch", "turn_off", {"entity_id": "switch.pool_pump"}
+        )
+
+    @pytest.mark.asyncio
+    async def test_boost_consumed_does_not_stop_inside_window(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Boost consumed inside schedule should not stop the pump."""
+        scheduler._boost_hours = 4.0
+        scheduler._boost_end = datetime(2025, 7, 15, 22, 0, 0)
+
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler._async_on_boost_consumed()
+
+        hass.services.async_call.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_boost_consumed_notifies_listeners(self, scheduler: FiltrationScheduler) -> None:
+        """Boost consumed should notify listeners with boost_consumed."""
+        scheduler._boost_hours = 4.0
+        scheduler._boost_end = datetime(2025, 7, 15, 22, 0, 0)
+
+        listener = MagicMock()
+        scheduler.on_event(listener)
+
+        with patch.object(scheduler, "is_in_active_window", return_value=False):
+            await scheduler._async_on_boost_consumed()
+
+        # First call should be boost_consumed, second is filtration_stopped from pump stop
+        assert listener.call_count >= 1
+        event_type, _ = listener.call_args_list[0][0]
+        assert event_type == EVENT_BOOST_CONSUMED
+
+
+class TestBoostRestore:
+    """Tests for restoring a boost after HA restart."""
+
+    @pytest.mark.asyncio
+    async def test_restore_valid_boost(self, scheduler: FiltrationScheduler) -> None:
+        """Restoring a boost with future end time should reactivate it."""
+        from datetime import timedelta
+
+        from homeassistant.util import dt as dt_util
+
+        future = dt_util.now() + timedelta(hours=3)
+        with (
+            patch.object(scheduler, "is_in_active_window", return_value=True),
+            patch("custom_components.poolman.scheduler.async_track_point_in_time") as mock_track,
+        ):
+            mock_track.return_value = MagicMock()
+            await scheduler.async_restore_boost(future)
+
+        assert scheduler.boost_active is True
+        assert scheduler.boost_end == future
+        assert scheduler.boost_remaining > 0
+
+    @pytest.mark.asyncio
+    async def test_restore_expired_boost_is_ignored(self, scheduler: FiltrationScheduler) -> None:
+        """Restoring a boost with past end time should be silently discarded."""
+        from datetime import timedelta
+
+        from homeassistant.util import dt as dt_util
+
+        past = dt_util.now() - timedelta(hours=1)
+        await scheduler.async_restore_boost(past)
+        assert scheduler.boost_active is False
+
+    @pytest.mark.asyncio
+    async def test_restore_boost_starts_pump_outside_window(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Restoring boost outside schedule should start the pump."""
+        from datetime import timedelta
+
+        from homeassistant.util import dt as dt_util
+
+        future = dt_util.now() + timedelta(hours=3)
+        with (
+            patch.object(scheduler, "is_in_active_window", return_value=False),
+            patch("custom_components.poolman.scheduler.async_track_point_in_time") as mock_track,
+        ):
+            mock_track.return_value = MagicMock()
+            await scheduler.async_restore_boost(future)
+
+        hass.services.async_call.assert_called_once_with(
+            "switch", "turn_on", {"entity_id": "switch.pool_pump"}
+        )
+
+
+class TestDisableClearsBoost:
+    """Tests that disabling the scheduler clears boost state."""
+
+    @pytest.mark.asyncio
+    async def test_disable_clears_boost(self, scheduler: FiltrationScheduler) -> None:
+        """Disabling the scheduler should cancel any active boost."""
+        with patch.object(scheduler, "is_in_active_window", return_value=True):
+            await scheduler.async_boost(4.0)
+        assert scheduler.boost_active is True
+
+        await scheduler.async_disable()
+        assert scheduler.boost_active is False
+        assert scheduler.boost_remaining == 0.0
+
+    def test_async_cancel_clears_boost(self, scheduler: FiltrationScheduler) -> None:
+        """async_cancel should clear boost state."""
+        scheduler._boost_hours = 4.0
+        scheduler._boost_end = datetime(2025, 7, 15, 22, 0, 0)
+        scheduler.async_cancel()
+        assert scheduler.boost_active is False
+        assert scheduler.boost_remaining == 0.0
+
+
+class TestBoostEventData:
+    """Tests for boost event data payload."""
+
+    def test_boost_event_data_without_end(self, scheduler: FiltrationScheduler) -> None:
+        """Boost event data before end is set should only contain boost_hours."""
+        scheduler._boost_hours = 4.0
+        data = scheduler._boost_event_data()
+        assert data["boost_hours"] == 4.0
+        assert "boost_end" not in data
+
+    def test_boost_event_data_with_end(self, scheduler: FiltrationScheduler) -> None:
+        """Boost event data after end is set should contain both fields."""
+        scheduler._boost_hours = 4.0
+        end = datetime(2025, 7, 15, 22, 0, 0)
+        scheduler._boost_end = end
+        data = scheduler._boost_event_data()
+        assert data["boost_hours"] == 4.0
+        assert data["boost_end"] == end.isoformat()

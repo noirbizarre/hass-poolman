@@ -1,10 +1,11 @@
-"""Tests for the Pool Manager select platform (pool mode and filtration duration mode)."""
+"""Tests for the Pool Manager select platform (pool mode, filtration duration mode, and boost)."""
 
 from __future__ import annotations
 
 from homeassistant.core import HomeAssistant, State
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.poolman.const import BOOST_PRESET_NONE, BOOST_PRESETS
 from custom_components.poolman.coordinator import PoolmanCoordinator
 from custom_components.poolman.domain.model import FiltrationDurationMode, PoolMode
 from tests.conftest import setup_mock_states
@@ -213,3 +214,121 @@ class TestFiltrationDurationModeSelect:
         )
         coordinator = await _setup_integration(hass, mock_config_entry)
         assert coordinator.filtration_duration_mode == FiltrationDurationMode.DYNAMIC
+
+
+class TestFiltrationBoostSelect:
+    """Tests for the PoolmanFiltrationBoostSelect entity."""
+
+    async def test_entity_created_with_pump(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Filtration boost select should be created when pump is configured."""
+        await _setup_integration(hass, mock_config_entry)
+        state = hass.states.get("select.test_pool_filtration_boost")
+        assert state is not None
+        assert state.state == BOOST_PRESET_NONE
+
+    async def test_entity_not_created_without_pump(
+        self, hass: HomeAssistant, mock_config_entry_no_pump: MockConfigEntry
+    ) -> None:
+        """Filtration boost select should not be created without pump."""
+        await _setup_integration(hass, mock_config_entry_no_pump)
+        state = hass.states.get("select.test_pool_filtration_boost")
+        assert state is None
+
+    async def test_options_match_presets(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Options list should contain all boost presets."""
+        await _setup_integration(hass, mock_config_entry)
+        state = hass.states.get("select.test_pool_filtration_boost")
+        assert state is not None
+        options = state.attributes.get("options")
+        assert options == BOOST_PRESETS
+
+    async def test_select_preset_activates_boost(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Selecting a preset should activate a boost on the scheduler."""
+        coordinator = await _setup_integration(hass, mock_config_entry)
+
+        await hass.services.async_call(
+            "select",
+            "select_option",
+            {
+                "entity_id": "select.test_pool_filtration_boost",
+                "option": "4",
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+        assert coordinator.scheduler is not None
+        assert coordinator.scheduler.boost_active is True
+
+    async def test_select_none_cancels_boost(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Selecting 'none' should cancel any active boost."""
+        coordinator = await _setup_integration(hass, mock_config_entry)
+
+        # First activate a boost
+        await hass.services.async_call(
+            "select",
+            "select_option",
+            {
+                "entity_id": "select.test_pool_filtration_boost",
+                "option": "4",
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+        assert coordinator.scheduler is not None
+        assert coordinator.scheduler.boost_active is True
+
+        # Then cancel it
+        await hass.services.async_call(
+            "select",
+            "select_option",
+            {
+                "entity_id": "select.test_pool_filtration_boost",
+                "option": BOOST_PRESET_NONE,
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+        assert coordinator.scheduler.boost_active is False
+
+    async def test_boost_end_in_extra_attributes(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Extra state attributes should contain boost_end for persistence."""
+        await _setup_integration(hass, mock_config_entry)
+        state = hass.states.get("select.test_pool_filtration_boost")
+        assert state is not None
+        # Before boost, boost_end should be None
+        assert state.attributes.get("boost_end") is None
+
+    async def test_restore_boost_from_state(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Should restore boost from persisted boost_end attribute."""
+        from datetime import timedelta
+
+        from homeassistant.util import dt as dt_util
+        from pytest_homeassistant_custom_component.common import mock_restore_cache
+
+        future = dt_util.now() + timedelta(hours=3)
+        mock_restore_cache(
+            hass,
+            [
+                State(
+                    "select.test_pool_filtration_boost",
+                    "4",
+                    {"boost_end": future.isoformat()},
+                )
+            ],
+        )
+        coordinator = await _setup_integration(hass, mock_config_entry)
+        assert coordinator.scheduler is not None
+        assert coordinator.scheduler.boost_active is True

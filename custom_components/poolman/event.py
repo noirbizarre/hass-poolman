@@ -21,7 +21,13 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import PoolmanConfigEntry
-from .const import EVENT_FILTRATION_STARTED, EVENT_FILTRATION_STOPPED
+from .const import (
+    EVENT_BOOST_CANCELLED,
+    EVENT_BOOST_CONSUMED,
+    EVENT_BOOST_STARTED,
+    EVENT_FILTRATION_STARTED,
+    EVENT_FILTRATION_STOPPED,
+)
 from .coordinator import PoolmanCoordinator
 from .domain.model import ChemicalProduct, MeasureParameter, TreatmentType
 from .entity import PoolmanEntity
@@ -272,7 +278,13 @@ class PoolmanFiltrationEvent(PoolmanEntity, EventEntity):
 
     _attr_translation_key = "filtration"
     _attr_icon = "mdi:pump"
-    _attr_event_types: ClassVar[list[str]] = [EVENT_FILTRATION_STARTED, EVENT_FILTRATION_STOPPED]
+    _attr_event_types: ClassVar[list[str]] = [
+        EVENT_FILTRATION_STARTED,
+        EVENT_FILTRATION_STOPPED,
+        EVENT_BOOST_STARTED,
+        EVENT_BOOST_CONSUMED,
+        EVENT_BOOST_CANCELLED,
+    ]
 
     def __init__(self, coordinator: PoolmanCoordinator) -> None:
         """Initialize the filtration event entity."""

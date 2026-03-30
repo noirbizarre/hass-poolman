@@ -18,6 +18,7 @@ from .const import (
     DOMAIN,
     PLATFORMS,
     SERVICE_ADD_TREATMENT,
+    SERVICE_BOOST_FILTRATION,
     SERVICE_RECORD_MEASURE,
 )
 from .coordinator import PoolmanCoordinator
@@ -45,6 +46,13 @@ SERVICE_RECORD_MEASURE_SCHEMA = vol.Schema(
     }
 )
 
+SERVICE_BOOST_FILTRATION_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): str,
+        vol.Required("hours"): vol.All(vol.Coerce(float), vol.Range(min=0, max=48)),
+    }
+)
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) -> bool:
     """Set up Pool Manager from a config entry."""
@@ -66,6 +74,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) -> 
     if not any(e.entry_id != entry.entry_id for e in entries):
         hass.services.async_remove(DOMAIN, SERVICE_ADD_TREATMENT)
         hass.services.async_remove(DOMAIN, SERVICE_RECORD_MEASURE)
+        hass.services.async_remove(DOMAIN, SERVICE_BOOST_FILTRATION)
 
     return result
 
@@ -159,4 +168,35 @@ def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_RECORD_MEASURE,
         async_handle_record_measure,
         schema=SERVICE_RECORD_MEASURE_SCHEMA,
+    )
+
+    async def async_handle_boost_filtration(call: ServiceCall) -> None:
+        """Handle the boost_filtration service call.
+
+        Resolves the target device to find the corresponding coordinator,
+        then activates or cancels a filtration boost.
+        """
+        hours: float = call.data["hours"]
+        device_id: str = call.data["device_id"]
+
+        device_reg = dr.async_get(hass)
+        device = device_reg.async_get(device_id)
+        if device is None:
+            _LOGGER.warning("Device %s not found", device_id)
+            return
+
+        for entry_id in device.config_entries:
+            entry = hass.config_entries.async_get_entry(entry_id)
+            if entry and entry.domain == DOMAIN:
+                coordinator: PoolmanCoordinator = entry.runtime_data
+                if hours <= 0:
+                    await coordinator.async_cancel_boost()
+                else:
+                    await coordinator.async_boost_filtration(hours)
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_BOOST_FILTRATION,
+        async_handle_boost_filtration,
+        schema=SERVICE_BOOST_FILTRATION_SCHEMA,
     )

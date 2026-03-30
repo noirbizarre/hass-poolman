@@ -440,3 +440,77 @@ class TestSplitModeTransitions:
             duration_hours=4.0,
             period_index=1,
         )
+
+
+class TestBoostRemainingInPoolState:
+    """Tests for boost_remaining integration in PoolState."""
+
+    @pytest.mark.asyncio
+    async def test_pool_state_includes_boost_remaining(
+        self, coordinator: PoolmanCoordinator, mock_scheduler: MagicMock
+    ) -> None:
+        """PoolState should include boost_remaining from the scheduler."""
+        mock_scheduler.boost_remaining = 4.0
+
+        state = await coordinator._async_update_data()
+        assert state.boost_remaining == 4.0
+
+    @pytest.mark.asyncio
+    async def test_pool_state_boost_remaining_zero_when_no_boost(
+        self, coordinator: PoolmanCoordinator, mock_scheduler: MagicMock
+    ) -> None:
+        """PoolState boost_remaining should be 0 when no boost is active."""
+        mock_scheduler.boost_remaining = 0.0
+
+        state = await coordinator._async_update_data()
+        assert state.boost_remaining == 0.0
+
+    @pytest.mark.asyncio
+    async def test_pool_state_boost_remaining_zero_without_scheduler(
+        self, coordinator_no_pump: PoolmanCoordinator
+    ) -> None:
+        """PoolState boost_remaining should be 0 when no scheduler is configured."""
+        state = await coordinator_no_pump._async_update_data()
+        assert state.boost_remaining == 0.0
+
+
+class TestBoostCoordinatorBridge:
+    """Tests for coordinator boost bridge methods."""
+
+    @pytest.mark.asyncio
+    async def test_async_boost_filtration_delegates_to_scheduler(
+        self, coordinator: PoolmanCoordinator, mock_scheduler: MagicMock
+    ) -> None:
+        """async_boost_filtration should delegate to scheduler.async_boost."""
+        mock_scheduler.async_boost = AsyncMock()
+
+        with patch.object(coordinator, "async_request_refresh", new_callable=AsyncMock):
+            await coordinator.async_boost_filtration(4.0)
+        mock_scheduler.async_boost.assert_called_once_with(4.0)
+
+    @pytest.mark.asyncio
+    async def test_async_cancel_boost_delegates_to_scheduler(
+        self, coordinator: PoolmanCoordinator, mock_scheduler: MagicMock
+    ) -> None:
+        """async_cancel_boost should delegate to scheduler.async_cancel_boost."""
+        mock_scheduler.async_cancel_boost = AsyncMock()
+
+        with patch.object(coordinator, "async_request_refresh", new_callable=AsyncMock):
+            await coordinator.async_cancel_boost()
+        mock_scheduler.async_cancel_boost.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_async_boost_filtration_noop_without_scheduler(
+        self, coordinator_no_pump: PoolmanCoordinator
+    ) -> None:
+        """async_boost_filtration should be a no-op without a scheduler."""
+        # Should not raise
+        await coordinator_no_pump.async_boost_filtration(4.0)
+
+    @pytest.mark.asyncio
+    async def test_async_cancel_boost_noop_without_scheduler(
+        self, coordinator_no_pump: PoolmanCoordinator
+    ) -> None:
+        """async_cancel_boost should be a no-op without a scheduler."""
+        # Should not raise
+        await coordinator_no_pump.async_cancel_boost()

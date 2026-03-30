@@ -176,7 +176,17 @@ scheduling behavior, cross-midnight support, and automation examples.
 
 | Entity | Name | Event types | Description |
 | --- | --- | --- | --- |
-| `event.{pool}_filtration` | Filtration | `filtration_started`, `filtration_stopped` | Fires when the pump is turned on or off by the scheduler |
+| `event.{pool}_filtration` | Filtration | `filtration_started`, `filtration_stopped`, `boost_started`, `boost_consumed`, `boost_cancelled` | Fires when the pump is turned on or off by the scheduler, or when a boost is activated, consumed, or cancelled |
+
+### Filtration Boost
+
+| Entity | Name | Type | Options / Unit | Description |
+| --- | --- | --- | --- | --- |
+| `select.{pool}_filtration_boost` | Filtration boost | Select | `none`, `+2h`, `+4h`, `+8h`, `+24h` | Activate a preset boost or cancel the current boost |
+| `sensor.{pool}_filtration_boost_remaining` | Filtration boost remaining | Sensor | hours | Remaining boost hours (0 when no boost is active) |
+
+See [Filtration Control -- Filtration Boost](filtration-control.md#filtration-boost)
+for full details on boost behavior, persistence, and automation examples.
 
 ## Events
 
