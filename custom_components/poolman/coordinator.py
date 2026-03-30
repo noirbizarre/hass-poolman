@@ -29,6 +29,7 @@ from .const import (
     CONF_TREATMENT,
     CONF_VOLUME_M3,
     CONF_WEATHER_ENTITY,
+    DEFAULT_FILTRATION_DURATION_MODE,
     DEFAULT_FILTRATION_KIND,
     DEFAULT_TREATMENT,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
@@ -39,6 +40,7 @@ from .domain.chemistry import compute_chemistry_report, compute_water_quality_sc
 from .domain.filtration import compute_filtration_duration
 from .domain.model import (
     ChemicalProduct,
+    FiltrationDurationMode,
     FiltrationKind,
     Pool,
     PoolMode,
@@ -86,6 +88,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         self.pool = self._build_pool()
         self.engine = RuleEngine()
         self._mode = PoolMode.RUNNING
+        self._filtration_duration_mode = FiltrationDurationMode(DEFAULT_FILTRATION_DURATION_MODE)
         self._treatment_entities: dict[ChemicalProduct, PoolmanTreatmentEvent] = {}
 
         # Filtration scheduler: only created when a pump entity is configured
@@ -134,6 +137,16 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
     def mode(self, value: PoolMode) -> None:
         """Set the pool mode and trigger a refresh."""
         self._mode = value
+
+    @property
+    def filtration_duration_mode(self) -> FiltrationDurationMode:
+        """Return the current filtration duration control mode."""
+        return self._filtration_duration_mode
+
+    @filtration_duration_mode.setter
+    def filtration_duration_mode(self, value: FiltrationDurationMode) -> None:
+        """Set the filtration duration control mode."""
+        self._filtration_duration_mode = value
 
     def register_treatment_entity(
         self,
@@ -300,6 +313,14 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         )
 
         self._fire_status_change_events(new_state)
+
+        # Auto-sync scheduler duration in dynamic mode
+        if (
+            self._filtration_duration_mode == FiltrationDurationMode.DYNAMIC
+            and self.scheduler is not None
+            and filtration_hours is not None
+        ):
+            await self.scheduler.async_update_schedule(duration_hours=filtration_hours)
 
         return new_state
 

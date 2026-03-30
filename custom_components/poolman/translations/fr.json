@@ -381,6 +381,13 @@
           "winter_active": "Hivernage actif",
           "winter_passive": "Hivernage passif"
         }
+      },
+      "filtration_duration_mode": {
+        "name": "Mode de durée de filtration",
+        "state": {
+          "manual": "Manuel",
+          "dynamic": "Dynamique"
+        }
       }
     },
     "switch": {

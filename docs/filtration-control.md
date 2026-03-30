@@ -42,6 +42,14 @@ When turned **on**, the scheduler activates and the pump follows the configured
 schedule. When turned **off**, the pump is turned off **immediately** and all
 scheduled triggers are cancelled.
 
+### Select
+
+| Entity | Name | Default | Options | Description |
+| --- | --- | --- | --- | --- |
+| `select.{pool}_filtration_duration_mode` | Filtration duration mode | Dynamic | `manual`, `dynamic` | Controls whether the filtration duration is set manually or computed automatically |
+
+See [Duration Mode](#duration-mode) below for details.
+
 ### Time
 
 | Entity | Name | Default | Description |
@@ -68,6 +76,46 @@ Each event carries the following attributes:
 | `duration_hours` | float | `8.0` | Configured duration in hours |
 | `end_time` | string (ISO time) | `"18:00:00"` | Computed end time |
 
+## Duration Mode
+
+The **Filtration duration mode** select entity controls how the daily
+filtration duration is determined. The default mode is **dynamic**.
+
+### Dynamic mode (default)
+
+In dynamic mode, Pool Manager automatically sets the filtration duration
+from the computed recommended value on each data refresh (every 5 minutes).
+The recommendation is based on water temperature, filter type efficiency,
+outdoor heat stress, and pump turnover rate
+(see [Pool Modes](pool-modes.md#filtration) for the full algorithm).
+
+When the coordinator updates:
+
+1. The recommended filtration hours are computed from current sensor readings
+2. If a valid recommendation is available, the scheduler duration is
+   automatically updated to match
+3. The filtration duration number entity reflects the active duration
+
+If the water temperature sensor becomes unavailable, the scheduler keeps the
+last known duration until a new reading is available.
+
+### Manual mode
+
+In manual mode, the computed recommendation is **not** applied to the
+scheduler. The user controls the duration entirely through the filtration
+duration number entity. The recommended filtration sensor
+(`sensor.{pool}_filtration_duration`) still displays the computed value
+for reference, but it has no effect on the schedule.
+
+### Switching modes
+
+- **Dynamic to manual**: The scheduler keeps the last dynamically computed
+  duration. The user can then adjust it via the number entity.
+- **Manual to dynamic**: The next coordinator update (within 5 minutes)
+  syncs the scheduler to the current recommendation.
+
+The selected mode is persisted across Home Assistant restarts.
+
 ## Scheduling Behavior
 
 ### Daily cycle
@@ -88,10 +136,12 @@ Both the filtration control switch state and the time/duration settings are
 persisted across Home Assistant restarts using `RestoreEntity`. On restart:
 
 1. The switch restores its last known on/off state
-2. The time and duration entities restore their last values
+2. The time, duration, and duration mode entities restore their last values
 3. If the switch was on, the scheduler re-enables and checks whether the
    current time falls within the active window -- if so, the pump is turned
    on immediately
+4. If the restored mode is dynamic, the first coordinator refresh syncs the
+   scheduler duration from the current recommendation
 
 ### Mid-cycle changes
 
@@ -128,31 +178,6 @@ automation:
           message: "Filtration pump started"
 ```
 
-### Adjust duration based on recommended filtration
-
-You can use the recommended filtration sensor to automatically adjust
-the filtration duration setting:
-
-```yaml
-automation:
-  - alias: "Sync filtration duration with recommendation"
-    trigger:
-      - platform: state
-        entity_id: sensor.demo_pool_filtration_duration
-    condition:
-      - condition: not
-        conditions:
-          - condition: state
-            entity_id: sensor.demo_pool_filtration_duration
-            state: "unavailable"
-    action:
-      - action: number.set_value
-        target:
-          entity_id: number.demo_pool_filtration_duration_setting
-        data:
-          value: "{{ states('sensor.demo_pool_filtration_duration') | float }}"
-```
-
 ## Relationship to the Recommended Filtration Sensor
 
 The `sensor.{pool}_filtration_duration` entity is an **advisory** value
@@ -160,6 +185,9 @@ computed from water temperature, filter type, outdoor temperature, and pump
 capacity (see [Pool Modes](pool-modes.md#filtration) for the algorithm).
 
 The filtration control feature provides **active control**: it actually
-turns the pump on and off. The two work independently -- the recommended
-duration does not automatically set the control duration. You can connect
-them via automation (see example above) or set the duration manually.
+turns the pump on and off.
+
+In **dynamic mode** (the default), these two are automatically linked: the
+recommended duration feeds directly into the scheduler on each coordinator
+refresh. In **manual mode**, they are independent -- you can use the
+recommended value as a reference and set the duration yourself.
