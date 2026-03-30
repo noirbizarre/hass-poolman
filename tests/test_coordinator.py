@@ -268,12 +268,12 @@ class TestReadOutdoorTemperature:
 class TestModeProperty:
     """Tests for mode getter/setter."""
 
-    async def test_default_mode_is_running(
+    async def test_default_mode_is_active(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
     ) -> None:
-        """Default mode should be RUNNING."""
+        """Default mode should be ACTIVE."""
         coordinator = await _setup_coordinator(hass, mock_config_entry)
-        assert coordinator.mode == PoolMode.RUNNING
+        assert coordinator.mode == PoolMode.ACTIVE
 
     async def test_set_mode(self, hass: HomeAssistant, mock_config_entry: MockConfigEntry) -> None:
         """Setting mode should update the property."""

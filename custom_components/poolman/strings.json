@@ -446,9 +446,11 @@
       "mode": {
         "name": "Pool mode",
         "state": {
-          "running": "Running",
+          "active": "Active",
+          "hibernating": "Hibernating",
           "winter_active": "Active wintering",
-          "winter_passive": "Passive wintering"
+          "winter_passive": "Passive wintering",
+          "activating": "Activating"
         }
       },
       "filtration_duration_mode": {

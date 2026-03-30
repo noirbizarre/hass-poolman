@@ -199,7 +199,7 @@ class FiltrationRule(Rule):
         if hours is None:
             return []
 
-        if mode in (PoolMode.WINTER_ACTIVE, PoolMode.WINTER_PASSIVE):
+        if mode in (PoolMode.WINTER_ACTIVE, PoolMode.WINTER_PASSIVE, PoolMode.HIBERNATING):
             priority = RecommendationPriority.LOW
         elif hours >= 12:
             priority = RecommendationPriority.MEDIUM

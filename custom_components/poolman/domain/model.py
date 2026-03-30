@@ -38,11 +38,17 @@ class TreatmentType(StrEnum):
 
 
 class PoolMode(StrEnum):
-    """Operational mode of the pool."""
+    """Operational mode of the pool.
 
-    RUNNING = "running"
+    Lifecycle order: active -> hibernating -> winter_active / winter_passive
+    -> activating -> active.
+    """
+
+    ACTIVE = "active"
+    HIBERNATING = "hibernating"
     WINTER_ACTIVE = "winter_active"
     WINTER_PASSIVE = "winter_passive"
+    ACTIVATING = "activating"
 
 
 class FiltrationDurationMode(StrEnum):
@@ -276,7 +282,7 @@ class ActiveTreatment(BaseModel, frozen=True):
 class PoolState(BaseModel):
     """Computed state of the pool combining readings, mode, and recommendations."""
 
-    mode: PoolMode = PoolMode.RUNNING
+    mode: PoolMode = PoolMode.ACTIVE
     reading: PoolReading = Field(default_factory=PoolReading)
     recommendations: list[Recommendation] = Field(default_factory=list)
     filtration_hours: float | None = None

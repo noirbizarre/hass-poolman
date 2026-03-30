@@ -100,7 +100,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         )
         self.pool = self._build_pool()
         self.engine = RuleEngine()
-        self._mode = PoolMode.RUNNING
+        self._mode = PoolMode.ACTIVE
         self._filtration_duration_mode = FiltrationDurationMode(DEFAULT_FILTRATION_DURATION_MODE)
         self._min_dynamic_period_duration = DEFAULT_MIN_DYNAMIC_DURATION_HOURS
         self._treatment_entities: dict[ChemicalProduct, PoolmanTreatmentEvent] = {}

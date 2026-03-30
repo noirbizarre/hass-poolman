@@ -30,7 +30,7 @@ class TestPoolModeSelect:
         await _setup_integration(hass, mock_config_entry)
         state = hass.states.get("select.test_pool_pool_mode")
         assert state is not None
-        assert state.state == PoolMode.RUNNING.value
+        assert state.state == PoolMode.ACTIVE.value
 
     async def test_select_winter_active(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
@@ -75,6 +75,50 @@ class TestPoolModeSelect:
         state = hass.states.get("select.test_pool_pool_mode")
         assert state is not None
         assert state.state == PoolMode.WINTER_PASSIVE.value
+
+    async def test_select_hibernating(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Selecting hibernating should update mode."""
+        coordinator = await _setup_integration(hass, mock_config_entry)
+
+        await hass.services.async_call(
+            "select",
+            "select_option",
+            {
+                "entity_id": "select.test_pool_pool_mode",
+                "option": PoolMode.HIBERNATING.value,
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+        assert coordinator.mode == PoolMode.HIBERNATING
+        state = hass.states.get("select.test_pool_pool_mode")
+        assert state is not None
+        assert state.state == PoolMode.HIBERNATING.value
+
+    async def test_select_activating(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Selecting activating should update mode."""
+        coordinator = await _setup_integration(hass, mock_config_entry)
+
+        await hass.services.async_call(
+            "select",
+            "select_option",
+            {
+                "entity_id": "select.test_pool_pool_mode",
+                "option": PoolMode.ACTIVATING.value,
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+        assert coordinator.mode == PoolMode.ACTIVATING
+        state = hass.states.get("select.test_pool_pool_mode")
+        assert state is not None
+        assert state.state == PoolMode.ACTIVATING.value
 
     async def test_options_list(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry

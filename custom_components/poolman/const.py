@@ -62,10 +62,18 @@ FILTRATION_KINDS: Final = [
 ]
 
 # Pool modes
-MODE_RUNNING: Final = "running"
+MODE_ACTIVE: Final = "active"
+MODE_HIBERNATING: Final = "hibernating"
 MODE_WINTER_ACTIVE: Final = "winter_active"
 MODE_WINTER_PASSIVE: Final = "winter_passive"
-MODES: Final = [MODE_RUNNING, MODE_WINTER_ACTIVE, MODE_WINTER_PASSIVE]
+MODE_ACTIVATING: Final = "activating"
+MODES: Final = [
+    MODE_ACTIVE,
+    MODE_HIBERNATING,
+    MODE_WINTER_ACTIVE,
+    MODE_WINTER_PASSIVE,
+    MODE_ACTIVATING,
+]
 
 # Filtration duration modes
 FILTRATION_DURATION_MODE_MANUAL: Final = "manual"
