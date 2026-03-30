@@ -12,7 +12,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import dt as dt_util
 
 from . import PoolmanConfigEntry
-from .const import DEFAULT_FILTRATION_START_TIME
+from .const import DEFAULT_FILTRATION_START_TIME, DEFAULT_FILTRATION_START_TIME_2
 from .coordinator import PoolmanCoordinator
 from .entity import PoolmanEntity
 
@@ -25,7 +25,12 @@ async def async_setup_entry(
     """Set up Pool Manager time entities."""
     coordinator: PoolmanCoordinator = entry.runtime_data
     if coordinator.scheduler is not None:
-        async_add_entities([PoolmanFiltrationStartTime(coordinator)])
+        async_add_entities(
+            [
+                PoolmanFiltrationStartTime(coordinator),
+                PoolmanFiltrationStartTime2(coordinator),
+            ]
+        )
 
 
 class PoolmanFiltrationStartTime(PoolmanEntity, TimeEntity, RestoreEntity):
@@ -68,4 +73,57 @@ class PoolmanFiltrationStartTime(PoolmanEntity, TimeEntity, RestoreEntity):
         self._attr_native_value = value
         if self.coordinator.scheduler is not None:
             await self.coordinator.scheduler.async_update_schedule(start_time=value)
+        self.async_write_ha_state()
+
+
+class PoolmanFiltrationStartTime2(PoolmanEntity, TimeEntity, RestoreEntity):
+    """Time entity for configuring the second filtration period start time.
+
+    Always created when a pump is configured, but reports
+    ``available=False`` when the current mode is not a split mode.
+    Changes are synced to the scheduler's period at index 1.
+    """
+
+    _attr_translation_key = "filtration_start_time_2"
+    _attr_icon = "mdi:clock-start"
+
+    def __init__(self, coordinator: PoolmanCoordinator) -> None:
+        """Initialize the second filtration start time entity."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_filtration_start_time_2"
+        self._attr_native_value: time = DEFAULT_FILTRATION_START_TIME_2
+
+    @property
+    def available(self) -> bool:
+        """Return True only when the current mode uses split filtration."""
+        return self.coordinator.filtration_duration_mode.is_split
+
+    async def async_added_to_hass(self) -> None:
+        """Restore the last known start time value."""
+        await super().async_added_to_hass()
+        if (
+            last_state := await self.async_get_last_state()
+        ) is not None and last_state.state not in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+            restored = dt_util.parse_time(last_state.state)
+            if restored is not None:
+                self._attr_native_value = restored
+        # Sync the scheduler with the restored (or default) value for period 2
+        if (
+            self.coordinator.scheduler is not None
+            and self.coordinator.filtration_duration_mode.is_split
+        ):
+            await self.coordinator.scheduler.async_update_schedule(
+                start_time=self._attr_native_value,
+                period_index=1,
+            )
+
+    async def async_set_value(self, value: time) -> None:
+        """Set a new filtration start time for the second period.
+
+        Args:
+            value: The new start time.
+        """
+        self._attr_native_value = value
+        if self.coordinator.scheduler is not None:
+            await self.coordinator.scheduler.async_update_schedule(start_time=value, period_index=1)
         self.async_write_ha_state()

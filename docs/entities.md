@@ -139,19 +139,21 @@ scheduling behavior, cross-midnight support, and automation examples.
 
 | Entity | Name | Default | Options | Description |
 | --- | --- | --- | --- | --- |
-| `select.{pool}_filtration_duration_mode` | Filtration duration mode | Dynamic | `manual`, `dynamic` | Controls whether filtration duration is set manually or computed dynamically. See [Filtration Control -- Duration Mode](filtration-control.md#duration-mode). |
+| `select.{pool}_filtration_duration_mode` | Filtration duration mode | Dynamic | `manual`, `dynamic`, `split_static`, `split_dynamic` | Controls how filtration duration is determined and whether it is split across two periods. See [Filtration Control -- Duration Mode](filtration-control.md#duration-mode). |
 
 ### Time
 
-| Entity | Name | Default | Description |
-| --- | --- | --- | --- |
-| `time.{pool}_filtration_start_time` | Filtration start time | 10:00 | Daily start time for the filtration cycle |
+| Entity | Name | Default | Availability | Description |
+| --- | --- | --- | --- | --- |
+| `time.{pool}_filtration_start_time` | Filtration start time | 10:00 | Always | Daily start time for the first filtration period |
+| `time.{pool}_filtration_start_time_2` | Filtration start time 2 | 16:00 | Split modes only | Start time for the second filtration period |
 
 ### Number
 
-| Entity | Name | Default | Range | Description |
-| --- | --- | --- | --- | --- |
-| `number.{pool}_filtration_duration_setting` | Filtration duration | 8 h | 1--24 h (step 0.5) | Duration of each daily filtration cycle. In dynamic mode, this value is automatically updated to match the recommendation. |
+| Entity | Name | Default | Range | Availability | Description |
+| --- | --- | --- | --- | --- | --- |
+| `number.{pool}_filtration_duration_setting` | Filtration duration | 8 h | 1--24 h (step 0.5) | Always | Duration of the first filtration period. In dynamic mode, automatically updated to match the recommendation. |
+| `number.{pool}_filtration_duration_setting_2` | Filtration duration 2 | 4 h | 0--24 h (step 0.5) | Split modes only | Duration of the second filtration period. In split (dynamic) mode, auto-computed from the recommendation. |
 
 ### Event
 
