@@ -17,7 +17,7 @@ from custom_components.poolman.const import (
     EVENT_POOLMAN,
 )
 from custom_components.poolman.coordinator import PoolmanCoordinator
-from custom_components.poolman.domain.model import ChemicalProduct, PoolMode
+from custom_components.poolman.domain.model import ChemicalProduct, MeasureParameter, PoolMode
 from tests.conftest import MOCK_CONFIG_DATA, setup_mock_states
 
 
@@ -389,3 +389,91 @@ class TestAsyncAddTreatment:
         coordinator._treatment_entities.clear()
         # Should not raise
         await coordinator.async_add_treatment(ChemicalProduct.FLOCCULANT, 100.0)
+
+
+class TestAsyncRecordMeasure:
+    """Tests for async_record_measure."""
+
+    async def test_warns_for_unregistered_parameter(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Should log warning when no entity is registered for the parameter."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        # Unregister all measure entities
+        coordinator._measure_entities.clear()
+        # Should not raise
+        await coordinator.async_record_measure(MeasureParameter.PH, 7.2)
+
+    async def test_record_measure_triggers_refresh(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Recording a measure should trigger a coordinator refresh."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+
+        # Verify measure entities are registered
+        assert MeasureParameter.PH in coordinator._measure_entities
+
+        await coordinator.async_record_measure(MeasureParameter.PH, 7.2)
+        await hass.async_block_till_done()
+
+        # After recording, the coordinator should still have valid data
+        assert coordinator.data is not None
+
+
+class TestReadingSourceTracking:
+    """Tests for reading_sources tracking in _async_update_data."""
+
+    async def test_sensor_values_tracked_as_sensor(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """When sensor values are available, sources should be 'sensor'."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        sources = coordinator.data.reading_sources
+        assert sources.get("ph") == "sensor"
+        assert sources.get("orp") == "sensor"
+        assert sources.get("temperature") == "sensor"
+
+    async def test_manual_fallback_tracked_as_manual(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """When sensor is unavailable and manual measure exists, source should be 'manual'."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+
+        # Make pH sensor unavailable
+        hass.states.async_set("sensor.pool_ph", "unavailable")
+
+        # Record a manual pH measurement
+        await coordinator.async_record_measure(MeasureParameter.PH, 7.3, notes="Manual test")
+        await hass.async_block_till_done()
+
+        # Force refresh
+        await coordinator.async_request_refresh()
+        await hass.async_block_till_done()
+
+        sources = coordinator.data.reading_sources
+        assert sources.get("ph") == "manual"
+        assert coordinator.data.reading.ph == pytest.approx(7.3)
+
+    async def test_unconfigured_param_no_source(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Unconfigured parameters without manual measures should have no source."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        sources = coordinator.data.reading_sources
+        # TAC is not configured in the mock config
+        assert "tac" not in sources
+
+    async def test_manual_measures_populated_after_recording(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """PoolState.manual_measures should contain the recorded measures."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+
+        await coordinator.async_record_measure(MeasureParameter.PH, 7.1)
+        await hass.async_block_till_done()
+
+        await coordinator.async_request_refresh()
+        await hass.async_block_till_done()
+
+        assert MeasureParameter.PH in coordinator.data.manual_measures
+        assert coordinator.data.manual_measures[MeasureParameter.PH].value == pytest.approx(7.1)

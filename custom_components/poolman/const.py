@@ -98,3 +98,4 @@ DEFAULT_MIN_DYNAMIC_DURATION_HOURS: Final = 0.0
 
 # Service names
 SERVICE_ADD_TREATMENT: Final = "add_treatment"
+SERVICE_RECORD_MEASURE: Final = "record_measure"

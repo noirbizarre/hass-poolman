@@ -1,4 +1,4 @@
-"""Tests for the Pool Manager event platform (filtration + treatment events)."""
+"""Tests for the Pool Manager event platform (filtration + treatment + measure events)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.poolman.const import DOMAIN
 from custom_components.poolman.coordinator import PoolmanCoordinator
-from custom_components.poolman.domain.model import ChemicalProduct
+from custom_components.poolman.domain.model import ChemicalProduct, MeasureParameter
 from tests.conftest import MOCK_CONFIG_DATA, setup_mock_states
 
 
@@ -163,3 +163,80 @@ class TestTreatmentEventRemoval:
         state = hass.states.get("event.test_pool_filtration")
         # After unload, entity should be unavailable
         assert state is None or state.state == "unavailable"
+
+
+class TestMeasureEvent:
+    """Tests for measure event entities."""
+
+    async def test_measure_entities_created(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Measure event entities should be created during setup."""
+        await _setup_integration(hass, mock_config_entry)
+        # pH measurement entity should exist
+        state = hass.states.get("event.test_pool_ph_measurement")
+        assert state is not None
+
+    async def test_all_measure_entities_created(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """All 6 measure event entities should be created."""
+        await _setup_integration(hass, mock_config_entry)
+        expected_keys = [
+            "event.test_pool_ph_measurement",
+            "event.test_pool_orp_measurement",
+            "event.test_pool_tac_measurement",
+            "event.test_pool_cya_measurement",
+            "event.test_pool_hardness_measurement",
+            "event.test_pool_temperature_measurement",
+        ]
+        for entity_id in expected_keys:
+            state = hass.states.get(entity_id)
+            assert state is not None, f"Entity {entity_id} not found"
+
+    async def test_measure_entities_registered_with_coordinator(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """All measure entities should register themselves with the coordinator."""
+        coordinator = await _setup_integration(hass, mock_config_entry)
+        for param in MeasureParameter:
+            assert param in coordinator._measure_entities, f"Parameter {param} not registered"
+
+    async def test_record_measure_via_coordinator(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Calling async_record_measure should fire event on the entity."""
+        coordinator = await _setup_integration(hass, mock_config_entry)
+
+        await coordinator.async_record_measure(MeasureParameter.PH, value=7.2, notes="Test")
+        await hass.async_block_till_done()
+
+        state = hass.states.get("event.test_pool_ph_measurement")
+        assert state is not None
+        assert state.attributes.get("event_type") == "measured"
+
+    async def test_record_measure_without_notes(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Recording measurement without notes should work."""
+        coordinator = await _setup_integration(hass, mock_config_entry)
+
+        await coordinator.async_record_measure(MeasureParameter.ORP, value=750.0)
+        await hass.async_block_till_done()
+
+        state = hass.states.get("event.test_pool_orp_measurement")
+        assert state is not None
+        assert state.attributes.get("event_type") == "measured"
+
+    async def test_record_measure_stores_value_in_event_data(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Event data should include the measured value."""
+        coordinator = await _setup_integration(hass, mock_config_entry)
+
+        await coordinator.async_record_measure(MeasureParameter.TAC, value=120.0)
+        await hass.async_block_till_done()
+
+        state = hass.states.get("event.test_pool_tac_measurement")
+        assert state is not None
+        assert state.attributes.get("value") == 120.0

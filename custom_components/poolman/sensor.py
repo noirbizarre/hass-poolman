@@ -52,6 +52,43 @@ def _parameter_report_attrs(report: ParameterReport | None) -> dict[str, Any]:
     }
 
 
+def _source_attr(state: PoolState, parameter: str) -> dict[str, Any]:
+    """Build extra attributes including the measurement source.
+
+    Args:
+        state: The current pool state.
+        parameter: The reading parameter key (e.g. "ph", "orp", "temperature").
+
+    Returns:
+        Dictionary with ``measurement_source`` set to "sensor", "manual",
+        or absent if the parameter has no value.
+    """
+    source = state.reading_sources.get(parameter)
+    if source is None:
+        return {}
+    return {"measurement_source": source}
+
+
+def _status_with_source(
+    state: PoolState, report: ParameterReport | None, parameter: str
+) -> dict[str, Any]:
+    """Merge parameter-report attributes with the measurement source.
+
+    Args:
+        state: The current pool state.
+        report: The parameter report, or None if the reading is unavailable.
+        parameter: The reading parameter key for source lookup.
+
+    Returns:
+        Combined dictionary of report attributes and measurement source.
+    """
+    attrs = _parameter_report_attrs(report)
+    source = state.reading_sources.get(parameter)
+    if source is not None:
+        attrs["measurement_source"] = source
+    return attrs
+
+
 _CHEMISTRY_STATUS_OPTIONS: list[str] = list(ChemistryStatus)
 
 
@@ -64,6 +101,7 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
         value_fn=lambda state: state.reading.temp_c,
+        extra_attrs_fn=lambda state: _source_attr(state, "temperature"),
     ),
     PoolmanSensorEntityDescription(
         key="ph",
@@ -72,6 +110,7 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=2,
         value_fn=lambda state: state.reading.ph,
+        extra_attrs_fn=lambda state: _source_attr(state, "ph"),
     ),
     PoolmanSensorEntityDescription(
         key="orp",
@@ -80,6 +119,7 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         value_fn=lambda state: state.reading.orp,
+        extra_attrs_fn=lambda state: _source_attr(state, "orp"),
     ),
     PoolmanSensorEntityDescription(
         key="filtration_duration",
@@ -141,7 +181,7 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         value_fn=lambda state: (
             state.chemistry_report.ph.status if state.chemistry_report.ph else None
         ),
-        extra_attrs_fn=lambda state: _parameter_report_attrs(state.chemistry_report.ph),
+        extra_attrs_fn=lambda state: _status_with_source(state, state.chemistry_report.ph, "ph"),
     ),
     PoolmanSensorEntityDescription(
         key="orp_status",
@@ -152,7 +192,7 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         value_fn=lambda state: (
             state.chemistry_report.orp.status if state.chemistry_report.orp else None
         ),
-        extra_attrs_fn=lambda state: _parameter_report_attrs(state.chemistry_report.orp),
+        extra_attrs_fn=lambda state: _status_with_source(state, state.chemistry_report.orp, "orp"),
     ),
     PoolmanSensorEntityDescription(
         key="tac_status",
@@ -163,7 +203,7 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         value_fn=lambda state: (
             state.chemistry_report.tac.status if state.chemistry_report.tac else None
         ),
-        extra_attrs_fn=lambda state: _parameter_report_attrs(state.chemistry_report.tac),
+        extra_attrs_fn=lambda state: _status_with_source(state, state.chemistry_report.tac, "tac"),
     ),
     PoolmanSensorEntityDescription(
         key="cya_status",
@@ -174,7 +214,7 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         value_fn=lambda state: (
             state.chemistry_report.cya.status if state.chemistry_report.cya else None
         ),
-        extra_attrs_fn=lambda state: _parameter_report_attrs(state.chemistry_report.cya),
+        extra_attrs_fn=lambda state: _status_with_source(state, state.chemistry_report.cya, "cya"),
     ),
     PoolmanSensorEntityDescription(
         key="hardness_status",
@@ -185,7 +225,9 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         value_fn=lambda state: (
             state.chemistry_report.hardness.status if state.chemistry_report.hardness else None
         ),
-        extra_attrs_fn=lambda state: _parameter_report_attrs(state.chemistry_report.hardness),
+        extra_attrs_fn=lambda state: _status_with_source(
+            state, state.chemistry_report.hardness, "hardness"
+        ),
     ),
     PoolmanSensorEntityDescription(
         key="active_treatments",

@@ -18,9 +18,10 @@ from .const import (
     DOMAIN,
     PLATFORMS,
     SERVICE_ADD_TREATMENT,
+    SERVICE_RECORD_MEASURE,
 )
 from .coordinator import PoolmanCoordinator
-from .domain.model import ChemicalProduct
+from .domain.model import ChemicalProduct, MeasureParameter
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,6 +32,15 @@ SERVICE_ADD_TREATMENT_SCHEMA = vol.Schema(
         vol.Required("device_id"): str,
         vol.Required("product"): vol.In([p.value for p in ChemicalProduct]),
         vol.Optional("quantity_g"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+        vol.Optional("notes"): str,
+    }
+)
+
+SERVICE_RECORD_MEASURE_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): str,
+        vol.Required("parameter"): vol.In([p.value for p in MeasureParameter]),
+        vol.Required("value"): vol.Coerce(float),
         vol.Optional("notes"): str,
     }
 )
@@ -55,6 +65,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) -> 
     entries = hass.config_entries.async_entries(DOMAIN)
     if not any(e.entry_id != entry.entry_id for e in entries):
         hass.services.async_remove(DOMAIN, SERVICE_ADD_TREATMENT)
+        hass.services.async_remove(DOMAIN, SERVICE_RECORD_MEASURE)
 
     return result
 
@@ -118,4 +129,34 @@ def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_ADD_TREATMENT,
         async_handle_add_treatment,
         schema=SERVICE_ADD_TREATMENT_SCHEMA,
+    )
+
+    async def async_handle_record_measure(call: ServiceCall) -> None:
+        """Handle the record_measure service call.
+
+        Resolves the target device to find the corresponding coordinator,
+        then records the manual measurement on the appropriate event entity.
+        """
+        parameter = MeasureParameter(call.data["parameter"])
+        value: float = call.data["value"]
+        notes: str | None = call.data.get("notes")
+        device_id: str = call.data["device_id"]
+
+        device_reg = dr.async_get(hass)
+        device = device_reg.async_get(device_id)
+        if device is None:
+            _LOGGER.warning("Device %s not found", device_id)
+            return
+
+        for entry_id in device.config_entries:
+            entry = hass.config_entries.async_get_entry(entry_id)
+            if entry and entry.domain == DOMAIN:
+                coordinator: PoolmanCoordinator = entry.runtime_data
+                await coordinator.async_record_measure(parameter, value, notes)
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_RECORD_MEASURE,
+        async_handle_record_measure,
+        schema=SERVICE_RECORD_MEASURE_SCHEMA,
     )

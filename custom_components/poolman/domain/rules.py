@@ -31,6 +31,8 @@ from .chemistry import (
 from .filtration import compute_filtration_duration
 from .model import (
     ActionKind,
+    ManualMeasure,
+    MeasureParameter,
     Pool,
     PoolMode,
     PoolReading,
@@ -79,6 +81,7 @@ class Rule(ABC):
         pool: Pool,
         reading: PoolReading,
         mode: PoolMode,
+        manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
     ) -> list[Recommendation]:
         """Evaluate the rule and return recommendations.
 
@@ -86,6 +89,9 @@ class Rule(ABC):
             pool: Pool physical characteristics.
             reading: Current sensor readings.
             mode: Current operational mode.
+            manual_measures: Manual measurements recorded by the user,
+                keyed by parameter. Used by rules that compare sensor
+                readings against manual measurements.
 
         Returns:
             List of recommendations (empty if the rule doesn't apply).
@@ -100,6 +106,7 @@ class PhRule(Rule):
         pool: Pool,
         reading: PoolReading,
         mode: PoolMode,
+        manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
     ) -> list[Recommendation]:
         """Evaluate pH level and recommend adjustments."""
         if mode == PoolMode.WINTER_PASSIVE or reading.ph is None:
@@ -141,6 +148,7 @@ class SanitizerRule(Rule):
         pool: Pool,
         reading: PoolReading,
         mode: PoolMode,
+        manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
     ) -> list[Recommendation]:
         """Evaluate sanitizer via ORP and recommend treatment adapted to treatment type."""
         if mode == PoolMode.WINTER_PASSIVE or reading.orp is None:
@@ -184,6 +192,7 @@ class FiltrationRule(Rule):
         pool: Pool,
         reading: PoolReading,
         mode: PoolMode,
+        manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
     ) -> list[Recommendation]:
         """Recommend filtration duration."""
         hours = compute_filtration_duration(pool, reading, mode)
@@ -215,6 +224,7 @@ class TacRule(Rule):
         pool: Pool,
         reading: PoolReading,
         mode: PoolMode,
+        manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
     ) -> list[Recommendation]:
         """Evaluate TAC and recommend adjustments."""
         if mode == PoolMode.WINTER_PASSIVE or reading.tac is None:
@@ -255,6 +265,7 @@ class AlgaeRiskRule(Rule):
         pool: Pool,
         reading: PoolReading,
         mode: PoolMode,
+        manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
     ) -> list[Recommendation]:
         """Evaluate algae risk from warm water and low ORP."""
         if mode == PoolMode.WINTER_PASSIVE:
@@ -288,6 +299,7 @@ class CyaRule(Rule):
         pool: Pool,
         reading: PoolReading,
         mode: PoolMode,
+        manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
     ) -> list[Recommendation]:
         """Evaluate CYA level and recommend adjustments."""
         if mode == PoolMode.WINTER_PASSIVE or reading.cya is None:
@@ -334,6 +346,7 @@ class HardnessRule(Rule):
         pool: Pool,
         reading: PoolReading,
         mode: PoolMode,
+        manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
     ) -> list[Recommendation]:
         """Evaluate calcium hardness and recommend adjustments."""
         if mode == PoolMode.WINTER_PASSIVE or reading.hardness is None:
@@ -370,6 +383,91 @@ class HardnessRule(Rule):
         return []
 
 
+# Deviation thresholds per parameter for calibration checks.
+# When the absolute difference between a sensor reading and the last manual
+# measurement exceeds these values, a calibration recommendation is generated.
+_CALIBRATION_THRESHOLDS: dict[MeasureParameter, float] = {
+    MeasureParameter.PH: 0.3,
+    MeasureParameter.ORP: 50.0,
+    MeasureParameter.TAC: 20.0,
+    MeasureParameter.CYA: 10.0,
+    MeasureParameter.HARDNESS: 50.0,
+    MeasureParameter.TEMPERATURE: 2.0,
+}
+
+# Mapping from MeasureParameter to the corresponding PoolReading field name
+_MEASURE_TO_READING_FIELD: dict[MeasureParameter, str] = {
+    MeasureParameter.PH: "ph",
+    MeasureParameter.ORP: "orp",
+    MeasureParameter.TAC: "tac",
+    MeasureParameter.CYA: "cya",
+    MeasureParameter.HARDNESS: "hardness",
+    MeasureParameter.TEMPERATURE: "temp_c",
+}
+
+# Human-readable labels for measure parameters
+_MEASURE_LABELS: dict[MeasureParameter, str] = {
+    MeasureParameter.PH: "pH",
+    MeasureParameter.ORP: "ORP",
+    MeasureParameter.TAC: "TAC",
+    MeasureParameter.CYA: "CYA",
+    MeasureParameter.HARDNESS: "hardness",
+    MeasureParameter.TEMPERATURE: "temperature",
+}
+
+
+class CalibrationRule(Rule):
+    """Rule that detects deviation between sensor readings and manual measurements.
+
+    When both a sensor value and a manual measurement exist for the same
+    parameter, compares them. If the deviation exceeds a per-parameter
+    threshold, suggests sensor recalibration or a new manual measurement.
+    """
+
+    def evaluate(
+        self,
+        pool: Pool,
+        reading: PoolReading,
+        mode: PoolMode,
+        manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
+    ) -> list[Recommendation]:
+        """Compare sensor readings against manual measures and flag deviations."""
+        if mode == PoolMode.WINTER_PASSIVE or not manual_measures:
+            return []
+
+        recommendations: list[Recommendation] = []
+        for param, measure in manual_measures.items():
+            threshold = _CALIBRATION_THRESHOLDS.get(param)
+            if threshold is None:
+                continue
+
+            field_name = _MEASURE_TO_READING_FIELD.get(param)
+            if field_name is None:
+                continue
+
+            sensor_value = getattr(reading, field_name, None)
+            if sensor_value is None:
+                continue
+
+            deviation = abs(sensor_value - measure.value)
+            if deviation > threshold:
+                label = _MEASURE_LABELS.get(param, param.value)
+                recommendations.append(
+                    Recommendation(
+                        type=RecommendationType.MAINTENANCE,
+                        priority=RecommendationPriority.MEDIUM,
+                        kind=ActionKind.SUGGESTION,
+                        message=(
+                            f"{label} sensor reading ({sensor_value:.1f}) deviates from"
+                            f" manual measure ({measure.value:.1f})."
+                            " Consider sensor recalibration or a new manual measurement."
+                        ),
+                    )
+                )
+
+        return recommendations
+
+
 class RuleEngine:
     """Engine that evaluates all registered rules against pool state.
 
@@ -396,6 +494,7 @@ class RuleEngine:
             AlgaeRiskRule(),
             CyaRule(),
             HardnessRule(),
+            CalibrationRule(),
         ]
 
     def evaluate(
@@ -403,6 +502,7 @@ class RuleEngine:
         pool: Pool,
         reading: PoolReading,
         mode: PoolMode,
+        manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
     ) -> list[Recommendation]:
         """Run all rules and collect recommendations.
 
@@ -410,13 +510,16 @@ class RuleEngine:
             pool: Pool physical characteristics.
             reading: Current sensor readings.
             mode: Current operational mode.
+            manual_measures: Manual measurements recorded by the user.
 
         Returns:
             All recommendations from all rules, sorted by priority (highest first).
         """
         recommendations: list[Recommendation] = []
         for rule in self.rules:
-            recommendations.extend(rule.evaluate(pool, reading, mode))
+            recommendations.extend(
+                rule.evaluate(pool, reading, mode, manual_measures=manual_measures)
+            )
 
         # Sort by priority (critical first)
         priority_order = {

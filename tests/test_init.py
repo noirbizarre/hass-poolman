@@ -12,6 +12,7 @@ from custom_components.poolman.const import (
     DEFAULT_TREATMENT,
     DOMAIN,
     SERVICE_ADD_TREATMENT,
+    SERVICE_RECORD_MEASURE,
 )
 from custom_components.poolman.coordinator import PoolmanCoordinator
 from tests.conftest import MOCK_CONFIG_DATA, setup_mock_states
@@ -34,13 +35,14 @@ class TestSetupEntry:
     async def test_setup_registers_service(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
     ) -> None:
-        """Setting up should register the add_treatment service."""
+        """Setting up should register the add_treatment and record_measure services."""
         mock_config_entry.add_to_hass(hass)
         setup_mock_states(hass)
         await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
 
         assert hass.services.has_service(DOMAIN, SERVICE_ADD_TREATMENT)
+        assert hass.services.has_service(DOMAIN, SERVICE_RECORD_MEASURE)
 
     async def test_service_registration_idempotent(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
@@ -78,18 +80,20 @@ class TestUnloadEntry:
     async def test_unload_last_entry_removes_service(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
     ) -> None:
-        """Unloading the last entry should remove the service."""
+        """Unloading the last entry should remove both services."""
         mock_config_entry.add_to_hass(hass)
         setup_mock_states(hass)
         await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
 
         assert hass.services.has_service(DOMAIN, SERVICE_ADD_TREATMENT)
+        assert hass.services.has_service(DOMAIN, SERVICE_RECORD_MEASURE)
 
         await hass.config_entries.async_unload(mock_config_entry.entry_id)
         await hass.async_block_till_done()
 
         assert not hass.services.has_service(DOMAIN, SERVICE_ADD_TREATMENT)
+        assert not hass.services.has_service(DOMAIN, SERVICE_RECORD_MEASURE)
 
 
 class TestMigrateEntry:
@@ -274,3 +278,87 @@ class TestUpdateListener:
         # After reload, the coordinator should reflect the new value
         coordinator: PoolmanCoordinator = mock_config_entry.runtime_data
         assert coordinator.pool.pump_flow_m3h == 15.0
+
+
+class TestRecordMeasureServiceHandler:
+    """Tests for the record_measure service handler."""
+
+    async def test_record_measure_service_with_valid_device(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Service call with a valid device should invoke the coordinator."""
+        mock_config_entry.add_to_hass(hass)
+        setup_mock_states(hass)
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        from homeassistant.helpers import device_registry as dr
+
+        device_registry = dr.async_get(hass)
+        device = device_registry.async_get_device(
+            identifiers={(DOMAIN, mock_config_entry.entry_id)}
+        )
+        assert device is not None
+
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_RECORD_MEASURE,
+            {
+                "device_id": device.id,
+                "parameter": "ph",
+                "value": 7.2,
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    async def test_record_measure_service_with_notes(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Service call with notes should pass them through."""
+        mock_config_entry.add_to_hass(hass)
+        setup_mock_states(hass)
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        from homeassistant.helpers import device_registry as dr
+
+        device_registry = dr.async_get(hass)
+        device = device_registry.async_get_device(
+            identifiers={(DOMAIN, mock_config_entry.entry_id)}
+        )
+        assert device is not None
+
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_RECORD_MEASURE,
+            {
+                "device_id": device.id,
+                "parameter": "orp",
+                "value": 750.0,
+                "notes": "Test measurement",
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    async def test_record_measure_service_with_unknown_device(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Service call with unknown device_id should not crash."""
+        mock_config_entry.add_to_hass(hass)
+        setup_mock_states(hass)
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_RECORD_MEASURE,
+            {
+                "device_id": "nonexistent_device_id",
+                "parameter": "ph",
+                "value": 7.0,
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
