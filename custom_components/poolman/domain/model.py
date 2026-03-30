@@ -10,6 +10,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from .activation import ActivationChecklist
+
 
 class PoolShape(StrEnum):
     """Pool shape types."""
@@ -294,6 +296,7 @@ class PoolState(BaseModel):
     manual_measures: dict[MeasureParameter, ManualMeasure] = Field(default_factory=dict)
     reading_sources: dict[str, str] = Field(default_factory=dict)
     boost_remaining: float = Field(0.0, ge=0, description="Remaining boost filtration hours")
+    activation: ActivationChecklist | None = None
 
     @property
     def water_ok(self) -> bool:

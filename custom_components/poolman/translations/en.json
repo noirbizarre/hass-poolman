@@ -173,6 +173,16 @@
       },
       "filtration_boost_remaining": {
         "name": "Filtration boost remaining"
+      },
+      "activation_step": {
+        "name": "Activation step",
+        "state": {
+          "remove_cover": "Remove cover",
+          "raise_water_level": "Raise water level",
+          "clean_pool_and_filter": "Clean pool and filter",
+          "shock_treatment": "Shock treatment",
+          "intensive_filtration": "Intensive filtration"
+        }
       }
     },
     "binary_sensor": {
@@ -550,6 +560,15 @@
         "hardness": "Calcium hardness",
         "temperature": "Temperature"
       }
+    },
+    "activation_step": {
+      "options": {
+        "remove_cover": "Remove cover",
+        "raise_water_level": "Raise water level",
+        "clean_pool_and_filter": "Clean pool and filter",
+        "shock_treatment": "Shock treatment",
+        "intensive_filtration": "Intensive filtration"
+      }
     }
   },
   "services": {
@@ -608,6 +627,20 @@
         "hours": {
           "name": "Hours",
           "description": "Number of extra filtration hours (0 to cancel)."
+        }
+      }
+    },
+    "confirm_activation_step": {
+      "name": "Confirm activation step",
+      "description": "Confirm completion of an activation wizard step.",
+      "fields": {
+        "device_id": {
+          "name": "Pool device",
+          "description": "The pool to confirm the activation step for."
+        },
+        "step": {
+          "name": "Step",
+          "description": "The activation step to confirm as completed."
         }
       }
     }

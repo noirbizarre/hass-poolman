@@ -35,8 +35,10 @@ from .const import (
     DEFAULT_TREATMENT,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
     DOMAIN,
+    EVENT_FILTRATION_STOPPED,
     EVENT_POOLMAN,
 )
+from .domain.activation import SHOCK_PRODUCT_VALUES, ActivationChecklist, ActivationStep
 from .domain.chemistry import compute_chemistry_report, compute_water_quality_score
 from .domain.filtration import compute_filtration_duration
 from .domain.model import (
@@ -105,12 +107,17 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         self._min_dynamic_period_duration = DEFAULT_MIN_DYNAMIC_DURATION_HOURS
         self._treatment_entities: dict[ChemicalProduct, PoolmanTreatmentEvent] = {}
         self._measure_entities: dict[MeasureParameter, PoolmanMeasureEvent] = {}
+        self._activation: ActivationChecklist | None = None
 
         # Filtration scheduler: only created when a pump entity is configured
         pump_entity_id = self._get_config(CONF_PUMP_ENTITY)
         self.scheduler: FiltrationScheduler | None = (
             FiltrationScheduler(hass, pump_entity_id) if pump_entity_id else None
         )
+
+        # Listen for filtration events to auto-confirm activation steps
+        if self.scheduler is not None:
+            self.scheduler.on_event(self._on_scheduler_event)
 
     def _get_config(self, key: str, default: Any = None) -> Any:
         """Get a config value, checking options first then data.
@@ -152,23 +159,48 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
     def mode(self, value: PoolMode) -> None:
         """Set the pool mode.
 
+        When switching to ACTIVATING, a new activation checklist is created
+        (unless one already exists). When switching away from ACTIVATING,
+        the checklist is cleared.
+
         For mode changes that require side effects (e.g. pausing the
         scheduler), use :meth:`async_set_mode` instead.
         """
+        previous = self._mode
         self._mode = value
+        if value == PoolMode.ACTIVATING and previous != PoolMode.ACTIVATING:
+            self._activation = ActivationChecklist(started_at=utcnow())
+        elif value != PoolMode.ACTIVATING:
+            self._activation = None
+
+    @property
+    def activation(self) -> ActivationChecklist | None:
+        """Return the current activation checklist, if any."""
+        return self._activation
+
+    @activation.setter
+    def activation(self, value: ActivationChecklist | None) -> None:
+        """Set or clear the activation checklist (used for state restoration)."""
+        self._activation = value
 
     async def async_set_mode(self, mode: PoolMode) -> None:
         """Set the pool mode with transition side effects.
 
         Handles scheduler pause/resume when entering or leaving
-        ``WINTER_PASSIVE`` mode.  The pump is stopped immediately
-        on entering passive wintering and resumed when leaving it.
+        ``WINTER_PASSIVE`` mode and activation checklist lifecycle
+        when entering or leaving ``ACTIVATING`` mode.
 
         Args:
             mode: The new pool mode to set.
         """
         old_mode = self._mode
         self._mode = mode
+
+        # Manage activation checklist lifecycle
+        if mode == PoolMode.ACTIVATING and old_mode != PoolMode.ACTIVATING:
+            self._activation = ActivationChecklist(started_at=utcnow())
+        elif mode != PoolMode.ACTIVATING:
+            self._activation = None
 
         if (
             mode == PoolMode.WINTER_PASSIVE
@@ -228,6 +260,46 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             await self.scheduler.async_cancel_boost()
             await self.async_request_refresh()
 
+    async def async_confirm_activation_step(self, step: ActivationStep) -> None:
+        """Confirm completion of an activation wizard step.
+
+        Args:
+            step: The activation step to mark as completed.
+
+        Raises:
+            ValueError: If the pool is not in activating mode or the step
+                has already been confirmed.
+        """
+        if self._mode != PoolMode.ACTIVATING or self._activation is None:
+            msg = "Cannot confirm activation step: pool is not in activating mode"
+            raise ValueError(msg)
+        self._activation.confirm(step)
+        if self._activation.is_complete:
+            self._mode = PoolMode.ACTIVE
+            self._activation = None
+        await self.async_request_refresh()
+
+    def _on_scheduler_event(self, event_type: str, _data: dict[str, object]) -> None:
+        """Handle scheduler events to auto-confirm activation steps.
+
+        When a filtration cycle completes (filtration_stopped) during
+        activating mode, the intensive_filtration step is auto-confirmed.
+
+        Args:
+            event_type: The scheduler event type.
+            _data: Event data payload (unused).
+        """
+        if event_type != EVENT_FILTRATION_STOPPED:
+            return
+        if self._mode != PoolMode.ACTIVATING or self._activation is None:
+            return
+        if ActivationStep.INTENSIVE_FILTRATION in self._activation.pending_steps:
+            self._activation.confirm(ActivationStep.INTENSIVE_FILTRATION)
+            if self._activation.is_complete:
+                self._mode = PoolMode.ACTIVE
+                self._activation = None
+            self.hass.async_create_task(self.async_request_refresh())
+
     def register_treatment_entity(
         self,
         product: ChemicalProduct,
@@ -254,6 +326,9 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         Fires the event on the corresponding event entity and triggers
         a coordinator refresh to update derived sensors.
 
+        When in activating mode, recording a shock product automatically
+        confirms the shock_treatment activation step.
+
         Args:
             product: The chemical product applied.
             quantity_g: Amount of product used in grams.
@@ -264,6 +339,19 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             _LOGGER.warning("No treatment entity registered for product %s", product)
             return
         entity.apply_treatment(quantity_g=quantity_g, notes=notes)
+
+        # Auto-confirm shock_treatment step during activation
+        if (
+            self._mode == PoolMode.ACTIVATING
+            and self._activation is not None
+            and product in SHOCK_PRODUCT_VALUES
+            and ActivationStep.SHOCK_TREATMENT in self._activation.pending_steps
+        ):
+            self._activation.confirm(ActivationStep.SHOCK_TREATMENT)
+            if self._activation.is_complete:
+                self._mode = PoolMode.ACTIVE
+                self._activation = None
+
         await self.async_request_refresh()
 
     def register_measure_entity(
@@ -567,6 +655,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             manual_measures=manual_measures,
             reading_sources=reading_sources,
             boost_remaining=(self.scheduler.boost_remaining if self.scheduler is not None else 0.0),
+            activation=self._activation,
         )
 
         self._fire_status_change_events(new_state)

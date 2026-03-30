@@ -19,9 +19,11 @@ from .const import (
     PLATFORMS,
     SERVICE_ADD_TREATMENT,
     SERVICE_BOOST_FILTRATION,
+    SERVICE_CONFIRM_ACTIVATION_STEP,
     SERVICE_RECORD_MEASURE,
 )
 from .coordinator import PoolmanCoordinator
+from .domain.activation import ActivationStep
 from .domain.model import ChemicalProduct, MeasureParameter
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,6 +55,13 @@ SERVICE_BOOST_FILTRATION_SCHEMA = vol.Schema(
     }
 )
 
+SERVICE_CONFIRM_ACTIVATION_STEP_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): str,
+        vol.Required("step"): vol.In([s.value for s in ActivationStep]),
+    }
+)
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) -> bool:
     """Set up Pool Manager from a config entry."""
@@ -75,6 +84,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) -> 
         hass.services.async_remove(DOMAIN, SERVICE_ADD_TREATMENT)
         hass.services.async_remove(DOMAIN, SERVICE_RECORD_MEASURE)
         hass.services.async_remove(DOMAIN, SERVICE_BOOST_FILTRATION)
+        hass.services.async_remove(DOMAIN, SERVICE_CONFIRM_ACTIVATION_STEP)
 
     return result
 
@@ -199,4 +209,32 @@ def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_BOOST_FILTRATION,
         async_handle_boost_filtration,
         schema=SERVICE_BOOST_FILTRATION_SCHEMA,
+    )
+
+    async def async_handle_confirm_activation_step(call: ServiceCall) -> None:
+        """Handle the confirm_activation_step service call.
+
+        Resolves the target device to find the corresponding coordinator,
+        then confirms the specified activation step.
+        """
+        step = ActivationStep(call.data["step"])
+        device_id: str = call.data["device_id"]
+
+        device_reg = dr.async_get(hass)
+        device = device_reg.async_get(device_id)
+        if device is None:
+            _LOGGER.warning("Device %s not found", device_id)
+            return
+
+        for entry_id in device.config_entries:
+            entry = hass.config_entries.async_get_entry(entry_id)
+            if entry and entry.domain == DOMAIN:
+                coordinator: PoolmanCoordinator = entry.runtime_data
+                await coordinator.async_confirm_activation_step(step)
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_CONFIRM_ACTIVATION_STEP,
+        async_handle_confirm_activation_step,
+        schema=SERVICE_CONFIRM_ACTIVATION_STEP_SCHEMA,
     )

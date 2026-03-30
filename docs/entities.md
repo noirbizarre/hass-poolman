@@ -11,7 +11,7 @@ name you set during configuration.
 
 ## Sensors
 
-The integration creates 14 sensor entities:
+The integration creates 15 sensor entities:
 
 ### Reading sensors
 
@@ -100,6 +100,30 @@ The `active_treatments` sensor exposes additional detail through its state attri
 | Attribute | Type | Description |
 | --- | --- | --- |
 | `treatments` | list of objects | Details of each active treatment: `product`, `applied_at`, `safe_at`, `quantity_g` |
+
+### Activation step sensor
+
+The `activation_step` sensor tracks progress through the
+[Activation Wizard](pool-modes.md#activation-wizard). It shows the next
+pending step when the pool is in **Activating** mode, or has no state
+when the pool is in any other mode.
+
+| Entity | Name | Device Class | Options | Description |
+| --- | --- | --- | --- | --- |
+| `sensor.{pool}_activation_step` | Activation step | `enum` | `remove_cover`, `raise_water_level`, `clean_pool_and_filter`, `shock_treatment`, `intensive_filtration` | Current (next pending) activation wizard step |
+
+#### Activation step sensor attributes
+
+| Attribute | Type | Description |
+| --- | --- | --- |
+| `completed_steps` | list of strings | Steps already confirmed |
+| `pending_steps` | list of strings | Steps still to be confirmed |
+| `progress` | string | Progress in the format `"N/5"` (e.g. `"2/5"`) |
+| `started_at` | string (ISO 8601) | When the activation process was started |
+
+These attributes are empty when the pool is not in activating mode.
+The checklist state persists across Home Assistant restarts via the
+`RestoreEntity` mechanism.
 
 ## Binary Sensors
 
