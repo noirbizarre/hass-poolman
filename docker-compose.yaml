@@ -3,8 +3,10 @@ services:
     image: ghcr.io/home-assistant/home-assistant:stable
     volumes:
       - /config
+      - card-assets:/config/www
       - ./custom_components/poolman:/config/custom_components/poolman:ro
       - ./demo/fake_pool_sensor:/config/custom_components/fake_pool_sensor:ro
+      - ./demo/configuration.yaml:/config/configuration.yaml
     ports:
       - "8123:8123"
     environment:
@@ -16,11 +18,18 @@ services:
       retries: 30
       start_period: 30s
 
+  # All-in-one setup: downloads custom card JS bundles, waits for HA,
+  # onboards a test user, creates storage-mode dashboards via WebSocket
+  # API, and configures Pool Manager.
+  # Dashboards can be edited from the HA UI after creation. To reset
+  # everything: docker compose up -V
   setup:
-    image: python:3.14-alpine
+    image: ghcr.io/astral-sh/uv:python3.14-alpine
     volumes:
+      - card-assets:/config/www
       - ./demo/setup.py:/demo/setup.py:ro
-    command: python /demo/setup.py
-    depends_on:
-      homeassistant:
-        condition: service_healthy
+      - ./demo/dashboards:/demo/dashboards:ro
+    command: uv run /demo/setup.py
+
+volumes:
+  card-assets:

@@ -1,0 +1,881 @@
+title: "Pool (Custom Cards)"
+views:
+  - title: Pool
+    icon: mdi:pool
+    cards:
+      # ── Header ──────────────────────────────────────────────────
+      - type: custom:bubble-card
+        card_type: separator
+        name: Pool Manager
+        icon: mdi:pool
+
+      # ── Pool Status & Mode ──────────────────────────────────────
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          # Pool mode selector with styled button-card
+          - type: custom:button-card
+            name: Pool Mode
+            icon: mdi:pool
+            entity: select.demo_pool_pool_mode
+            show_state: true
+            state:
+              - value: active
+                icon: mdi:white-balance-sunny
+                styles:
+                  img_cell:
+                    - background: var(--green-color, #4caf50)
+              - value: hibernating
+                icon: mdi:snowflake
+                styles:
+                  img_cell:
+                    - background: var(--blue-color, #2196f3)
+              - value: winter_active
+                icon: mdi:sun-snowflake-variant
+                styles:
+                  img_cell:
+                    - background: var(--blue-color, #2196f3)
+              - value: winter_passive
+                icon: mdi:snowflake-alert
+                styles:
+                  img_cell:
+                    - background: var(--info-color, #039be5)
+              - value: activating
+                icon: mdi:progress-wrench
+                styles:
+                  img_cell:
+                    - background: var(--warning-color, #ff9800)
+            styles:
+              grid:
+                - grid-template-areas: '"n" "s" "i"'
+                - grid-template-rows: min-content min-content 1fr
+              img_cell:
+                - justify-content: center
+                - width: 80px
+                - height: 80px
+                - margin: 8px auto
+                - background: var(--primary-color)
+                - border-radius: 50%
+              icon:
+                - width: 40px
+                - color: white
+              card:
+                - height: 100%
+                - padding: 16px
+              name:
+                - font-size: 16px
+                - font-weight: 500
+              state:
+                - font-size: 14px
+                - opacity: "0.7"
+                - text-transform: capitalize
+            tap_action:
+              action: more-info
+
+          # Action required indicator
+          - type: custom:button-card
+            name: Actions Required
+            icon: mdi:check-circle-outline
+            entity: binary_sensor.demo_pool_action_required
+            show_state: true
+            state:
+              - value: "off"
+                icon: mdi:check-circle-outline
+                styles:
+                  img_cell:
+                    - background: var(--green-color, #4caf50)
+              - value: "on"
+                icon: mdi:alert-circle
+                styles:
+                  img_cell:
+                    - background: var(--error-color, #db4437)
+            styles:
+              grid:
+                - grid-template-areas: '"n" "s" "i"'
+                - grid-template-rows: min-content min-content 1fr
+              img_cell:
+                - justify-content: center
+                - width: 80px
+                - height: 80px
+                - margin: 8px auto
+                - background: var(--green-color, #4caf50)
+                - border-radius: 50%
+              icon:
+                - width: 40px
+                - color: white
+              card:
+                - height: 100%
+                - padding: 16px
+              name:
+                - font-size: 16px
+                - font-weight: 500
+              state:
+                - font-size: 14px
+                - opacity: "0.7"
+                - text-transform: capitalize
+            tap_action:
+              action: more-info
+
+      # ── Water Quality Score ──────────────────────────────────────
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        entity: sensor.demo_pool_water_quality
+        name: Water Quality Score
+        icon: mdi:water-check
+        show_state: true
+
+      # ── Safety Status ────────────────────────────────────────────
+      - type: custom:bubble-card
+        card_type: sub-buttons
+        hide_main_background: true
+        sub_button:
+          - entity: binary_sensor.demo_pool_water_quality
+            name: Water OK
+            icon: mdi:water-check
+            show_state: true
+            show_name: true
+          - entity: binary_sensor.demo_pool_swimming_safe
+            name: Swimming
+            icon: mdi:swim
+            show_state: true
+            show_name: true
+          - entity: sensor.demo_pool_active_treatments
+            name: Treatments
+            icon: mdi:bottle-tonic
+            show_state: true
+            show_name: true
+
+      # ── Temperature Graph ────────────────────────────────────────
+      - type: custom:mini-graph-card
+        entities:
+          - entity: sensor.demo_pool_water_temperature
+            name: Water Temperature
+        hours_to_show: 48
+        animate: true
+        line_width: 4
+        group_by: hour
+        hour24: true
+        decimals: 1
+        show:
+          extrema: true
+          average: true
+          labels: false
+        color_thresholds:
+          - value: 18
+            color: "#2196f3"
+          - value: 24
+            color: "#4caf50"
+          - value: 28
+            color: "#ff9800"
+          - value: 32
+            color: "#f44336"
+
+      # ── Pool Monitor Card (Chemistry Gauges) ─────────────────────
+      - type: custom:pool-monitor-card
+        title: Water Chemistry
+        display:
+          show_labels: true
+          show_last_updated: true
+          gradient: true
+          language: en
+        sensors:
+          temperature:
+            - entity: sensor.demo_pool_water_temperature
+              setpoint: 27
+              step: 4
+          ph:
+            - entity: sensor.demo_pool_ph
+              setpoint: 7.2
+              step: 0.3
+          orp:
+            - entity: sensor.demo_pool_orp
+              setpoint: 750
+              step: 75
+
+      # ── Chemistry Status ─────────────────────────────────────────
+      - type: grid
+        columns: 5
+        square: false
+        cards:
+          - type: custom:bubble-card
+            card_type: button
+            button_type: state
+            entity: sensor.demo_pool_ph_status
+            name: pH
+            icon: mdi:ph
+            show_state: true
+          - type: custom:bubble-card
+            card_type: button
+            button_type: state
+            entity: sensor.demo_pool_orp_status
+            name: ORP
+            icon: mdi:flash-triangle-outline
+            show_state: true
+          - type: custom:bubble-card
+            card_type: button
+            button_type: state
+            entity: sensor.demo_pool_tac_status
+            name: TAC
+            icon: mdi:beaker-outline
+            show_state: true
+          - type: custom:bubble-card
+            card_type: button
+            button_type: state
+            entity: sensor.demo_pool_cya_status
+            name: CYA
+            icon: mdi:shield-sun-outline
+            show_state: true
+          - type: custom:bubble-card
+            card_type: button
+            button_type: state
+            entity: sensor.demo_pool_hardness_status
+            name: Hardness
+            icon: mdi:water-opacity
+            show_state: true
+
+      # ── Recommendations ──────────────────────────────────────────
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        entity: sensor.demo_pool_recommendations
+        name: Recommendations
+        icon: mdi:clipboard-check
+        show_state: true
+        button_action:
+          tap_action:
+            action: more-info
+
+      - type: markdown
+        content: >
+          {% set recs = state_attr('sensor.demo_pool_recommendations', 'actions') %}
+          {% if recs and recs | length > 0 %}
+          {% for action in recs %}
+          - {{ action }}
+          {% endfor %}
+          {% else %}
+          *No recommendations at this time.*
+          {% endif %}
+
+      # ── Filtration Control ───────────────────────────────────────
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          # Pump toggle
+          - type: custom:button-card
+            entity: switch.demo_pool_filtration_control
+            name: Filtration
+            icon: mdi:pump
+            show_state: true
+            tap_action:
+              action: toggle
+            state:
+              - value: "on"
+                icon: mdi:pump
+                styles:
+                  card:
+                    - background: var(--green-color, #4caf50)
+                  icon:
+                    - color: white
+                  name:
+                    - color: white
+                  state:
+                    - color: white
+              - value: "off"
+                icon: mdi:pump-off
+                styles:
+                  card:
+                    - background: var(--error-color, #db4437)
+                  icon:
+                    - color: white
+                  name:
+                    - color: white
+                  state:
+                    - color: white
+            styles:
+              card:
+                - padding: 16px
+                - height: 100%
+              icon:
+                - width: 36px
+              name:
+                - font-size: 16px
+                - font-weight: 500
+              state:
+                - font-size: 14px
+                - text-transform: capitalize
+
+          # Filtration info
+          - type: vertical-stack
+            cards:
+              - type: custom:bubble-card
+                card_type: button
+                button_type: state
+                entity: sensor.demo_pool_recommended_filtration
+                name: Recommended
+                icon: mdi:clock-outline
+                show_state: true
+              - type: custom:bubble-card
+                card_type: button
+                button_type: state
+                entity: time.demo_pool_filtration_start_time
+                name: Start Time
+                icon: mdi:clock-start
+                show_state: true
+              - type: custom:bubble-card
+                card_type: button
+                button_type: state
+                entity: select.demo_pool_filtration_duration_mode
+                name: Mode
+                icon: mdi:cog
+                show_state: true
+
+      # ── Filtration Boost (sub-buttons) ───────────────────────────
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        entity: select.demo_pool_filtration_boost
+        name: Filtration Boost
+        icon: mdi:rocket-launch
+        show_state: true
+        sub_button:
+          - name: "Off"
+            icon: mdi:cancel
+            tap_action:
+              action: call-service
+              service: select.select_option
+              data:
+                option: "none"
+              target:
+                entity_id: select.demo_pool_filtration_boost
+          - name: "+2h"
+            icon: mdi:numeric-2
+            tap_action:
+              action: call-service
+              service: select.select_option
+              data:
+                option: "2"
+              target:
+                entity_id: select.demo_pool_filtration_boost
+          - name: "+4h"
+            icon: mdi:numeric-4
+            tap_action:
+              action: call-service
+              service: select.select_option
+              data:
+                option: "4"
+              target:
+                entity_id: select.demo_pool_filtration_boost
+          - name: "+8h"
+            icon: mdi:numeric-8
+            tap_action:
+              action: call-service
+              service: select.select_option
+              data:
+                option: "8"
+              target:
+                entity_id: select.demo_pool_filtration_boost
+          - name: "24h"
+            icon: mdi:hours-24
+            tap_action:
+              action: call-service
+              service: select.select_option
+              data:
+                option: "24"
+              target:
+                entity_id: select.demo_pool_filtration_boost
+
+      - type: history-graph
+        title: Filtration History (24h)
+        hours_to_show: 24
+        entities:
+          - entity: switch.demo_pool_filtration_control
+            name: Filtration
+
+      # ── Treatments ──────────────────────────────────────────────
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        entity: sensor.demo_pool_active_treatments
+        name: Active Treatments
+        icon: mdi:bottle-tonic-plus
+        show_state: true
+        button_action:
+          tap_action:
+            action: more-info
+
+      # ── Activity Log ─────────────────────────────────────────────
+      - type: custom:bubble-card
+        card_type: separator
+        name: Activity Log
+        icon: mdi:history
+
+      - type: logbook
+        hours_to_show: 48
+        entities:
+          - event.demo_pool_ph_measurement
+          - event.demo_pool_orp_measurement
+          - event.demo_pool_tac_measurement
+          - event.demo_pool_cya_measurement
+          - event.demo_pool_hardness_measurement
+          - event.demo_pool_temperature_measurement
+          - event.demo_pool_ph_minus_treatment
+          - event.demo_pool_ph_plus_treatment
+          - event.demo_pool_shock_chlorine_treatment
+          - event.demo_pool_chlorine_tablet_treatment
+          - event.demo_pool_filtration
+
+      # ── Activation Wizard (visible only in activating mode) ─────
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: select.demo_pool_pool_mode
+            state: activating
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:bubble-card
+              card_type: separator
+              name: Activation Wizard
+              icon: mdi:wizard-hat
+
+            - type: custom:bubble-card
+              card_type: button
+              button_type: state
+              entity: sensor.demo_pool_activation_step
+              name: Current Step
+              icon: mdi:wizard-hat
+              show_state: true
+              button_action:
+                tap_action:
+                  action: more-info
+
+            - type: markdown
+              content: >
+                {% set completed = state_attr('sensor.demo_pool_activation_step', 'completed_steps') %}
+                {% set pending = state_attr('sensor.demo_pool_activation_step', 'pending_steps') %}
+                {% if completed %}
+                {% for step in completed %}
+                - ✅ {{ step | replace('_', ' ') | title }}
+                {% endfor %}
+                {% endif %}
+                {% if pending %}
+                {% for step in pending %}
+                - ⬜ {{ step | replace('_', ' ') | title }}
+                {% endfor %}
+                {% endif %}
+
+            - type: grid
+              columns: 3
+              square: true
+              cards:
+                - type: custom:button-card
+                  name: Remove Cover
+                  icon: mdi:umbrella-beach
+                  tap_action:
+                    action: perform-action
+                    perform_action: poolman.confirm_activation_step
+                    data:
+                      device_id: this
+                      step: remove_cover
+                  styles:
+                    card:
+                      - padding: 12px
+                    icon:
+                      - width: 32px
+                    name:
+                      - font-size: 12px
+
+                - type: custom:button-card
+                  name: Raise Water
+                  icon: mdi:water-plus
+                  tap_action:
+                    action: perform-action
+                    perform_action: poolman.confirm_activation_step
+                    data:
+                      device_id: this
+                      step: raise_water_level
+                  styles:
+                    card:
+                      - padding: 12px
+                    icon:
+                      - width: 32px
+                    name:
+                      - font-size: 12px
+
+                - type: custom:button-card
+                  name: Clean Pool
+                  icon: mdi:broom
+                  tap_action:
+                    action: perform-action
+                    perform_action: poolman.confirm_activation_step
+                    data:
+                      device_id: this
+                      step: clean_pool_and_filter
+                  styles:
+                    card:
+                      - padding: 12px
+                    icon:
+                      - width: 32px
+                    name:
+                      - font-size: 12px
+
+      # ── Quick Actions ───────────────────────────────────────────
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: custom:bubble-card
+            card_type: button
+            button_type: name
+            name: Record Measure
+            icon: mdi:test-tube
+            button_action:
+              tap_action:
+                action: navigate
+                navigation_path: "#record-measure"
+
+          - type: custom:bubble-card
+            card_type: button
+            button_type: name
+            name: Add Treatment
+            icon: mdi:bottle-tonic-plus
+            button_action:
+              tap_action:
+                action: navigate
+                navigation_path: "#add-treatment"
+
+      # ── Fake Sensor Controls (Demo Only) ─────────────────────────
+      - type: custom:bubble-card
+        card_type: separator
+        name: Sensor Controls (Demo)
+        icon: mdi:tune
+
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: vertical-stack
+            cards:
+              - type: tile
+                entity: number.fake_pool_sensor_water_temperature_target
+                name: Temperature
+                icon: mdi:thermometer-water
+              - type: tile
+                entity: number.fake_pool_sensor_ph_target
+                name: pH
+                icon: mdi:ph
+              - type: tile
+                entity: number.fake_pool_sensor_orp_target
+                name: ORP
+                icon: mdi:flash-triangle-outline
+              - type: tile
+                entity: number.fake_pool_sensor_outdoor_temperature_target
+                name: Outdoor Temp
+                icon: mdi:thermometer
+          - type: vertical-stack
+            cards:
+              - type: tile
+                entity: number.fake_pool_sensor_total_alkalinity_target
+                name: TAC
+                icon: mdi:beaker-outline
+              - type: tile
+                entity: number.fake_pool_sensor_cyanuric_acid_target
+                name: CYA
+                icon: mdi:shield-sun-outline
+              - type: tile
+                entity: number.fake_pool_sensor_calcium_hardness_target
+                name: Hardness
+                icon: mdi:water-opacity
+              - type: tile
+                entity: switch.fake_pool_sensor_pump
+                name: Pump
+                icon: mdi:pump
+
+      # ── Popups ──────────────────────────────────────────────────
+
+      # Record Measure popup
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: "#record-measure"
+            name: Record Measure
+            icon: mdi:test-tube
+          - type: grid
+            columns: 2
+            square: false
+            cards:
+              - type: custom:button-card
+                name: pH (7.2)
+                icon: mdi:ph
+                tap_action:
+                  action: perform-action
+                  perform_action: poolman.record_measure
+                  data:
+                    device_id: this
+                    parameter: ph
+                    value: 7.2
+                  confirmation:
+                    text: "Record a pH measurement of 7.2?"
+                styles:
+                  card:
+                    - padding: 12px
+                  icon:
+                    - width: 32px
+                  name:
+                    - font-size: 14px
+              - type: custom:button-card
+                name: ORP (750 mV)
+                icon: mdi:flash-triangle-outline
+                tap_action:
+                  action: perform-action
+                  perform_action: poolman.record_measure
+                  data:
+                    device_id: this
+                    parameter: orp
+                    value: 750
+                  confirmation:
+                    text: "Record an ORP measurement of 750 mV?"
+                styles:
+                  card:
+                    - padding: 12px
+                  icon:
+                    - width: 32px
+                  name:
+                    - font-size: 14px
+              - type: custom:button-card
+                name: TAC (150)
+                icon: mdi:beaker-outline
+                tap_action:
+                  action: perform-action
+                  perform_action: poolman.record_measure
+                  data:
+                    device_id: this
+                    parameter: tac
+                    value: 150
+                  confirmation:
+                    text: "Record an alkalinity (TAC) measurement of 150 ppm?"
+                styles:
+                  card:
+                    - padding: 12px
+                  icon:
+                    - width: 32px
+                  name:
+                    - font-size: 14px
+              - type: custom:button-card
+                name: CYA (30)
+                icon: mdi:shield-sun-outline
+                tap_action:
+                  action: perform-action
+                  perform_action: poolman.record_measure
+                  data:
+                    device_id: this
+                    parameter: cya
+                    value: 30
+                  confirmation:
+                    text: "Record a cyanuric acid (CYA) measurement of 30 ppm?"
+                styles:
+                  card:
+                    - padding: 12px
+                  icon:
+                    - width: 32px
+                  name:
+                    - font-size: 14px
+              - type: custom:button-card
+                name: Hardness (250)
+                icon: mdi:water-opacity
+                tap_action:
+                  action: perform-action
+                  perform_action: poolman.record_measure
+                  data:
+                    device_id: this
+                    parameter: hardness
+                    value: 250
+                  confirmation:
+                    text: "Record a calcium hardness measurement of 250 ppm?"
+                styles:
+                  card:
+                    - padding: 12px
+                  icon:
+                    - width: 32px
+                  name:
+                    - font-size: 14px
+              - type: custom:button-card
+                name: Temp (27°C)
+                icon: mdi:thermometer-water
+                tap_action:
+                  action: perform-action
+                  perform_action: poolman.record_measure
+                  data:
+                    device_id: this
+                    parameter: temperature
+                    value: 27
+                  confirmation:
+                    text: "Record a water temperature of 27°C?"
+                styles:
+                  card:
+                    - padding: 12px
+                  icon:
+                    - width: 32px
+                  name:
+                    - font-size: 14px
+
+      # Add Treatment popup
+      - type: vertical-stack
+        cards:
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: "#add-treatment"
+            name: Add Treatment
+            icon: mdi:bottle-tonic-plus
+          - type: grid
+            columns: 2
+            square: false
+            cards:
+              - type: custom:button-card
+                name: Chlorine Tablet
+                icon: mdi:circle-outline
+                label: "200 g"
+                show_label: true
+                tap_action:
+                  action: perform-action
+                  perform_action: poolman.add_treatment
+                  data:
+                    device_id: this
+                    product: galet_chlore
+                    quantity_g: 200
+                  confirmation:
+                    text: "Add a chlorine tablet treatment (200 g)?"
+                styles:
+                  card:
+                    - padding: 12px
+                  icon:
+                    - width: 32px
+                  name:
+                    - font-size: 14px
+                  label:
+                    - font-size: 12px
+                    - opacity: "0.7"
+              - type: custom:button-card
+                name: Shock Chlorine
+                icon: mdi:flash
+                label: "300 g"
+                show_label: true
+                tap_action:
+                  action: perform-action
+                  perform_action: poolman.add_treatment
+                  data:
+                    device_id: this
+                    product: chlore_choc
+                    quantity_g: 300
+                  confirmation:
+                    text: "Add a shock chlorine treatment (300 g)?"
+                styles:
+                  card:
+                    - padding: 12px
+                  icon:
+                    - width: 32px
+                  name:
+                    - font-size: 14px
+                  label:
+                    - font-size: 12px
+                    - opacity: "0.7"
+              - type: custom:button-card
+                name: pH Minus
+                icon: mdi:arrow-down-bold
+                label: "100 g"
+                show_label: true
+                tap_action:
+                  action: perform-action
+                  perform_action: poolman.add_treatment
+                  data:
+                    device_id: this
+                    product: ph_minus
+                    quantity_g: 100
+                  confirmation:
+                    text: "Add a pH minus treatment (100 g)?"
+                styles:
+                  card:
+                    - padding: 12px
+                  icon:
+                    - width: 32px
+                  name:
+                    - font-size: 14px
+                  label:
+                    - font-size: 12px
+                    - opacity: "0.7"
+              - type: custom:button-card
+                name: pH Plus
+                icon: mdi:arrow-up-bold
+                label: "100 g"
+                show_label: true
+                tap_action:
+                  action: perform-action
+                  perform_action: poolman.add_treatment
+                  data:
+                    device_id: this
+                    product: ph_plus
+                    quantity_g: 100
+                  confirmation:
+                    text: "Add a pH plus treatment (100 g)?"
+                styles:
+                  card:
+                    - padding: 12px
+                  icon:
+                    - width: 32px
+                  name:
+                    - font-size: 14px
+                  label:
+                    - font-size: 12px
+                    - opacity: "0.7"
+              - type: custom:button-card
+                name: Anti-algae
+                icon: mdi:leaf-off
+                label: "200 ml"
+                show_label: true
+                tap_action:
+                  action: perform-action
+                  perform_action: poolman.add_treatment
+                  data:
+                    device_id: this
+                    product: anti_algae
+                    quantity_g: 200
+                  confirmation:
+                    text: "Add an anti-algae treatment (200 ml)?"
+                styles:
+                  card:
+                    - padding: 12px
+                  icon:
+                    - width: 32px
+                  name:
+                    - font-size: 14px
+                  label:
+                    - font-size: 12px
+                    - opacity: "0.7"
+              - type: custom:button-card
+                name: Flocculant
+                icon: mdi:filter-outline
+                label: "100 ml"
+                show_label: true
+                tap_action:
+                  action: perform-action
+                  perform_action: poolman.add_treatment
+                  data:
+                    device_id: this
+                    product: flocculant
+                    quantity_g: 100
+                  confirmation:
+                    text: "Add a flocculant treatment (100 ml)?"
+                styles:
+                  card:
+                    - padding: 12px
+                  icon:
+                    - width: 32px
+                  name:
+                    - font-size: 14px
+                  label:
+                    - font-size: 12px
+                    - opacity: "0.7"
