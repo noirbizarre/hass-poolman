@@ -175,16 +175,41 @@ the transition to catch any issues before full shutdown.
 ## Active Wintering
 
 Reduced operation during cold months when the pool is covered but the system
-remains partially active.
+remains partially active. **The pool is not usable for swimming** in this mode.
 
 ### Active wintering filtration
 
-Fixed at **4 hours** per day, regardless of water temperature.
+Filtration duration uses a **temperature / 3** formula adapted for winter
+conditions:
+
+1. **Base rule**: water temperature / 3 (industry standard for active
+   wintering, roughly two-thirds less than summer operation)
+2. **Filter efficiency**: same coefficient as active mode
+3. **Turnover guarantee**: ensures at least one full volume cycle
+4. **Clamping**: bounded between 2 h and 24 h
+
+Outdoor temperature heat stress is **not applied** (not relevant in winter).
+
+If no temperature reading is available, the duration falls back to a fixed
+**4 hours** per day.
+
+> **Source**: [Beatbot -- Active wintering guide](https://fr.beatbot.com/blogs/nettoyeur-de-piscine-automatique/hivernage-actif-piscine)
 
 ### Active wintering rules
 
-All chemistry rules remain active. The pool still needs chemical balance
-monitoring even during winter to prevent damage.
+Most chemistry rules are **disabled** -- only pH monitoring and sensor
+calibration checks remain active:
+
+| Rule | Status | Reason |
+| --- | --- | --- |
+| pH | Active | Equipment and liner protection |
+| Sanitizer/ORP | Disabled | Low bather load, reduced biological activity |
+| TAC | Disabled | Not actionable during winter |
+| Algae risk | Disabled | Cold temperatures prevent algae growth |
+| CYA | Disabled | Not actionable during winter |
+| Hardness | Disabled | Not actionable during winter |
+| Calibration | Active | Sensor drift detection always useful |
+| Filtration | Active | Always produces recommendations |
 
 ## Passive Wintering
 
@@ -229,9 +254,13 @@ phase to bring water parameters back to safe levels.
 
 | Aspect | Active | Hibernating | Active Wintering | Passive Wintering | Activating |
 | --- | --- | --- | --- | --- | --- |
-| Filtration | Multi-factor (2--24h) | 4h fixed | 4h fixed | 0h | Multi-factor (2--24h) |
+| Swimming | Safe | Unsafe | Unsafe | Unsafe | Unsafe |
+| Filtration | Multi-factor (2--24h) | 4h fixed | temp/3 dynamic (2--24h) | 0h | Multi-factor (2--24h) |
 | pH rule | Active | Active | Active | Disabled | Active |
-| Sanitizer/ORP rule | Active | Active | Active | Disabled | Active |
-| TAC rule | Active | Active | Active | Disabled | Active |
-| Algae risk alert | Active | Active | Active | Disabled | Active |
+| Sanitizer/ORP rule | Active | Active | Disabled | Disabled | Active |
+| TAC rule | Active | Active | Disabled | Disabled | Active |
+| Algae risk alert | Active | Active | Disabled | Disabled | Active |
+| CYA rule | Active | Active | Disabled | Disabled | Active |
+| Hardness rule | Active | Active | Disabled | Disabled | Active |
+| Calibration rule | Active | Active | Active | Disabled | Active |
 | Typical season | Spring--Autumn | Late autumn | Cold months | Full winter shutdown | Early spring |

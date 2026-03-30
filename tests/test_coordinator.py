@@ -298,6 +298,54 @@ class TestAsyncUpdateData:
         assert state.chemistry_report is not None
         assert state.swimming_safe is True
 
+    async def test_swimming_safe_true_in_active_mode(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Swimming should be safe in active mode with no treatments."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        assert coordinator.mode == PoolMode.ACTIVE
+        assert coordinator.data.swimming_safe is True
+
+    async def test_swimming_unsafe_in_winter_active_mode(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Swimming should be unsafe in active winter mode."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.WINTER_ACTIVE
+        await coordinator.async_request_refresh()
+        await hass.async_block_till_done()
+        assert coordinator.data.swimming_safe is False
+
+    async def test_swimming_unsafe_in_hibernating_mode(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Swimming should be unsafe in hibernating mode."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.HIBERNATING
+        await coordinator.async_request_refresh()
+        await hass.async_block_till_done()
+        assert coordinator.data.swimming_safe is False
+
+    async def test_swimming_unsafe_in_winter_passive_mode(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Swimming should be unsafe in passive winter mode."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.WINTER_PASSIVE
+        await coordinator.async_request_refresh()
+        await hass.async_block_till_done()
+        assert coordinator.data.swimming_safe is False
+
+    async def test_swimming_unsafe_in_activating_mode(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Swimming should be unsafe in activating mode."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.ACTIVATING
+        await coordinator.async_request_refresh()
+        await hass.async_block_till_done()
+        assert coordinator.data.swimming_safe is False
+
     async def test_state_with_all_sensors(self, hass: HomeAssistant) -> None:
         """State should include all sensor readings when configured."""
         data = MOCK_CONFIG_DATA.copy()

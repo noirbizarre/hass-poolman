@@ -64,8 +64,27 @@ def compute_filtration_duration(
     if mode == PoolMode.WINTER_PASSIVE:
         return WINTER_PASSIVE_HOURS
 
-    if mode in (PoolMode.WINTER_ACTIVE, PoolMode.HIBERNATING):
+    if mode == PoolMode.HIBERNATING:
         return WINTER_ACTIVE_HOURS
+
+    if mode == PoolMode.WINTER_ACTIVE:
+        # Active wintering: temperature / 3 with filter efficiency and turnover,
+        # but no outdoor heat stress (not relevant in winter).
+        # Falls back to fixed hours when no temperature reading is available.
+        if reading.temp_c is None:
+            return WINTER_ACTIVE_HOURS
+
+        base_hours = reading.temp_c / 3
+
+        # Adjust for filter type efficiency
+        base_hours *= FILTRATION_EFFICIENCY[pool.filtration_kind]
+
+        # Adjust for pump capacity: ensure at least one full turnover
+        if pool.pump_flow_m3h > 0:
+            turnover_hours = pool.volume_m3 / pool.pump_flow_m3h
+            base_hours = max(base_hours, turnover_hours)
+
+        return max(MIN_FILTRATION_HOURS, min(base_hours, MAX_FILTRATION_HOURS))
 
     if reading.temp_c is None:
         return None

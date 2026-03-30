@@ -59,6 +59,13 @@ class TestPhRule:
         result = PhRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
         assert result == []
 
+    def test_winter_active_evaluates(self, pool: Pool) -> None:
+        """pH rule should still evaluate in active winter mode (equipment protection)."""
+        reading = PoolReading(ph=7.8)
+        result = PhRule().evaluate(pool, reading, PoolMode.WINTER_ACTIVE)
+        assert len(result) == 1
+        assert result[0].product == "ph_minus"
+
     def test_hibernating_evaluates(self, pool: Pool) -> None:
         """pH rule should still evaluate in hibernating mode."""
         reading = PoolReading(ph=7.8)
@@ -185,6 +192,12 @@ class TestSanitizerRule:
         result = SanitizerRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
         assert result == []
 
+    def test_winter_active_skips(self, pool: Pool) -> None:
+        """Sanitizer rule should skip in active winter mode."""
+        reading = PoolReading(orp=600.0)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.WINTER_ACTIVE)
+        assert result == []
+
     def test_hibernating_evaluates(self, pool: Pool) -> None:
         """Sanitizer rule should still evaluate in hibernating mode."""
         reading = PoolReading(orp=600.0)
@@ -236,6 +249,14 @@ class TestFiltrationRule:
         assert len(result) == 1
         assert result[0].priority == RecommendationPriority.LOW
 
+    def test_winter_active_evaluates(self, pool: Pool) -> None:
+        """Filtration rule should still evaluate in active winter mode."""
+        reading = PoolReading(temp_c=15.0)
+        result = FiltrationRule().evaluate(pool, reading, PoolMode.WINTER_ACTIVE)
+        assert len(result) == 1
+        assert result[0].type == RecommendationType.FILTRATION
+        assert result[0].priority == RecommendationPriority.LOW
+
     def test_hibernating_returns_low_priority(self, pool: Pool) -> None:
         """Hibernating mode should produce a LOW priority filtration recommendation."""
         reading = PoolReading(temp_c=26.0)
@@ -285,6 +306,12 @@ class TestTacRule:
         result = TacRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
         assert result == []
 
+    def test_winter_active_skips(self, pool: Pool) -> None:
+        """TAC rule should skip in active winter mode."""
+        reading = PoolReading(tac=50.0)
+        result = TacRule().evaluate(pool, reading, PoolMode.WINTER_ACTIVE)
+        assert result == []
+
     def test_hibernating_evaluates(self, pool: Pool) -> None:
         """TAC rule should still evaluate in hibernating mode."""
         reading = PoolReading(tac=50.0)
@@ -329,6 +356,12 @@ class TestAlgaeRiskRule:
         """Algae risk rule should skip in passive winter mode."""
         reading = PoolReading(temp_c=30.0, orp=650.0)
         result = AlgaeRiskRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
+        assert result == []
+
+    def test_winter_active_skips(self, pool: Pool) -> None:
+        """Algae risk rule should skip in active winter mode."""
+        reading = PoolReading(temp_c=30.0, orp=650.0)
+        result = AlgaeRiskRule().evaluate(pool, reading, PoolMode.WINTER_ACTIVE)
         assert result == []
 
     def test_hibernating_evaluates(self, pool: Pool) -> None:
@@ -391,6 +424,23 @@ class TestRuleEngine:
         # Only filtration rule produces output in passive winter
         assert all(r.type == RecommendationType.FILTRATION for r in results)
 
+    def test_winter_active_limited_recommendations(
+        self, pool: Pool, bad_reading: PoolReading
+    ) -> None:
+        """Active winter should only produce pH, filtration, and calibration recommendations."""
+        engine = RuleEngine()
+        results = engine.evaluate(pool, bad_reading, PoolMode.WINTER_ACTIVE)
+        for r in results:
+            # Should not have sanitizer, TAC, algae, CYA, or hardness recommendations
+            assert r.type in (
+                RecommendationType.CHEMICAL,
+                RecommendationType.FILTRATION,
+                RecommendationType.MAINTENANCE,
+            )
+            # Chemical recommendations should only come from PhRule
+            if r.type == RecommendationType.CHEMICAL:
+                assert r.product in ("ph_minus", "ph_plus")
+
     def test_empty_readings_minimal_output(self, pool: Pool) -> None:
         engine = RuleEngine()
         reading = PoolReading()
@@ -443,6 +493,12 @@ class TestCyaRule:
     def test_winter_passive_skips(self, pool: Pool) -> None:
         reading = PoolReading(cya=10.0)
         result = CyaRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
+        assert result == []
+
+    def test_winter_active_skips(self, pool: Pool) -> None:
+        """CYA rule should skip in active winter mode."""
+        reading = PoolReading(cya=10.0)
+        result = CyaRule().evaluate(pool, reading, PoolMode.WINTER_ACTIVE)
         assert result == []
 
     def test_hibernating_evaluates(self, pool: Pool) -> None:
@@ -507,6 +563,12 @@ class TestHardnessRule:
     def test_winter_passive_skips(self, pool: Pool) -> None:
         reading = PoolReading(hardness=100.0)
         result = HardnessRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
+        assert result == []
+
+    def test_winter_active_skips(self, pool: Pool) -> None:
+        """Hardness rule should skip in active winter mode."""
+        reading = PoolReading(hardness=100.0)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.WINTER_ACTIVE)
         assert result == []
 
     def test_hibernating_evaluates(self, pool: Pool) -> None:
