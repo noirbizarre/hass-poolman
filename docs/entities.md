@@ -11,7 +11,7 @@ name you set during configuration.
 
 ## Sensors
 
-The integration creates 13 sensor entities:
+The integration creates 14 sensor entities:
 
 ### Reading sensors
 
@@ -32,6 +32,7 @@ These sensors are calculated by Pool Manager from your readings.
 | `sensor.{pool}_filtration_duration` | Recommended filtration | h | Recommended daily filtration hours, computed from water temperature, filter type efficiency, outdoor temperature, and pump capacity. See [Pool Modes](pool-modes.md#filtration) for the full algorithm. |
 | `sensor.{pool}_water_quality_score` | Water quality | % | Overall water quality score from 0 (poor) to 100 (perfect). See [Water Chemistry](water-chemistry.md#water-quality-score) for scoring details. |
 | `sensor.{pool}_recommendations` | Recommendations | -- | Number of active recommendations. See details below. |
+| `sensor.{pool}_chemistry_actions` | Chemistry actions | -- | Number of chemistry-related actions (excludes filtration). See details below. |
 | `sensor.{pool}_active_treatments` | Active treatments | -- | Number of currently active chemical treatments. See [Chemistry Tracking](chemistry-tracking.md) for details. |
 | `sensor.{pool}_safe_at` | Safe to swim at | -- | Timestamp (`timestamp` device class) indicating when the pool will be safe for swimming after treatments. `None` if already safe. |
 
@@ -45,6 +46,22 @@ The `recommendations` sensor exposes additional detail through its state attribu
 | `critical_count` | integer | Number of high or critical priority recommendations |
 
 These attributes can be used in automations, templates, or Lovelace cards to display detailed recommendation information.
+
+### Chemistry actions sensor attributes
+
+The `chemistry_actions` sensor exposes chemistry-related recommendations
+(chemical treatments and alerts, excluding filtration) through its
+state attributes:
+
+| Attribute | Type | Description |
+| --- | --- | --- |
+| `actions` | list of objects | Each action includes `kind` (suggestion/requirement), `message`, `product`, and `quantity_g` |
+| `suggestion_count` | integer | Number of actions classified as suggestions |
+| `requirement_count` | integer | Number of actions classified as requirements |
+
+Actions are classified as either **suggestions** (optional improvements)
+or **requirements** (needed to keep the pool safe).
+See [Action Kind](rules-and-recommendations.md#action-kind) for details.
 
 ### Chemistry status sensors
 

@@ -110,6 +110,8 @@ universal.
 | pH- (pH minus) | Lower pH when it is above target |
 | pH+ (pH plus) | Raise pH when it is below target |
 | TAC+ (alkalinity increaser) | Raise total alkalinity when it is below minimum |
+| Stabilizer (CYA) | Raise cyanuric acid when it is below minimum |
+| Calcium hardness increaser | Raise calcium hardness when it is below minimum |
 
 ### Sanitizer products by treatment type
 
@@ -153,3 +155,45 @@ $$
 Where **18 g of sodium bicarbonate per m³** raises TAC by **10 ppm**.
 
 When TAC is above the maximum (150 ppm), pH- treatments are recommended as they indirectly lower alkalinity.
+
+## CYA Dosage Calculation
+
+When CYA (cyanuric acid / stabilizer) falls below the minimum (20 ppm), the
+integration calculates the stabilizer dosage needed to reach the target (40 ppm):
+
+$$
+\text{quantity (g)} = (\text{target} - \text{CYA}) \times 1 \times \text{volume\_m3}
+$$
+
+Where **1 g of cyanuric acid per m³** raises CYA by **1 ppm**.
+
+When CYA is above the maximum (75 ppm), no chemical product can lower it.
+The integration recommends a partial water drain instead.
+
+??? example "CYA dosage example"
+
+    For a 50 m³ pool with CYA at 10 ppm:
+
+    - Delta: 40 - 10 = 30
+    - Quantity: 30 x 1 x 50 = **1500 g of stabilizer**
+
+## Hardness Dosage Calculation
+
+When calcium hardness falls below the minimum (150 ppm), the integration
+calculates the calcium chloride dosage needed to reach the target (250 ppm):
+
+$$
+\text{quantity (g)} = (\text{target} - \text{hardness}) \times 1.5 \times \text{volume\_m3}
+$$
+
+Where **1.5 g of CaCl₂ per m³** raises hardness by **1 ppm**.
+
+When hardness is above the maximum (400 ppm), no chemical product can lower it.
+The integration recommends a partial water drain instead.
+
+??? example "Hardness dosage example"
+
+    For a 50 m³ pool with hardness at 100 ppm:
+
+    - Delta: 250 - 100 = 150
+    - Quantity: 150 x 1.5 x 50 = **11250 g of calcium hardness increaser**

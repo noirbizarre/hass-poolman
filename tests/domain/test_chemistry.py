@@ -21,6 +21,8 @@ from custom_components.poolman.domain.chemistry import (
     TAC_MIN,
     TAC_TARGET,
     compute_chemistry_report,
+    compute_cya_adjustment,
+    compute_hardness_adjustment,
     compute_parameter_status,
     compute_ph_adjustment,
     compute_sanitizer_status,
@@ -386,3 +388,111 @@ class TestChemistryReport:
         assert report.ph.minimum == PH_MIN
         assert report.ph.maximum == PH_MAX
         assert report.ph.score == 100
+
+
+class TestCyaAdjustment:
+    """Tests for CYA (cyanuric acid / stabilizer) adjustment calculation."""
+
+    def test_cya_in_range_returns_none(self, pool: Pool) -> None:
+        reading = PoolReading(cya=40.0)
+        assert compute_cya_adjustment(pool, reading) is None
+
+    def test_cya_at_min_returns_none(self, pool: Pool) -> None:
+        reading = PoolReading(cya=CYA_MIN)
+        assert compute_cya_adjustment(pool, reading) is None
+
+    def test_cya_at_max_returns_none(self, pool: Pool) -> None:
+        reading = PoolReading(cya=CYA_MAX)
+        assert compute_cya_adjustment(pool, reading) is None
+
+    def test_cya_none_returns_none(self, pool: Pool) -> None:
+        reading = PoolReading(cya=None)
+        assert compute_cya_adjustment(pool, reading) is None
+
+    def test_cya_too_low_recommends_stabilizer(self, pool: Pool) -> None:
+        reading = PoolReading(cya=10.0)
+        result = compute_cya_adjustment(pool, reading)
+        assert result is not None
+        assert result.product == ChemicalProduct.STABILIZER
+        assert result.quantity_g is not None
+        assert result.quantity_g > 0
+
+    def test_cya_too_low_dosage_formula(self, pool: Pool) -> None:
+        """1g per m3 per ppm: (40 - 10) * 1 * 50 = 1500g."""
+        reading = PoolReading(cya=10.0)
+        result = compute_cya_adjustment(pool, reading)
+        assert result is not None
+        assert result.quantity_g == pytest.approx(1500.0)
+
+    def test_cya_above_max_returns_none(self, pool: Pool) -> None:
+        """No chemical can lower CYA -- returns None (alert handled by rule)."""
+        reading = PoolReading(cya=100.0)
+        assert compute_cya_adjustment(pool, reading) is None
+
+    def test_cya_quantity_scales_with_volume(self) -> None:
+        small_pool = Pool(name="Small", volume_m3=20.0, pump_flow_m3h=5.0)
+        large_pool = Pool(name="Large", volume_m3=100.0, pump_flow_m3h=20.0)
+        reading = PoolReading(cya=10.0)
+
+        small_result = compute_cya_adjustment(small_pool, reading)
+        large_result = compute_cya_adjustment(large_pool, reading)
+
+        assert small_result is not None
+        assert large_result is not None
+        assert large_result.quantity_g is not None
+        assert small_result.quantity_g is not None
+        assert large_result.quantity_g > small_result.quantity_g
+
+
+class TestHardnessAdjustment:
+    """Tests for calcium hardness adjustment calculation."""
+
+    def test_hardness_in_range_returns_none(self, pool: Pool) -> None:
+        reading = PoolReading(hardness=250.0)
+        assert compute_hardness_adjustment(pool, reading) is None
+
+    def test_hardness_at_min_returns_none(self, pool: Pool) -> None:
+        reading = PoolReading(hardness=HARDNESS_MIN)
+        assert compute_hardness_adjustment(pool, reading) is None
+
+    def test_hardness_at_max_returns_none(self, pool: Pool) -> None:
+        reading = PoolReading(hardness=HARDNESS_MAX)
+        assert compute_hardness_adjustment(pool, reading) is None
+
+    def test_hardness_none_returns_none(self, pool: Pool) -> None:
+        reading = PoolReading(hardness=None)
+        assert compute_hardness_adjustment(pool, reading) is None
+
+    def test_hardness_too_low_recommends_increaser(self, pool: Pool) -> None:
+        reading = PoolReading(hardness=100.0)
+        result = compute_hardness_adjustment(pool, reading)
+        assert result is not None
+        assert result.product == ChemicalProduct.CALCIUM_HARDNESS_INCREASER
+        assert result.quantity_g is not None
+        assert result.quantity_g > 0
+
+    def test_hardness_too_low_dosage_formula(self, pool: Pool) -> None:
+        """1.5g per m3 per ppm: (250 - 100) * 1.5 * 50 = 11250g."""
+        reading = PoolReading(hardness=100.0)
+        result = compute_hardness_adjustment(pool, reading)
+        assert result is not None
+        assert result.quantity_g == pytest.approx(11250.0)
+
+    def test_hardness_above_max_returns_none(self, pool: Pool) -> None:
+        """No chemical can lower hardness -- returns None (alert handled by rule)."""
+        reading = PoolReading(hardness=500.0)
+        assert compute_hardness_adjustment(pool, reading) is None
+
+    def test_hardness_quantity_scales_with_volume(self) -> None:
+        small_pool = Pool(name="Small", volume_m3=20.0, pump_flow_m3h=5.0)
+        large_pool = Pool(name="Large", volume_m3=100.0, pump_flow_m3h=20.0)
+        reading = PoolReading(hardness=100.0)
+
+        small_result = compute_hardness_adjustment(small_pool, reading)
+        large_result = compute_hardness_adjustment(large_pool, reading)
+
+        assert small_result is not None
+        assert large_result is not None
+        assert large_result.quantity_g is not None
+        assert small_result.quantity_g is not None
+        assert large_result.quantity_g > small_result.quantity_g

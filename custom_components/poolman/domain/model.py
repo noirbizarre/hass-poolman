@@ -103,6 +103,17 @@ class RecommendationType(StrEnum):
     MAINTENANCE = "maintenance"
 
 
+class ActionKind(StrEnum):
+    """Whether a recommendation is a suggestion or a requirement.
+
+    Suggestions are optional improvements; requirements indicate
+    that the pool needs attention to remain safe or functional.
+    """
+
+    SUGGESTION = "suggestion"
+    REQUIREMENT = "requirement"
+
+
 class RecommendationPriority(StrEnum):
     """Priority levels for recommendations."""
 
@@ -190,6 +201,7 @@ class Recommendation(BaseModel):
 
     type: RecommendationType
     priority: RecommendationPriority
+    kind: ActionKind = ActionKind.SUGGESTION
     message: str
     product: str | None = None
     quantity_g: float | None = Field(None, ge=0, description="Quantity in grams")
@@ -254,6 +266,21 @@ class PoolState(BaseModel):
             for r in self.recommendations
             if r.priority in (RecommendationPriority.HIGH, RecommendationPriority.CRITICAL)
         ]
+
+    @property
+    def chemistry_actions(self) -> list[Recommendation]:
+        """Return only chemistry-related recommendations (excludes filtration)."""
+        return [r for r in self.recommendations if r.type != RecommendationType.FILTRATION]
+
+    @property
+    def suggestions(self) -> list[Recommendation]:
+        """Return chemistry actions classified as suggestions."""
+        return [r for r in self.chemistry_actions if r.kind == ActionKind.SUGGESTION]
+
+    @property
+    def requirements(self) -> list[Recommendation]:
+        """Return chemistry actions classified as requirements."""
+        return [r for r in self.chemistry_actions if r.kind == ActionKind.REQUIREMENT]
 
 
 # Chemistry parameter names evaluated for status changes

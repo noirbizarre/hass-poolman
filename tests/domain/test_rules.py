@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from custom_components.poolman.domain.model import (
+    ActionKind,
     Pool,
     PoolMode,
     PoolReading,
@@ -14,7 +15,9 @@ from custom_components.poolman.domain.model import (
 )
 from custom_components.poolman.domain.rules import (
     AlgaeRiskRule,
+    CyaRule,
     FiltrationRule,
+    HardnessRule,
     PhRule,
     RuleEngine,
     SanitizerRule,
@@ -36,6 +39,7 @@ class TestPhRule:
         assert len(result) == 1
         assert result[0].product == "ph_minus"
         assert result[0].type == RecommendationType.CHEMICAL
+        assert result[0].kind == ActionKind.SUGGESTION
 
     def test_low_ph_returns_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(ph=6.6)
@@ -43,6 +47,7 @@ class TestPhRule:
         assert len(result) == 1
         assert result[0].product == "ph_plus"
         assert result[0].priority == RecommendationPriority.HIGH
+        assert result[0].kind == ActionKind.REQUIREMENT
 
     def test_winter_passive_skips(self, pool: Pool) -> None:
         reading = PoolReading(ph=8.5)
@@ -72,12 +77,14 @@ class TestSanitizerRule:
         assert len(result) == 1
         assert result[0].priority == RecommendationPriority.CRITICAL
         assert result[0].product == "chlore_choc"
+        assert result[0].kind == ActionKind.REQUIREMENT
 
     def test_chlorine_low_orp_galet(self, pool: Pool) -> None:
         reading = PoolReading(orp=700.0)
         result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
         assert len(result) == 1
         assert result[0].product == "galet_chlore"
+        assert result[0].kind == ActionKind.SUGGESTION
 
     def test_salt_low_orp_recommends_salt(self) -> None:
         pool = Pool(
@@ -228,6 +235,7 @@ class TestAlgaeRiskRule:
         result = AlgaeRiskRule().evaluate(pool, reading, PoolMode.RUNNING)
         assert len(result) == 1
         assert result[0].priority == RecommendationPriority.HIGH
+        assert result[0].kind == ActionKind.REQUIREMENT
 
     def test_cool_water_no_risk(self, pool: Pool) -> None:
         reading = PoolReading(temp_c=22.0, orp=650.0)
@@ -250,7 +258,7 @@ class TestRuleEngine:
 
     def test_default_rules_loaded(self) -> None:
         engine = RuleEngine()
-        assert len(engine.rules) == 5
+        assert len(engine.rules) == 7
 
     def test_good_readings_produce_filtration_only(
         self, pool: Pool, good_reading: PoolReading
@@ -303,3 +311,103 @@ class TestRuleEngine:
         results = engine.evaluate(pool, reading, PoolMode.RUNNING)
         # Only pH rule should fire, not sanitizer
         assert all(r.product in ("ph_minus", "ph_plus") for r in results)
+
+
+class TestCyaRule:
+    """Tests for CYA (cyanuric acid) rule evaluation."""
+
+    def test_cya_in_range_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(cya=40.0)
+        result = CyaRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert result == []
+
+    def test_cya_too_low_recommends_stabilizer(self, pool: Pool) -> None:
+        reading = PoolReading(cya=10.0)
+        result = CyaRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert len(result) == 1
+        assert result[0].product == "stabilizer"
+        assert result[0].type == RecommendationType.CHEMICAL
+        assert result[0].priority == RecommendationPriority.MEDIUM
+        assert result[0].kind == ActionKind.REQUIREMENT
+        assert result[0].quantity_g is not None
+        assert result[0].quantity_g > 0
+
+    def test_cya_too_high_recommends_drain(self, pool: Pool) -> None:
+        reading = PoolReading(cya=100.0)
+        result = CyaRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert len(result) == 1
+        assert result[0].type == RecommendationType.ALERT
+        assert result[0].priority == RecommendationPriority.LOW
+        assert result[0].kind == ActionKind.REQUIREMENT
+        assert result[0].product is None
+        assert "drain" in result[0].message.lower()
+
+    def test_cya_none_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(cya=None)
+        result = CyaRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert result == []
+
+    def test_winter_passive_skips(self, pool: Pool) -> None:
+        reading = PoolReading(cya=10.0)
+        result = CyaRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
+        assert result == []
+
+    def test_cya_at_min_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(cya=20.0)
+        result = CyaRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert result == []
+
+    def test_cya_at_max_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(cya=75.0)
+        result = CyaRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert result == []
+
+
+class TestHardnessRule:
+    """Tests for calcium hardness rule evaluation."""
+
+    def test_hardness_in_range_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(hardness=250.0)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert result == []
+
+    def test_hardness_too_low_recommends_increaser(self, pool: Pool) -> None:
+        reading = PoolReading(hardness=100.0)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert len(result) == 1
+        assert result[0].product == "calcium_hardness_increaser"
+        assert result[0].type == RecommendationType.CHEMICAL
+        assert result[0].priority == RecommendationPriority.MEDIUM
+        assert result[0].kind == ActionKind.REQUIREMENT
+        assert result[0].quantity_g is not None
+        assert result[0].quantity_g > 0
+
+    def test_hardness_too_high_recommends_drain(self, pool: Pool) -> None:
+        reading = PoolReading(hardness=500.0)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert len(result) == 1
+        assert result[0].type == RecommendationType.ALERT
+        assert result[0].priority == RecommendationPriority.LOW
+        assert result[0].kind == ActionKind.REQUIREMENT
+        assert result[0].product is None
+        assert "drain" in result[0].message.lower()
+
+    def test_hardness_none_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(hardness=None)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert result == []
+
+    def test_winter_passive_skips(self, pool: Pool) -> None:
+        reading = PoolReading(hardness=100.0)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
+        assert result == []
+
+    def test_hardness_at_min_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(hardness=150.0)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert result == []
+
+    def test_hardness_at_max_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(hardness=400.0)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.RUNNING)
+        assert result == []

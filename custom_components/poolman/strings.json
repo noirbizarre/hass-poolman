@@ -122,6 +122,9 @@
       "recommendations": {
         "name": "Recommendations"
       },
+      "chemistry_actions": {
+        "name": "Chemistry actions"
+      },
       "ph_status": {
         "name": "pH status",
         "state": {
