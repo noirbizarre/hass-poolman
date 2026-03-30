@@ -27,21 +27,21 @@ class TestFiltrationDuration:
     def test_basic_temperature_rule(self, pool: Pool) -> None:
         """Temperature / 2 rule: 26C -> ~13h (clamped if needed)."""
         reading = PoolReading(temp_c=26.0)
-        result = compute_filtration_duration(pool, reading, PoolMode.RUNNING)
+        result = compute_filtration_duration(pool, reading, PoolMode.ACTIVE)
         assert result is not None
         assert result >= 13.0
 
     def test_cold_water_minimum_filtration(self, pool: Pool) -> None:
         """Very cold water should still have minimum filtration."""
         reading = PoolReading(temp_c=2.0)
-        result = compute_filtration_duration(pool, reading, PoolMode.RUNNING)
+        result = compute_filtration_duration(pool, reading, PoolMode.ACTIVE)
         assert result is not None
         assert result >= MIN_FILTRATION_HOURS
 
     def test_hot_water_caps_at_max(self, pool: Pool) -> None:
         """Very hot water should cap at 24 hours."""
         reading = PoolReading(temp_c=50.0)
-        result = compute_filtration_duration(pool, reading, PoolMode.RUNNING)
+        result = compute_filtration_duration(pool, reading, PoolMode.ACTIVE)
         assert result is not None
         assert result <= MAX_FILTRATION_HOURS
 
@@ -55,10 +55,22 @@ class TestFiltrationDuration:
         result = compute_filtration_duration(pool, good_reading, PoolMode.WINTER_ACTIVE)
         assert result == WINTER_ACTIVE_HOURS
 
+    def test_hibernating_fixed(self, pool: Pool, good_reading: PoolReading) -> None:
+        """Hibernating mode should return fixed filtration hours (same as active wintering)."""
+        result = compute_filtration_duration(pool, good_reading, PoolMode.HIBERNATING)
+        assert result == WINTER_ACTIVE_HOURS
+
+    def test_activating_uses_dynamic_computation(self, pool: Pool) -> None:
+        """Activating mode should use the full dynamic computation (same as active)."""
+        reading = PoolReading(temp_c=26.0)
+        result_activating = compute_filtration_duration(pool, reading, PoolMode.ACTIVATING)
+        result_active = compute_filtration_duration(pool, reading, PoolMode.ACTIVE)
+        assert result_activating == result_active
+
     def test_no_temperature_returns_none(self, pool: Pool) -> None:
         """No temperature reading should return None."""
         reading = PoolReading()
-        result = compute_filtration_duration(pool, reading, PoolMode.RUNNING)
+        result = compute_filtration_duration(pool, reading, PoolMode.ACTIVE)
         assert result is None
 
     def test_ensures_full_turnover(self) -> None:
@@ -70,7 +82,7 @@ class TestFiltrationDuration:
             pump_flow_m3h=5.0,
         )
         reading = PoolReading(temp_c=20.0)  # temp/2 = 10h, but turnover = 20h
-        result = compute_filtration_duration(slow_pool, reading, PoolMode.RUNNING)
+        result = compute_filtration_duration(slow_pool, reading, PoolMode.ACTIVE)
         assert result is not None
         assert result >= 20.0
 
@@ -84,7 +96,7 @@ class TestFiltrationKindEfficiency:
             name="Sand", volume_m3=50.0, pump_flow_m3h=10.0, filtration_kind=FiltrationKind.SAND
         )
         reading = PoolReading(temp_c=24.0)
-        result = compute_filtration_duration(pool, reading, PoolMode.RUNNING)
+        result = compute_filtration_duration(pool, reading, PoolMode.ACTIVE)
         assert result is not None
         # 24/2 * 1.0 = 12.0, turnover = 50/10 = 5h -> 12.0
         assert result == pytest.approx(12.0)
@@ -101,8 +113,8 @@ class TestFiltrationKindEfficiency:
             filtration_kind=FiltrationKind.CARTRIDGE,
         )
         reading = PoolReading(temp_c=24.0)
-        sand_result = compute_filtration_duration(sand_pool, reading, PoolMode.RUNNING)
-        cart_result = compute_filtration_duration(cart_pool, reading, PoolMode.RUNNING)
+        sand_result = compute_filtration_duration(sand_pool, reading, PoolMode.ACTIVE)
+        cart_result = compute_filtration_duration(cart_pool, reading, PoolMode.ACTIVE)
         assert sand_result is not None
         assert cart_result is not None
         assert cart_result < sand_result
@@ -116,8 +128,8 @@ class TestFiltrationKindEfficiency:
             name="Glass", volume_m3=50.0, pump_flow_m3h=10.0, filtration_kind=FiltrationKind.GLASS
         )
         reading = PoolReading(temp_c=24.0)
-        sand_result = compute_filtration_duration(sand_pool, reading, PoolMode.RUNNING)
-        glass_result = compute_filtration_duration(glass_pool, reading, PoolMode.RUNNING)
+        sand_result = compute_filtration_duration(sand_pool, reading, PoolMode.ACTIVE)
+        glass_result = compute_filtration_duration(glass_pool, reading, PoolMode.ACTIVE)
         assert sand_result is not None
         assert glass_result is not None
         assert glass_result < sand_result
@@ -134,8 +146,8 @@ class TestFiltrationKindEfficiency:
             filtration_kind=FiltrationKind.DIATOMACEOUS_EARTH,
         )
         reading = PoolReading(temp_c=24.0)
-        sand_result = compute_filtration_duration(sand_pool, reading, PoolMode.RUNNING)
-        de_result = compute_filtration_duration(de_pool, reading, PoolMode.RUNNING)
+        sand_result = compute_filtration_duration(sand_pool, reading, PoolMode.ACTIVE)
+        de_result = compute_filtration_duration(de_pool, reading, PoolMode.ACTIVE)
         assert sand_result is not None
         assert de_result is not None
         assert de_result < sand_result
@@ -143,7 +155,7 @@ class TestFiltrationKindEfficiency:
         glass_pool = Pool(
             name="Glass", volume_m3=50.0, pump_flow_m3h=10.0, filtration_kind=FiltrationKind.GLASS
         )
-        glass_result = compute_filtration_duration(glass_pool, reading, PoolMode.RUNNING)
+        glass_result = compute_filtration_duration(glass_pool, reading, PoolMode.ACTIVE)
         assert glass_result is not None
         assert de_result < glass_result
 
@@ -154,7 +166,7 @@ class TestFiltrationKindEfficiency:
 
         for kind, coefficient in FILTRATION_EFFICIENCY.items():
             pool = Pool(name="Test", volume_m3=50.0, pump_flow_m3h=10.0, filtration_kind=kind)
-            result = compute_filtration_duration(pool, reading, PoolMode.RUNNING)
+            result = compute_filtration_duration(pool, reading, PoolMode.ACTIVE)
             assert result is not None
             expected = max(MIN_FILTRATION_HOURS, min(base * coefficient, MAX_FILTRATION_HOURS))
             # Account for turnover (50/10 = 5h, always below base*coeff here)
@@ -187,8 +199,8 @@ class TestOutdoorTemperatureAdjustment:
         """No outdoor temperature should not affect the result."""
         reading_without = PoolReading(temp_c=24.0, outdoor_temp_c=None)
         reading_with_normal = PoolReading(temp_c=24.0, outdoor_temp_c=25.0)
-        result_without = compute_filtration_duration(pool, reading_without, PoolMode.RUNNING)
-        result_normal = compute_filtration_duration(pool, reading_with_normal, PoolMode.RUNNING)
+        result_without = compute_filtration_duration(pool, reading_without, PoolMode.ACTIVE)
+        result_normal = compute_filtration_duration(pool, reading_with_normal, PoolMode.ACTIVE)
         assert result_without is not None
         assert result_normal is not None
         # Both should be equal since 25 < 28 threshold
@@ -198,8 +210,8 @@ class TestOutdoorTemperatureAdjustment:
         """Outdoor temp at or below 28 C should not increase filtration."""
         reading_no_outdoor = PoolReading(temp_c=24.0)
         reading_at_threshold = PoolReading(temp_c=24.0, outdoor_temp_c=OUTDOOR_TEMP_THRESHOLD)
-        result_base = compute_filtration_duration(pool, reading_no_outdoor, PoolMode.RUNNING)
-        result_threshold = compute_filtration_duration(pool, reading_at_threshold, PoolMode.RUNNING)
+        result_base = compute_filtration_duration(pool, reading_no_outdoor, PoolMode.ACTIVE)
+        result_threshold = compute_filtration_duration(pool, reading_at_threshold, PoolMode.ACTIVE)
         assert result_base is not None
         assert result_threshold is not None
         assert result_base == result_threshold
@@ -208,8 +220,8 @@ class TestOutdoorTemperatureAdjustment:
         """Outdoor temp above 28 C should increase filtration duration."""
         reading_cool = PoolReading(temp_c=24.0, outdoor_temp_c=25.0)
         reading_hot = PoolReading(temp_c=24.0, outdoor_temp_c=35.0)
-        result_cool = compute_filtration_duration(pool, reading_cool, PoolMode.RUNNING)
-        result_hot = compute_filtration_duration(pool, reading_hot, PoolMode.RUNNING)
+        result_cool = compute_filtration_duration(pool, reading_cool, PoolMode.ACTIVE)
+        result_hot = compute_filtration_duration(pool, reading_hot, PoolMode.ACTIVE)
         assert result_cool is not None
         assert result_hot is not None
         assert result_hot > result_cool
@@ -217,7 +229,7 @@ class TestOutdoorTemperatureAdjustment:
     def test_outdoor_temp_exact_factor(self, pool: Pool) -> None:
         """Verify the exact heat stress calculation: +5% per degree above 28 C."""
         reading = PoolReading(temp_c=24.0, outdoor_temp_c=33.0)
-        result = compute_filtration_duration(pool, reading, PoolMode.RUNNING)
+        result = compute_filtration_duration(pool, reading, PoolMode.ACTIVE)
         assert result is not None
         # base = 24/2 = 12.0
         # heat_factor = 1 + (33-28)*0.05 = 1.25
@@ -229,7 +241,7 @@ class TestOutdoorTemperatureAdjustment:
         """Even with extreme heat stress, result should be clamped at 24h."""
         pool = Pool(name="Hot", volume_m3=50.0, pump_flow_m3h=10.0)
         reading = PoolReading(temp_c=40.0, outdoor_temp_c=50.0)
-        result = compute_filtration_duration(pool, reading, PoolMode.RUNNING)
+        result = compute_filtration_duration(pool, reading, PoolMode.ACTIVE)
         assert result is not None
         assert result == MAX_FILTRATION_HOURS
 
@@ -259,7 +271,7 @@ class TestCombinedFactors:
             filtration_kind=FiltrationKind.GLASS,
         )
         reading = PoolReading(temp_c=24.0, outdoor_temp_c=33.0)
-        result = compute_filtration_duration(pool, reading, PoolMode.RUNNING)
+        result = compute_filtration_duration(pool, reading, PoolMode.ACTIVE)
         assert result is not None
         # base = 24/2 = 12.0
         # glass efficiency = 0.9 -> 12.0 * 0.9 = 10.8
@@ -276,7 +288,7 @@ class TestCombinedFactors:
             filtration_kind=FiltrationKind.DIATOMACEOUS_EARTH,
         )
         reading = PoolReading(temp_c=24.0, outdoor_temp_c=30.0)
-        result = compute_filtration_duration(pool, reading, PoolMode.RUNNING)
+        result = compute_filtration_duration(pool, reading, PoolMode.ACTIVE)
         assert result is not None
         # base = 24/2 = 12.0
         # DE efficiency = 0.85 -> 12.0 * 0.85 = 10.2
@@ -293,7 +305,7 @@ class TestCombinedFactors:
             filtration_kind=FiltrationKind.DIATOMACEOUS_EARTH,
         )
         reading = PoolReading(temp_c=20.0, outdoor_temp_c=25.0)
-        result = compute_filtration_duration(slow_pool, reading, PoolMode.RUNNING)
+        result = compute_filtration_duration(slow_pool, reading, PoolMode.ACTIVE)
         assert result is not None
         # base = 20/2 = 10.0
         # DE efficiency = 0.85 -> 10.0 * 0.85 = 8.5

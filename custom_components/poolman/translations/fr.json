@@ -446,9 +446,11 @@
       "mode": {
         "name": "Mode piscine",
         "state": {
-          "running": "En fonctionnement",
+          "active": "En fonctionnement",
+          "hibernating": "Mise en hivernage",
           "winter_active": "Hivernage actif",
-          "winter_passive": "Hivernage passif"
+          "winter_passive": "Hivernage passif",
+          "activating": "Remise en route"
         }
       },
       "filtration_duration_mode": {

@@ -64,7 +64,7 @@ def compute_filtration_duration(
     if mode == PoolMode.WINTER_PASSIVE:
         return WINTER_PASSIVE_HOURS
 
-    if mode == PoolMode.WINTER_ACTIVE:
+    if mode in (PoolMode.WINTER_ACTIVE, PoolMode.HIBERNATING):
         return WINTER_ACTIVE_HOURS
 
     if reading.temp_c is None:

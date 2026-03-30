@@ -4,11 +4,16 @@ icon: lucide/sun-snow
 
 # Pool Modes
 
-Pool Manager supports three operational modes, selectable via the
+Pool Manager supports five operational modes, selectable via the
 `select.{pool}_mode` entity. Each mode adapts filtration duration and rule
 behavior to the current season or pool status.
 
-## Running
+The modes follow a natural lifecycle:
+
+**Active** → **Hibernating** → **Active Wintering** / **Passive Wintering**
+→ **Activating** → **Active**
+
+## Active
 
 Normal season operation. This is the default mode.
 
@@ -146,6 +151,27 @@ The result is bounded between **2 hours minimum** and **24 hours maximum**.
 
 All chemistry rules are active: pH, sanitizer/ORP, TAC, and algae risk.
 
+## Hibernating
+
+Transition mode used when preparing the pool for winter. The pool is still
+operational but the system is being shut down progressively. Typical tasks
+during this phase include:
+
+- Lowering the water level
+- Cleaning the filter and skimmers
+- Adding winterizing product
+- Covering the pool
+
+### Hibernating filtration
+
+Fixed at **4 hours** per day, regardless of water temperature. This keeps
+water circulating while the pool is being prepared.
+
+### Hibernating rules
+
+All chemistry rules remain active. The pool still needs monitoring during
+the transition to catch any issues before full shutdown.
+
 ## Active Wintering
 
 Reduced operation during cold months when the pool is covered but the system
@@ -177,13 +203,35 @@ in this mode.
 
     Ensure your pool is properly winterized before switching to passive wintering mode. Pool Manager will not generate any alerts in this mode.
 
+## Activating
+
+Transition mode used when bringing the pool out of hibernation. The pool is
+not yet ready for swimming and typically requires:
+
+- Removing the cover
+- Raising the water level
+- Cleaning the pool and filter
+- Shock treatment
+- Intensive filtration to restore water clarity
+
+### Activating filtration
+
+Uses the full **dynamic multi-factor algorithm** (same as active mode).
+The pool needs intensive filtration to restore water quality after the
+winter period.
+
+### Activating rules
+
+All chemistry rules are active. Close monitoring is essential during this
+phase to bring water parameters back to safe levels.
+
 ## Mode Comparison
 
-| Aspect | Running | Active Wintering | Passive Wintering |
-| --- | --- | --- | --- |
-| Filtration | Multi-factor (2--24h) | 4h fixed | 0h |
-| pH rule | Active | Active | Disabled |
-| Sanitizer/ORP rule | Active | Active | Disabled |
-| TAC rule | Active | Active | Disabled |
-| Algae risk alert | Active | Active | Disabled |
-| Typical season | Spring--Autumn | Cold months | Full winter shutdown |
+| Aspect | Active | Hibernating | Active Wintering | Passive Wintering | Activating |
+| --- | --- | --- | --- | --- | --- |
+| Filtration | Multi-factor (2--24h) | 4h fixed | 4h fixed | 0h | Multi-factor (2--24h) |
+| pH rule | Active | Active | Active | Disabled | Active |
+| Sanitizer/ORP rule | Active | Active | Active | Disabled | Active |
+| TAC rule | Active | Active | Active | Disabled | Active |
+| Algae risk alert | Active | Active | Active | Disabled | Active |
+| Typical season | Spring--Autumn | Late autumn | Cold months | Full winter shutdown | Early spring |

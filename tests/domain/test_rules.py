@@ -35,12 +35,12 @@ class TestPhRule:
 
     def test_good_ph_no_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(ph=7.2)
-        result = PhRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = PhRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
 
     def test_high_ph_returns_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(ph=7.8)
-        result = PhRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = PhRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].product == "ph_minus"
         assert result[0].type == RecommendationType.CHEMICAL
@@ -48,7 +48,7 @@ class TestPhRule:
 
     def test_low_ph_returns_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(ph=6.6)
-        result = PhRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = PhRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].product == "ph_plus"
         assert result[0].priority == RecommendationPriority.HIGH
@@ -59,11 +59,25 @@ class TestPhRule:
         result = PhRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
         assert result == []
 
+    def test_hibernating_evaluates(self, pool: Pool) -> None:
+        """pH rule should still evaluate in hibernating mode."""
+        reading = PoolReading(ph=7.8)
+        result = PhRule().evaluate(pool, reading, PoolMode.HIBERNATING)
+        assert len(result) == 1
+        assert result[0].product == "ph_minus"
+
+    def test_activating_evaluates(self, pool: Pool) -> None:
+        """pH rule should still evaluate in activating mode."""
+        reading = PoolReading(ph=7.8)
+        result = PhRule().evaluate(pool, reading, PoolMode.ACTIVATING)
+        assert len(result) == 1
+        assert result[0].product == "ph_minus"
+
     def test_slightly_off_ph_returns_low_priority(self, pool: Pool) -> None:
         """pH slightly off target (within min/max, delta <= tolerance*3) -> LOW."""
         # PH_TARGET=7.2, PH_TOLERANCE=0.1, so delta <= 0.3 and within 6.8-7.8
         reading = PoolReading(ph=7.4)  # delta=0.2
-        result = PhRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = PhRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].priority == RecommendationPriority.LOW
 
@@ -73,12 +87,12 @@ class TestSanitizerRule:
 
     def test_good_orp_no_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(orp=750.0)
-        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
 
     def test_chlorine_critical_orp_shock(self, pool: Pool) -> None:
         reading = PoolReading(orp=600.0)
-        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].priority == RecommendationPriority.CRITICAL
         assert result[0].product == "chlore_choc"
@@ -86,7 +100,7 @@ class TestSanitizerRule:
 
     def test_chlorine_low_orp_galet(self, pool: Pool) -> None:
         reading = PoolReading(orp=700.0)
-        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].product == "galet_chlore"
         assert result[0].kind == ActionKind.SUGGESTION
@@ -99,7 +113,7 @@ class TestSanitizerRule:
             treatment=TreatmentType.SALT_ELECTROLYSIS,
         )
         reading = PoolReading(orp=700.0)
-        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].product == "salt"
         assert "salt level" in result[0].message.lower()
@@ -112,7 +126,7 @@ class TestSanitizerRule:
             treatment=TreatmentType.SALT_ELECTROLYSIS,
         )
         reading = PoolReading(orp=600.0)
-        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].priority == RecommendationPriority.CRITICAL
         # Salt pools still use shock chlorination in emergencies
@@ -126,7 +140,7 @@ class TestSanitizerRule:
             treatment=TreatmentType.BROMINE,
         )
         reading = PoolReading(orp=700.0)
-        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].product == "bromine_tablet"
 
@@ -138,7 +152,7 @@ class TestSanitizerRule:
             treatment=TreatmentType.BROMINE,
         )
         reading = PoolReading(orp=600.0)
-        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].product == "bromine_shock"
 
@@ -150,7 +164,7 @@ class TestSanitizerRule:
             treatment=TreatmentType.ACTIVE_OXYGEN,
         )
         reading = PoolReading(orp=700.0)
-        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].product == "active_oxygen_tablet"
 
@@ -162,7 +176,7 @@ class TestSanitizerRule:
             treatment=TreatmentType.ACTIVE_OXYGEN,
         )
         reading = PoolReading(orp=600.0)
-        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].product == "active_oxygen_activator"
 
@@ -170,6 +184,20 @@ class TestSanitizerRule:
         reading = PoolReading(orp=600.0)
         result = SanitizerRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
         assert result == []
+
+    def test_hibernating_evaluates(self, pool: Pool) -> None:
+        """Sanitizer rule should still evaluate in hibernating mode."""
+        reading = PoolReading(orp=600.0)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.HIBERNATING)
+        assert len(result) == 1
+        assert result[0].priority == RecommendationPriority.CRITICAL
+
+    def test_activating_evaluates(self, pool: Pool) -> None:
+        """Sanitizer rule should still evaluate in activating mode."""
+        reading = PoolReading(orp=600.0)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.ACTIVATING)
+        assert len(result) == 1
+        assert result[0].priority == RecommendationPriority.CRITICAL
 
     @pytest.mark.parametrize("treatment", list(TreatmentType))
     def test_high_orp_returns_neutralizer_for_all_treatments(
@@ -182,7 +210,7 @@ class TestSanitizerRule:
             treatment=treatment,
         )
         reading = PoolReading(orp=950.0)
-        result = SanitizerRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = SanitizerRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].product == "neutralizer"
 
@@ -192,21 +220,35 @@ class TestFiltrationRule:
 
     def test_produces_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(temp_c=26.0)
-        result = FiltrationRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = FiltrationRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].type == RecommendationType.FILTRATION
 
     def test_no_temp_no_recommendation(self, pool: Pool) -> None:
         reading = PoolReading()
-        result = FiltrationRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = FiltrationRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
 
     def test_low_filtration_hours_returns_low_priority(self, pool: Pool) -> None:
         """When filtration hours < 12 in running mode, priority should be LOW."""
         reading = PoolReading(temp_c=20.0)  # 20/2 = 10h < 12
-        result = FiltrationRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = FiltrationRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].priority == RecommendationPriority.LOW
+
+    def test_hibernating_returns_low_priority(self, pool: Pool) -> None:
+        """Hibernating mode should produce a LOW priority filtration recommendation."""
+        reading = PoolReading(temp_c=26.0)
+        result = FiltrationRule().evaluate(pool, reading, PoolMode.HIBERNATING)
+        assert len(result) == 1
+        assert result[0].priority == RecommendationPriority.LOW
+
+    def test_activating_produces_recommendation(self, pool: Pool) -> None:
+        """Activating mode should produce a filtration recommendation (dynamic)."""
+        reading = PoolReading(temp_c=26.0)
+        result = FiltrationRule().evaluate(pool, reading, PoolMode.ACTIVATING)
+        assert len(result) == 1
+        assert result[0].type == RecommendationType.FILTRATION
 
 
 class TestTacRule:
@@ -214,22 +256,42 @@ class TestTacRule:
 
     def test_tac_in_range_no_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(tac=120.0)
-        result = TacRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = TacRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
 
     def test_low_tac_recommends_tac_plus(self, pool: Pool) -> None:
         reading = PoolReading(tac=50.0)
-        result = TacRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = TacRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].product == "tac_plus"
 
     def test_high_tac_recommends_ph_minus(self, pool: Pool) -> None:
         """TAC above max should recommend using pH- to lower alkalinity."""
         reading = PoolReading(tac=160.0)  # TAC_MAX = 150
-        result = TacRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = TacRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].priority == RecommendationPriority.LOW
         assert "too high" in result[0].message.lower()
+
+    def test_winter_passive_skips(self, pool: Pool) -> None:
+        """TAC rule should skip in passive winter mode."""
+        reading = PoolReading(tac=50.0)
+        result = TacRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
+        assert result == []
+
+    def test_hibernating_evaluates(self, pool: Pool) -> None:
+        """TAC rule should still evaluate in hibernating mode."""
+        reading = PoolReading(tac=50.0)
+        result = TacRule().evaluate(pool, reading, PoolMode.HIBERNATING)
+        assert len(result) == 1
+        assert result[0].product == "tac_plus"
+
+    def test_activating_evaluates(self, pool: Pool) -> None:
+        """TAC rule should still evaluate in activating mode."""
+        reading = PoolReading(tac=50.0)
+        result = TacRule().evaluate(pool, reading, PoolMode.ACTIVATING)
+        assert len(result) == 1
+        assert result[0].product == "tac_plus"
 
 
 class TestAlgaeRiskRule:
@@ -237,25 +299,45 @@ class TestAlgaeRiskRule:
 
     def test_warm_and_low_orp_triggers(self, pool: Pool) -> None:
         reading = PoolReading(temp_c=30.0, orp=650.0)
-        result = AlgaeRiskRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = AlgaeRiskRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].priority == RecommendationPriority.HIGH
         assert result[0].kind == ActionKind.REQUIREMENT
 
     def test_cool_water_no_risk(self, pool: Pool) -> None:
         reading = PoolReading(temp_c=22.0, orp=650.0)
-        result = AlgaeRiskRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = AlgaeRiskRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
 
     def test_warm_but_good_orp_no_risk(self, pool: Pool) -> None:
         reading = PoolReading(temp_c=30.0, orp=750.0)
-        result = AlgaeRiskRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = AlgaeRiskRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
 
     def test_missing_data_no_risk(self, pool: Pool) -> None:
         reading = PoolReading(temp_c=30.0)
-        result = AlgaeRiskRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = AlgaeRiskRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
+
+    def test_winter_passive_skips(self, pool: Pool) -> None:
+        """Algae risk rule should skip in passive winter mode."""
+        reading = PoolReading(temp_c=30.0, orp=650.0)
+        result = AlgaeRiskRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
+        assert result == []
+
+    def test_hibernating_evaluates(self, pool: Pool) -> None:
+        """Algae risk rule should still evaluate in hibernating mode."""
+        reading = PoolReading(temp_c=30.0, orp=650.0)
+        result = AlgaeRiskRule().evaluate(pool, reading, PoolMode.HIBERNATING)
+        assert len(result) == 1
+        assert result[0].priority == RecommendationPriority.HIGH
+
+    def test_activating_evaluates(self, pool: Pool) -> None:
+        """Algae risk rule should still evaluate in activating mode."""
+        reading = PoolReading(temp_c=30.0, orp=650.0)
+        result = AlgaeRiskRule().evaluate(pool, reading, PoolMode.ACTIVATING)
+        assert len(result) == 1
+        assert result[0].priority == RecommendationPriority.HIGH
 
 
 class TestRuleEngine:
@@ -269,7 +351,7 @@ class TestRuleEngine:
         self, pool: Pool, good_reading: PoolReading
     ) -> None:
         engine = RuleEngine()
-        results = engine.evaluate(pool, good_reading, PoolMode.RUNNING)
+        results = engine.evaluate(pool, good_reading, PoolMode.ACTIVE)
         # Good readings should only produce filtration recommendation
         types = {r.type for r in results}
         assert RecommendationType.FILTRATION in types
@@ -281,12 +363,12 @@ class TestRuleEngine:
 
     def test_bad_readings_produce_multiple(self, pool: Pool, bad_reading: PoolReading) -> None:
         engine = RuleEngine()
-        results = engine.evaluate(pool, bad_reading, PoolMode.RUNNING)
+        results = engine.evaluate(pool, bad_reading, PoolMode.ACTIVE)
         assert len(results) > 1
 
     def test_results_sorted_by_priority(self, pool: Pool, bad_reading: PoolReading) -> None:
         engine = RuleEngine()
-        results = engine.evaluate(pool, bad_reading, PoolMode.RUNNING)
+        results = engine.evaluate(pool, bad_reading, PoolMode.ACTIVE)
         priorities = [r.priority for r in results]
         priority_order = {
             RecommendationPriority.CRITICAL: 0,
@@ -306,14 +388,14 @@ class TestRuleEngine:
     def test_empty_readings_minimal_output(self, pool: Pool) -> None:
         engine = RuleEngine()
         reading = PoolReading()
-        results = engine.evaluate(pool, reading, PoolMode.RUNNING)
+        results = engine.evaluate(pool, reading, PoolMode.ACTIVE)
         # No sensor data -> no recommendations
         assert results == []
 
     def test_custom_rules(self, pool: Pool) -> None:
         engine = RuleEngine(rules=[PhRule()])
         reading = PoolReading(ph=8.0, orp=600.0)
-        results = engine.evaluate(pool, reading, PoolMode.RUNNING)
+        results = engine.evaluate(pool, reading, PoolMode.ACTIVE)
         # Only pH rule should fire, not sanitizer
         assert all(r.product in ("ph_minus", "ph_plus") for r in results)
 
@@ -323,12 +405,12 @@ class TestCyaRule:
 
     def test_cya_in_range_no_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(cya=40.0)
-        result = CyaRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = CyaRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
 
     def test_cya_too_low_recommends_stabilizer(self, pool: Pool) -> None:
         reading = PoolReading(cya=10.0)
-        result = CyaRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = CyaRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].product == "stabilizer"
         assert result[0].type == RecommendationType.CHEMICAL
@@ -339,7 +421,7 @@ class TestCyaRule:
 
     def test_cya_too_high_recommends_drain(self, pool: Pool) -> None:
         reading = PoolReading(cya=100.0)
-        result = CyaRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = CyaRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].type == RecommendationType.ALERT
         assert result[0].priority == RecommendationPriority.LOW
@@ -349,7 +431,7 @@ class TestCyaRule:
 
     def test_cya_none_no_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(cya=None)
-        result = CyaRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = CyaRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
 
     def test_winter_passive_skips(self, pool: Pool) -> None:
@@ -357,14 +439,28 @@ class TestCyaRule:
         result = CyaRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
         assert result == []
 
+    def test_hibernating_evaluates(self, pool: Pool) -> None:
+        """CYA rule should still evaluate in hibernating mode."""
+        reading = PoolReading(cya=10.0)
+        result = CyaRule().evaluate(pool, reading, PoolMode.HIBERNATING)
+        assert len(result) == 1
+        assert result[0].product == "stabilizer"
+
+    def test_activating_evaluates(self, pool: Pool) -> None:
+        """CYA rule should still evaluate in activating mode."""
+        reading = PoolReading(cya=10.0)
+        result = CyaRule().evaluate(pool, reading, PoolMode.ACTIVATING)
+        assert len(result) == 1
+        assert result[0].product == "stabilizer"
+
     def test_cya_at_min_no_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(cya=20.0)
-        result = CyaRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = CyaRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
 
     def test_cya_at_max_no_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(cya=75.0)
-        result = CyaRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = CyaRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
 
 
@@ -373,12 +469,12 @@ class TestHardnessRule:
 
     def test_hardness_in_range_no_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(hardness=250.0)
-        result = HardnessRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
 
     def test_hardness_too_low_recommends_increaser(self, pool: Pool) -> None:
         reading = PoolReading(hardness=100.0)
-        result = HardnessRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].product == "calcium_hardness_increaser"
         assert result[0].type == RecommendationType.CHEMICAL
@@ -389,7 +485,7 @@ class TestHardnessRule:
 
     def test_hardness_too_high_recommends_drain(self, pool: Pool) -> None:
         reading = PoolReading(hardness=500.0)
-        result = HardnessRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert len(result) == 1
         assert result[0].type == RecommendationType.ALERT
         assert result[0].priority == RecommendationPriority.LOW
@@ -399,7 +495,7 @@ class TestHardnessRule:
 
     def test_hardness_none_no_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(hardness=None)
-        result = HardnessRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
 
     def test_winter_passive_skips(self, pool: Pool) -> None:
@@ -407,14 +503,28 @@ class TestHardnessRule:
         result = HardnessRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
         assert result == []
 
+    def test_hibernating_evaluates(self, pool: Pool) -> None:
+        """Hardness rule should still evaluate in hibernating mode."""
+        reading = PoolReading(hardness=100.0)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.HIBERNATING)
+        assert len(result) == 1
+        assert result[0].product == "calcium_hardness_increaser"
+
+    def test_activating_evaluates(self, pool: Pool) -> None:
+        """Hardness rule should still evaluate in activating mode."""
+        reading = PoolReading(hardness=100.0)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.ACTIVATING)
+        assert len(result) == 1
+        assert result[0].product == "calcium_hardness_increaser"
+
     def test_hardness_at_min_no_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(hardness=150.0)
-        result = HardnessRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
 
     def test_hardness_at_max_no_recommendation(self, pool: Pool) -> None:
         reading = PoolReading(hardness=400.0)
-        result = HardnessRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = HardnessRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
 
 
@@ -429,7 +539,7 @@ class TestCalibrationRule:
     def test_no_manual_measures_no_recommendation(self, pool: Pool) -> None:
         """No recommendations when there are no manual measures."""
         reading = PoolReading(ph=7.2, orp=750.0)
-        result = CalibrationRule().evaluate(pool, reading, PoolMode.RUNNING)
+        result = CalibrationRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
 
     def test_no_deviation_no_recommendation(self, pool: Pool) -> None:
@@ -441,7 +551,7 @@ class TestCalibrationRule:
             ),
         }
         result = CalibrationRule().evaluate(
-            pool, reading, PoolMode.RUNNING, manual_measures=measures
+            pool, reading, PoolMode.ACTIVE, manual_measures=measures
         )
         assert result == []
 
@@ -454,7 +564,7 @@ class TestCalibrationRule:
             ),
         }
         result = CalibrationRule().evaluate(
-            pool, reading, PoolMode.RUNNING, manual_measures=measures
+            pool, reading, PoolMode.ACTIVE, manual_measures=measures
         )
         assert len(result) == 1
         assert result[0].type == RecommendationType.MAINTENANCE
@@ -473,7 +583,7 @@ class TestCalibrationRule:
             ),
         }
         result = CalibrationRule().evaluate(
-            pool, reading, PoolMode.RUNNING, manual_measures=measures
+            pool, reading, PoolMode.ACTIVE, manual_measures=measures
         )
         assert len(result) == 1
         assert "ORP" in result[0].message
@@ -487,7 +597,7 @@ class TestCalibrationRule:
             ),
         }
         result = CalibrationRule().evaluate(
-            pool, reading, PoolMode.RUNNING, manual_measures=measures
+            pool, reading, PoolMode.ACTIVE, manual_measures=measures
         )
         assert len(result) == 1
         assert "temperature" in result[0].message
@@ -501,7 +611,7 @@ class TestCalibrationRule:
             ),
         }
         result = CalibrationRule().evaluate(
-            pool, reading, PoolMode.RUNNING, manual_measures=measures
+            pool, reading, PoolMode.ACTIVE, manual_measures=measures
         )
         assert result == []
 
@@ -533,7 +643,7 @@ class TestCalibrationRule:
             ),
         }
         result = CalibrationRule().evaluate(
-            pool, reading, PoolMode.RUNNING, manual_measures=measures
+            pool, reading, PoolMode.ACTIVE, manual_measures=measures
         )
         assert len(result) == 3
 
@@ -546,7 +656,7 @@ class TestCalibrationRule:
             ),
         }
         result = CalibrationRule().evaluate(
-            pool, reading, PoolMode.RUNNING, manual_measures=measures
+            pool, reading, PoolMode.ACTIVE, manual_measures=measures
         )
         # 0.3 == threshold, not > threshold
         assert result == []
@@ -560,7 +670,7 @@ class TestCalibrationRule:
             ),
         }
         result = CalibrationRule().evaluate(
-            pool, reading, PoolMode.RUNNING, manual_measures=measures
+            pool, reading, PoolMode.ACTIVE, manual_measures=measures
         )
         assert len(result) == 1
         assert "TAC" in result[0].message
@@ -574,7 +684,7 @@ class TestCalibrationRule:
             ),
         }
         result = CalibrationRule().evaluate(
-            pool, reading, PoolMode.RUNNING, manual_measures=measures
+            pool, reading, PoolMode.ACTIVE, manual_measures=measures
         )
         assert len(result) == 1
         assert "CYA" in result[0].message
@@ -588,7 +698,7 @@ class TestCalibrationRule:
             ),
         }
         result = CalibrationRule().evaluate(
-            pool, reading, PoolMode.RUNNING, manual_measures=measures
+            pool, reading, PoolMode.ACTIVE, manual_measures=measures
         )
         assert len(result) == 1
         assert "hardness" in result[0].message
@@ -603,5 +713,31 @@ class TestCalibrationRule:
         }
         result = CalibrationRule().evaluate(
             pool, reading, PoolMode.WINTER_ACTIVE, manual_measures=measures
+        )
+        assert len(result) == 1
+
+    def test_hibernating_evaluates(self, pool: Pool) -> None:
+        """CalibrationRule should still evaluate in hibernating mode."""
+        reading = PoolReading(ph=7.8)
+        measures = {
+            MeasureParameter.PH: ManualMeasure(
+                parameter=MeasureParameter.PH, value=7.2, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.HIBERNATING, manual_measures=measures
+        )
+        assert len(result) == 1
+
+    def test_activating_evaluates(self, pool: Pool) -> None:
+        """CalibrationRule should still evaluate in activating mode."""
+        reading = PoolReading(ph=7.8)
+        measures = {
+            MeasureParameter.PH: ManualMeasure(
+                parameter=MeasureParameter.PH, value=7.2, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.ACTIVATING, manual_measures=measures
         )
         assert len(result) == 1
