@@ -170,6 +170,9 @@
       },
       "safe_at": {
         "name": "Safe to swim at"
+      },
+      "filtration_boost_remaining": {
+        "name": "Filtration boost remaining"
       }
     },
     "binary_sensor": {
@@ -370,7 +373,10 @@
           "event_type": {
             "state": {
               "filtration_started": "Filtration started",
-              "filtration_stopped": "Filtration stopped"
+              "filtration_stopped": "Filtration stopped",
+              "boost_started": "Boost started",
+              "boost_consumed": "Boost consumed",
+              "boost_cancelled": "Boost cancelled"
             }
           }
         }
@@ -452,6 +458,16 @@
           "dynamic": "Dynamic",
           "split_static": "Split (static)",
           "split_dynamic": "Split (dynamic)"
+        }
+      },
+      "filtration_boost": {
+        "name": "Filtration boost",
+        "state": {
+          "none": "None",
+          "2": "+2 hours",
+          "4": "+4 hours",
+          "8": "+8 hours",
+          "24": "+24 hours"
         }
       }
     },
@@ -576,6 +592,20 @@
         "notes": {
           "name": "Notes",
           "description": "Optional notes about the measurement."
+        }
+      }
+    },
+    "boost_filtration": {
+      "name": "Boost filtration",
+      "description": "Activate a manual filtration boost for extra continuous pump time.",
+      "fields": {
+        "device_id": {
+          "name": "Pool device",
+          "description": "The pool to boost filtration for."
+        },
+        "hours": {
+          "name": "Duration (hours)",
+          "description": "Number of extra filtration hours to add. Set to 0 to cancel an active boost."
         }
       }
     }

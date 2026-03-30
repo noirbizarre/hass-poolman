@@ -12,6 +12,7 @@ from custom_components.poolman.const import (
     DEFAULT_TREATMENT,
     DOMAIN,
     SERVICE_ADD_TREATMENT,
+    SERVICE_BOOST_FILTRATION,
     SERVICE_RECORD_MEASURE,
 )
 from custom_components.poolman.coordinator import PoolmanCoordinator
@@ -44,6 +45,17 @@ class TestSetupEntry:
         assert hass.services.has_service(DOMAIN, SERVICE_ADD_TREATMENT)
         assert hass.services.has_service(DOMAIN, SERVICE_RECORD_MEASURE)
 
+    async def test_setup_registers_boost_service(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Setting up should register the boost_filtration service."""
+        mock_config_entry.add_to_hass(hass)
+        setup_mock_states(hass)
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert hass.services.has_service(DOMAIN, SERVICE_BOOST_FILTRATION)
+
     async def test_service_registration_idempotent(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
     ) -> None:
@@ -57,7 +69,7 @@ class TestSetupEntry:
 
         assert hass.services.has_service(DOMAIN, SERVICE_ADD_TREATMENT)
 
-        # Call again — should be a no-op, not raise
+        # Call again -- should be a no-op, not raise
         _async_register_services(hass)
         assert hass.services.has_service(DOMAIN, SERVICE_ADD_TREATMENT)
 
@@ -94,6 +106,22 @@ class TestUnloadEntry:
 
         assert not hass.services.has_service(DOMAIN, SERVICE_ADD_TREATMENT)
         assert not hass.services.has_service(DOMAIN, SERVICE_RECORD_MEASURE)
+
+    async def test_unload_last_entry_removes_boost_service(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Unloading the last entry should remove the boost service."""
+        mock_config_entry.add_to_hass(hass)
+        setup_mock_states(hass)
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert hass.services.has_service(DOMAIN, SERVICE_BOOST_FILTRATION)
+
+        await hass.config_entries.async_unload(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert not hass.services.has_service(DOMAIN, SERVICE_BOOST_FILTRATION)
 
 
 class TestMigrateEntry:
@@ -358,6 +386,103 @@ class TestRecordMeasureServiceHandler:
                 "device_id": "nonexistent_device_id",
                 "parameter": "ph",
                 "value": 7.0,
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+
+class TestBoostServiceHandler:
+    """Tests for the boost_filtration service handler."""
+
+    async def test_boost_service_with_valid_device(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Service call with a valid device should activate boost on the coordinator."""
+        mock_config_entry.add_to_hass(hass)
+        setup_mock_states(hass)
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        from homeassistant.helpers import device_registry as dr
+
+        device_registry = dr.async_get(hass)
+        device = device_registry.async_get_device(
+            identifiers={(DOMAIN, mock_config_entry.entry_id)}
+        )
+        assert device is not None
+
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_BOOST_FILTRATION,
+            {
+                "device_id": device.id,
+                "hours": 4.0,
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+        coordinator: PoolmanCoordinator = mock_config_entry.runtime_data
+        assert coordinator.scheduler is not None
+        assert coordinator.scheduler.boost_active is True
+
+    async def test_boost_service_zero_hours_cancels(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Service call with hours=0 should cancel any active boost."""
+        mock_config_entry.add_to_hass(hass)
+        setup_mock_states(hass)
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        from homeassistant.helpers import device_registry as dr
+
+        device_registry = dr.async_get(hass)
+        device = device_registry.async_get_device(
+            identifiers={(DOMAIN, mock_config_entry.entry_id)}
+        )
+        assert device is not None
+
+        # Activate a boost first
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_BOOST_FILTRATION,
+            {"device_id": device.id, "hours": 4.0},
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+        coordinator: PoolmanCoordinator = mock_config_entry.runtime_data
+        assert coordinator.scheduler is not None
+        assert coordinator.scheduler.boost_active is True
+
+        # Cancel with hours=0
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_BOOST_FILTRATION,
+            {"device_id": device.id, "hours": 0},
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+        assert coordinator.scheduler.boost_active is False
+
+    async def test_boost_service_with_unknown_device(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Service call with unknown device_id should log warning and not crash."""
+        mock_config_entry.add_to_hass(hass)
+        setup_mock_states(hass)
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_BOOST_FILTRATION,
+            {
+                "device_id": "nonexistent_device_id",
+                "hours": 4.0,
             },
             blocking=True,
         )

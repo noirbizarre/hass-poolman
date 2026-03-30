@@ -2,7 +2,8 @@
 
 Manages time-based triggers to automatically turn a pump switch on and off
 according to one or more filtration periods, each defined by a start time
-and duration.
+and duration.  Supports a manual *boost* that extends filtration beyond the
+normal schedule.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
-from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.event import async_track_point_in_time, async_track_time_change
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -23,6 +24,9 @@ from .const import (
     DEFAULT_FILTRATION_DURATION_HOURS_2,
     DEFAULT_FILTRATION_START_TIME,
     DEFAULT_FILTRATION_START_TIME_2,
+    EVENT_BOOST_CANCELLED,
+    EVENT_BOOST_CONSUMED,
+    EVENT_BOOST_STARTED,
     EVENT_FILTRATION_STARTED,
     EVENT_FILTRATION_STOPPED,
 )
@@ -83,7 +87,8 @@ class FiltrationScheduler:
 
     Registers time-based triggers with Home Assistant to turn a pump switch
     on at configured start times and off after configured durations.
-    Supports multiple periods, cross-midnight schedules, and restart recovery.
+    Supports multiple periods, cross-midnight schedules, restart recovery,
+    and manual boost extensions.
     """
 
     def __init__(self, hass: HomeAssistant, pump_entity_id: str) -> None:
@@ -99,6 +104,13 @@ class FiltrationScheduler:
         self._periods: list[FiltrationPeriod] = [FiltrationPeriod()]
         self._unsub_triggers: list[CALLBACK_TYPE] = []
         self._listeners: list[EventCallback] = []
+
+        # Boost state
+        self._boost_hours: float = 0.0
+        self._boost_end: datetime | None = None
+        self._unsub_boost_stop: CALLBACK_TYPE | None = None
+
+    # ── Properties ──────────────────────────────────────────────
 
     @property
     def enabled(self) -> bool:
@@ -144,6 +156,41 @@ class FiltrationScheduler:
         """Return the pump entity ID being controlled."""
         return self._pump_entity_id
 
+    @property
+    def boost_active(self) -> bool:
+        """Return whether a filtration boost is currently active."""
+        return self._boost_hours > 0
+
+    @property
+    def boost_end(self) -> datetime | None:
+        """Return the datetime when the current boost expires.
+
+        None if no boost is active or the boost has not yet started
+        being consumed (pump is still within a scheduled period).
+        """
+        return self._boost_end
+
+    @property
+    def boost_remaining(self) -> float:
+        """Return remaining boost hours.
+
+        If the boost end time has been set (consumption started),
+        the remaining time is computed from *now*. Otherwise the
+        full requested boost hours are returned.
+
+        Returns:
+            Remaining boost hours, 0.0 if no boost is active.
+        """
+        if self._boost_hours <= 0:
+            return 0.0
+        if self._boost_end is None:
+            # Boost requested but not yet consuming (pump still in-window)
+            return self._boost_hours
+        remaining = (self._boost_end - dt_util.now()).total_seconds() / 3600
+        return max(0.0, remaining)
+
+    # ── Active window ───────────────────────────────────────────
+
     def is_in_active_window(self, now: datetime | None = None) -> bool:
         """Check if a given time falls within any active filtration period.
 
@@ -160,6 +207,8 @@ class FiltrationScheduler:
             now = dt_util.now()
         now_time = now.time()
         return any(period.contains(now_time) for period in self._periods)
+
+    # ── Event listeners ─────────────────────────────────────────
 
     def on_event(self, callback_fn: EventCallback) -> Callable[[], None]:
         """Register a listener for scheduler events.
@@ -195,6 +244,17 @@ class FiltrationScheduler:
             "period_index": period_index,
         }
 
+    def _boost_event_data(self) -> dict[str, object]:
+        """Build the event data payload for a boost event.
+
+        Returns:
+            Dictionary with boost_hours and boost_end (if set).
+        """
+        data: dict[str, object] = {"boost_hours": self._boost_hours}
+        if self._boost_end is not None:
+            data["boost_end"] = self._boost_end.isoformat()
+        return data
+
     @callback
     def _notify(self, event_type: str, period_index: int = 0) -> None:
         """Notify all registered listeners of a scheduler event.
@@ -206,6 +266,19 @@ class FiltrationScheduler:
         data = self._event_data(period_index)
         for listener in self._listeners:
             listener(event_type, data)
+
+    @callback
+    def _notify_boost(self, event_type: str) -> None:
+        """Notify all registered listeners of a boost event.
+
+        Args:
+            event_type: The boost event type (e.g., boost_started).
+        """
+        data = self._boost_event_data()
+        for listener in self._listeners:
+            listener(event_type, data)
+
+    # ── Enable / Disable ────────────────────────────────────────
 
     async def async_enable(self) -> None:
         """Enable the filtration schedule.
@@ -228,12 +301,16 @@ class FiltrationScheduler:
     async def async_disable(self) -> None:
         """Disable the filtration schedule and turn off the pump.
 
-        Cancels all time triggers and immediately turns the pump off.
+        Cancels all time triggers, any active boost, and immediately
+        turns the pump off.
         """
         self._enabled = False
         self._cancel_triggers()
+        self._clear_boost()
         await self._async_stop_pump()
         _LOGGER.debug("Filtration control disabled (pump: %s)", self._pump_entity_id)
+
+    # ── Schedule management ─────────────────────────────────────
 
     async def async_update_schedule(
         self,
@@ -272,7 +349,7 @@ class FiltrationScheduler:
         self._setup_triggers()
 
         # Immediately adjust pump state to the new windows
-        if self.is_in_active_window():
+        if self.is_in_active_window() or self.boost_active:
             await self._async_start_pump()
         else:
             await self._async_stop_pump()
@@ -319,7 +396,7 @@ class FiltrationScheduler:
         self._setup_triggers()
 
         # Immediately adjust pump state to the new windows
-        if self.is_in_active_window():
+        if self.is_in_active_window() or self.boost_active:
             await self._async_start_pump()
         else:
             await self._async_stop_pump()
@@ -329,6 +406,148 @@ class FiltrationScheduler:
             "enabled" if enabled else "disabled",
             len(self._periods),
         )
+
+    # ── Boost ───────────────────────────────────────────────────
+
+    async def async_boost(self, hours: float) -> None:
+        """Activate a filtration boost.
+
+        Adds extra continuous filtration time on top of the normal
+        schedule.  If the pump is currently running (inside a scheduled
+        window), the boost extends past the next natural stop.  If the
+        pump is idle (outside any window), the pump starts immediately
+        and a one-shot stop is scheduled after *hours*.
+
+        A new boost replaces any previously active boost.
+
+        Args:
+            hours: Number of extra filtration hours (must be > 0).
+        """
+        if hours <= 0:
+            await self.async_cancel_boost()
+            return
+
+        # Clear any previous boost timer
+        self._cancel_boost_timer()
+
+        self._boost_hours = hours
+
+        if self.is_in_active_window():
+            # Pump is already running; boost extends past the next stop.
+            # _boost_end will be set when the first stop fires.
+            self._boost_end = None
+            _LOGGER.info(
+                "Filtration boost activated: +%.1fh (extends current period)",
+                hours,
+            )
+        else:
+            # Pump is idle; start immediately and schedule one-shot stop.
+            now = dt_util.now()
+            self._boost_end = now + timedelta(hours=hours)
+            await self._async_start_pump()
+            self._schedule_boost_stop()
+            _LOGGER.info(
+                "Filtration boost activated: +%.1fh (pump started, ends %s)",
+                hours,
+                self._boost_end.isoformat(),
+            )
+
+        self._notify_boost(EVENT_BOOST_STARTED)
+
+    async def async_cancel_boost(self) -> None:
+        """Cancel any active filtration boost.
+
+        If the pump is running outside the normal schedule window
+        (i.e. only because of the boost), it is turned off.
+        """
+        if not self.boost_active:
+            return
+
+        _LOGGER.info("Filtration boost cancelled")
+        self._clear_boost()
+        self._notify_boost(EVENT_BOOST_CANCELLED)
+
+        # Stop the pump if we're outside the normal schedule
+        if not self.is_in_active_window():
+            await self._async_stop_pump()
+
+    async def async_restore_boost(self, boost_end: datetime) -> None:
+        """Restore a boost from a persisted end time (e.g. after HA restart).
+
+        If the boost end is still in the future, the boost is reactivated
+        with the remaining time.  Otherwise the boost is silently discarded.
+
+        Args:
+            boost_end: The persisted boost expiry datetime.
+        """
+        now = dt_util.now()
+        remaining_seconds = (boost_end - now).total_seconds()
+        if remaining_seconds <= 0:
+            return
+
+        remaining_hours = remaining_seconds / 3600
+        self._boost_hours = remaining_hours
+        self._boost_end = boost_end
+
+        # If pump is outside a scheduled window, start it and schedule stop
+        if not self.is_in_active_window():
+            await self._async_start_pump()
+
+        self._schedule_boost_stop()
+        _LOGGER.info(
+            "Filtration boost restored: %.1fh remaining (ends %s)",
+            remaining_hours,
+            boost_end.isoformat(),
+        )
+
+    def _schedule_boost_stop(self) -> None:
+        """Register a one-shot timer to stop the pump when the boost expires."""
+        if self._boost_end is None:
+            return
+
+        self._cancel_boost_timer()
+
+        @callback
+        def _on_boost_end(_now: datetime) -> None:
+            """Handle boost expiry."""
+            self._hass.async_create_task(self._async_on_boost_consumed())
+
+        self._unsub_boost_stop = async_track_point_in_time(
+            self._hass,
+            _on_boost_end,
+            self._boost_end,
+        )
+
+    async def _async_on_boost_consumed(self) -> None:
+        """Handle natural boost expiry.
+
+        Stops the pump (if outside the normal schedule), clears boost
+        state, and notifies listeners.
+        """
+        _LOGGER.info("Filtration boost consumed")
+        self._boost_hours = 0.0
+        self._boost_end = None
+        self._unsub_boost_stop = None
+
+        self._notify_boost(EVENT_BOOST_CONSUMED)
+
+        # Only stop if we're outside a normal window
+        if not self.is_in_active_window():
+            await self._async_stop_pump()
+
+    def _clear_boost(self) -> None:
+        """Reset boost state and cancel any pending boost timer."""
+        self._boost_hours = 0.0
+        self._boost_end = None
+        self._cancel_boost_timer()
+
+    def _cancel_boost_timer(self) -> None:
+        """Cancel the one-shot boost stop timer if registered."""
+        if self._unsub_boost_stop is not None:
+            self._unsub_boost_stop()
+            self._unsub_boost_stop = None
+
+    # ── Time triggers ───────────────────────────────────────────
 
     def _setup_triggers(self) -> None:
         """Register time-based triggers for pump start and stop for all periods."""
@@ -380,6 +599,10 @@ class FiltrationScheduler:
     ) -> Callable[[datetime], Coroutine[Any, Any, None]]:
         """Create a stop-time callback for a specific period.
 
+        When a boost is active, the stop is suppressed. On the first
+        suppressed stop, the boost end time is calculated and a
+        one-shot timer is scheduled.
+
         Args:
             period_index: Index of the period this callback belongs to.
 
@@ -387,11 +610,33 @@ class FiltrationScheduler:
             An async callback for the time trigger.
         """
 
-        async def _on_stop_time(_now: datetime) -> None:
-            if self._enabled:
-                await self._async_stop_pump(period_index)
+        async def _on_stop_time(now: datetime) -> None:
+            if not self._enabled:
+                return
+
+            if self.boost_active:
+                # Suppress the normal stop; the boost keeps the pump running
+                if self._boost_end is None:
+                    # First suppressed stop: calculate boost end from now
+                    self._boost_end = now + timedelta(hours=self._boost_hours)
+                    self._schedule_boost_stop()
+                    _LOGGER.debug(
+                        "Period %d stop suppressed by boost (ends %s)",
+                        period_index,
+                        self._boost_end.isoformat(),
+                    )
+                else:
+                    _LOGGER.debug(
+                        "Period %d stop suppressed by boost (already consuming)",
+                        period_index,
+                    )
+                return
+
+            await self._async_stop_pump(period_index)
 
         return _on_stop_time
+
+    # ── Pump control ────────────────────────────────────────────
 
     async def _async_start_pump(self, period_index: int = 0) -> None:
         """Turn on the pump switch and notify listeners.
@@ -421,6 +666,8 @@ class FiltrationScheduler:
         )
         self._notify(EVENT_FILTRATION_STOPPED, period_index)
 
+    # ── Cleanup ─────────────────────────────────────────────────
+
     @callback
     def async_cancel(self) -> None:
         """Cancel all triggers and clear listeners.
@@ -428,4 +675,5 @@ class FiltrationScheduler:
         Called during integration unload to clean up resources.
         """
         self._cancel_triggers()
+        self._clear_boost()
         self._listeners.clear()
