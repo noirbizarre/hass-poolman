@@ -15,6 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util.dt import utcnow
 
 from .const import (
+    CONF_COMPLETED_AT,
     CONF_CYA_ENTITY,
     CONF_FILTRATION_KIND,
     CONF_HARDNESS_ENTITY,
@@ -24,6 +25,7 @@ from .const import (
     CONF_PUMP_ENTITY,
     CONF_PUMP_FLOW_M3H,
     CONF_SHAPE,
+    CONF_STEPS,
     CONF_TAC_ENTITY,
     CONF_TEMPERATURE_ENTITY,
     CONF_TREATMENT,
@@ -37,6 +39,7 @@ from .const import (
     DOMAIN,
     EVENT_FILTRATION_STOPPED,
     EVENT_POOLMAN,
+    SUBENTRY_ACTIVATION,
 )
 from .domain.activation import SHOCK_PRODUCT_VALUES, ActivationChecklist, ActivationStep
 from .domain.chemistry import compute_chemistry_report, compute_water_quality_score
@@ -263,6 +266,10 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
     async def async_confirm_activation_step(self, step: ActivationStep) -> None:
         """Confirm completion of an activation wizard step.
 
+        Updates both the in-memory activation checklist and the persisted
+        activation subentry data. When all steps are complete, transitions
+        the pool to ACTIVE mode and records the completion timestamp.
+
         Args:
             step: The activation step to mark as completed.
 
@@ -274,9 +281,14 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             msg = "Cannot confirm activation step: pool is not in activating mode"
             raise ValueError(msg)
         self._activation.confirm(step)
+
         if self._activation.is_complete:
             self._mode = PoolMode.ACTIVE
             self._activation = None
+            self._persist_activation_completion()
+        else:
+            self._persist_activation_steps()
+
         await self.async_request_refresh()
 
     def _on_scheduler_event(self, event_type: str, _data: dict[str, object]) -> None:
@@ -298,6 +310,9 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             if self._activation.is_complete:
                 self._mode = PoolMode.ACTIVE
                 self._activation = None
+                self._persist_activation_completion()
+            else:
+                self._persist_activation_steps()
             self.hass.async_create_task(self.async_request_refresh())
 
     def register_treatment_entity(
@@ -351,8 +366,72 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             if self._activation.is_complete:
                 self._mode = PoolMode.ACTIVE
                 self._activation = None
+                self._persist_activation_completion()
+            else:
+                self._persist_activation_steps()
 
         await self.async_request_refresh()
+
+    def _find_activation_subentry(self) -> tuple[Any, Any] | None:
+        """Find the in-progress activation subentry.
+
+        Returns:
+            Tuple of (config_entry, subentry) or None if not found.
+        """
+        entry = self.config_entry
+        for subentry in entry.subentries.values():
+            if (
+                subentry.subentry_type == SUBENTRY_ACTIVATION
+                and subentry.data.get(CONF_COMPLETED_AT) is None
+            ):
+                return entry, subentry
+        return None
+
+    def _persist_activation_steps(self) -> None:
+        """Persist current activation step state to the subentry.
+
+        Updates the subentry data with the current checklist steps.
+        Does nothing if no in-progress activation subentry exists.
+        """
+        if self._activation is None:
+            return
+        result = self._find_activation_subentry()
+        if result is None:
+            return
+        entry, subentry = result
+        steps = {step.value: completed for step, completed in self._activation.steps.items()}
+        self.hass.config_entries.async_update_subentry(
+            entry,
+            subentry,
+            data={
+                **dict(subentry.data),
+                CONF_STEPS: steps,
+            },
+        )
+
+    def _persist_activation_completion(self) -> None:
+        """Mark the activation subentry as completed.
+
+        Sets ``completed_at`` and updates all steps to True.
+        Transitions the subentry title to indicate completion.
+        Does nothing if no in-progress activation subentry exists.
+        """
+        result = self._find_activation_subentry()
+        if result is None:
+            return
+        entry, subentry = result
+        now = utcnow().isoformat()
+        steps = {step.value: True for step in ActivationStep}
+        self.hass.config_entries.async_update_subentry(
+            entry,
+            subentry,
+            data={
+                **dict(subentry.data),
+                CONF_COMPLETED_AT: now,
+                CONF_STEPS: steps,
+            },
+            title="Activation - completed",
+        )
 
     def register_measure_entity(
         self,

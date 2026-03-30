@@ -11,7 +11,10 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import device_registry as dr
 
 from .const import (
+    CONF_COMPLETED_AT,
     CONF_FILTRATION_KIND,
+    CONF_STARTED_AT,
+    CONF_STEPS,
     CONF_TREATMENT,
     DEFAULT_FILTRATION_KIND,
     DEFAULT_TREATMENT,
@@ -21,10 +24,12 @@ from .const import (
     SERVICE_BOOST_FILTRATION,
     SERVICE_CONFIRM_ACTIVATION_STEP,
     SERVICE_RECORD_MEASURE,
+    SUBENTRY_ACTIVATION,
+    SUBENTRY_HIBERNATION,
 )
 from .coordinator import PoolmanCoordinator
-from .domain.activation import ActivationStep
-from .domain.model import ChemicalProduct, MeasureParameter
+from .domain.activation import ActivationChecklist, ActivationStep
+from .domain.model import ChemicalProduct, MeasureParameter, PoolMode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,6 +71,46 @@ SERVICE_CONFIRM_ACTIVATION_STEP_SCHEMA = vol.Schema(
 async def async_setup_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) -> bool:
     """Set up Pool Manager from a config entry."""
     coordinator = PoolmanCoordinator(hass, entry)
+
+    # Restore HIBERNATING mode from any in-progress hibernation subentry
+    for subentry in entry.subentries.values():
+        if (
+            subentry.subentry_type == SUBENTRY_HIBERNATION
+            and subentry.data.get(CONF_COMPLETED_AT) is None
+        ):
+            await coordinator.async_set_mode(PoolMode.HIBERNATING)
+            break
+
+    # Restore ACTIVATING mode and checklist from any in-progress activation subentry
+    for subentry in entry.subentries.values():
+        if (
+            subentry.subentry_type == SUBENTRY_ACTIVATION
+            and subentry.data.get(CONF_COMPLETED_AT) is None
+        ):
+            await coordinator.async_set_mode(PoolMode.ACTIVATING)
+            # Rebuild checklist from persisted step data
+            steps_data = subentry.data.get(CONF_STEPS, {})
+            started_at_raw = subentry.data.get(CONF_STARTED_AT)
+            if started_at_raw is not None and coordinator.activation is not None:
+                from datetime import datetime
+
+                try:
+                    started_at = datetime.fromisoformat(started_at_raw)
+                except (ValueError, TypeError):
+                    break
+                steps = dict.fromkeys(ActivationStep, False)
+                for step_value, completed in steps_data.items():
+                    try:
+                        step = ActivationStep(step_value)
+                        steps[step] = bool(completed)
+                    except ValueError:
+                        continue
+                coordinator.activation = ActivationChecklist(
+                    started_at=started_at,
+                    steps=steps,
+                )
+            break
+
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
