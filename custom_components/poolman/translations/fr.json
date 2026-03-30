@@ -173,6 +173,16 @@
       },
       "filtration_boost_remaining": {
         "name": "Boost de filtration restant"
+      },
+      "activation_step": {
+        "name": "\u00c9tape de remise en route",
+        "state": {
+          "remove_cover": "Retirer la couverture",
+          "raise_water_level": "Remonter le niveau d'eau",
+          "clean_pool_and_filter": "Nettoyer la piscine et le filtre",
+          "shock_treatment": "Traitement choc",
+          "intensive_filtration": "Filtration intensive"
+        }
       }
     },
     "binary_sensor": {
@@ -550,6 +560,15 @@
         "hardness": "Duret\u00e9 calcique",
         "temperature": "Temp\u00e9rature"
       }
+    },
+    "activation_step": {
+      "options": {
+        "remove_cover": "Retirer la couverture",
+        "raise_water_level": "Remonter le niveau d'eau",
+        "clean_pool_and_filter": "Nettoyer la piscine et le filtre",
+        "shock_treatment": "Traitement choc",
+        "intensive_filtration": "Filtration intensive"
+      }
     }
   },
   "services": {
@@ -608,6 +627,20 @@
         "hours": {
           "name": "Heures",
           "description": "Nombre d'heures de filtration suppl\u00e9mentaires (0 pour annuler)."
+        }
+      }
+    },
+    "confirm_activation_step": {
+      "name": "Confirmer une \u00e9tape de remise en route",
+      "description": "Confirmer la compl\u00e9tion d'une \u00e9tape de l'assistant de remise en route.",
+      "fields": {
+        "device_id": {
+          "name": "Appareil piscine",
+          "description": "La piscine pour laquelle confirmer l'\u00e9tape."
+        },
+        "step": {
+          "name": "\u00c9tape",
+          "description": "L'\u00e9tape de remise en route \u00e0 confirmer."
         }
       }
     }

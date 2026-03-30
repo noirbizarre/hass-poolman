@@ -425,6 +425,227 @@ class TestGetEntityId:
         assert entity_id is None
 
 
+class TestActivationLifecycle:
+    """Tests for activation checklist lifecycle during mode transitions."""
+
+    async def test_activating_mode_creates_checklist(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Switching to ACTIVATING should create an activation checklist."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        assert coordinator.activation is None
+        coordinator.mode = PoolMode.ACTIVATING
+        assert coordinator.activation is not None
+        assert coordinator.activation.is_complete is False
+
+    async def test_leaving_activating_clears_checklist(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Switching away from ACTIVATING should clear the checklist."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.ACTIVATING
+        assert coordinator.activation is not None
+        coordinator.mode = PoolMode.ACTIVE
+        assert coordinator.activation is None
+
+    async def test_activating_to_activating_preserves_checklist(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Setting ACTIVATING when already ACTIVATING should keep existing checklist."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.ACTIVATING
+        checklist = coordinator.activation
+        assert checklist is not None
+        # Set mode to ACTIVATING again
+        coordinator.mode = PoolMode.ACTIVATING
+        # Should be the same checklist instance (not recreated)
+        assert coordinator.activation is checklist
+
+    async def test_checklist_in_pool_state(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Activation checklist should be included in PoolState."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.ACTIVATING
+        await coordinator.async_request_refresh()
+        await hass.async_block_till_done()
+        assert coordinator.data.activation is not None
+
+    async def test_pool_state_activation_none_when_not_activating(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Activation should be None in PoolState when not in ACTIVATING mode."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        assert coordinator.data.activation is None
+
+
+class TestConfirmActivationStep:
+    """Tests for async_confirm_activation_step."""
+
+    async def test_confirm_step(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Confirming a step should mark it as completed."""
+        from custom_components.poolman.domain.activation import ActivationStep
+
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.ACTIVATING
+        await coordinator.async_confirm_activation_step(ActivationStep.REMOVE_COVER)
+        await hass.async_block_till_done()
+        assert coordinator.activation is not None
+        assert ActivationStep.REMOVE_COVER in coordinator.activation.completed_steps
+
+    async def test_confirm_all_steps_switches_to_active(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Confirming all steps should switch mode to ACTIVE and clear checklist."""
+        from custom_components.poolman.domain.activation import ActivationStep
+
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.ACTIVATING
+        for step in ActivationStep:
+            await coordinator.async_confirm_activation_step(step)
+            await hass.async_block_till_done()
+        assert coordinator.mode == PoolMode.ACTIVE
+        assert coordinator.activation is None
+
+    async def test_confirm_fails_when_not_activating(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Confirming a step when not in ACTIVATING mode should raise ValueError."""
+        from custom_components.poolman.domain.activation import ActivationStep
+
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        assert coordinator.mode == PoolMode.ACTIVE
+        with pytest.raises(ValueError, match="not in activating mode"):
+            await coordinator.async_confirm_activation_step(ActivationStep.REMOVE_COVER)
+
+
+class TestAutoConfirmShockTreatment:
+    """Tests for auto-confirming shock_treatment via add_treatment."""
+
+    async def test_shock_product_auto_confirms(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Recording a shock product during activation should auto-confirm shock_treatment."""
+        from custom_components.poolman.domain.activation import ActivationStep
+
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.ACTIVATING
+        await coordinator.async_add_treatment(ChemicalProduct.CHLORE_CHOC, 200.0)
+        await hass.async_block_till_done()
+        assert coordinator.activation is not None
+        assert ActivationStep.SHOCK_TREATMENT in coordinator.activation.completed_steps
+
+    async def test_non_shock_product_does_not_auto_confirm(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Recording a non-shock product should not auto-confirm shock_treatment."""
+        from custom_components.poolman.domain.activation import ActivationStep
+
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.ACTIVATING
+        await coordinator.async_add_treatment(ChemicalProduct.PH_MINUS, 100.0)
+        await hass.async_block_till_done()
+        assert coordinator.activation is not None
+        assert ActivationStep.SHOCK_TREATMENT not in coordinator.activation.completed_steps
+
+    async def test_shock_outside_activating_does_nothing(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Recording a shock product outside activating mode should not create a checklist."""
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        assert coordinator.mode == PoolMode.ACTIVE
+        await coordinator.async_add_treatment(ChemicalProduct.CHLORE_CHOC, 200.0)
+        await hass.async_block_till_done()
+        assert coordinator.activation is None
+
+    async def test_shock_auto_complete_switches_to_active(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """If shock_treatment is the last step, auto-confirm should switch to ACTIVE."""
+        from custom_components.poolman.domain.activation import ActivationStep
+
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.ACTIVATING
+        # Confirm all steps except shock_treatment
+        for step in ActivationStep:
+            if step != ActivationStep.SHOCK_TREATMENT:
+                await coordinator.async_confirm_activation_step(step)
+                await hass.async_block_till_done()
+        assert coordinator.mode == PoolMode.ACTIVATING
+        # Auto-confirm via treatment
+        await coordinator.async_add_treatment(ChemicalProduct.CHLORE_CHOC, 200.0)
+        await hass.async_block_till_done()
+        assert coordinator.mode == PoolMode.ACTIVE
+        assert coordinator.activation is None
+
+
+class TestAutoConfirmIntensiveFiltration:
+    """Tests for auto-confirming intensive_filtration via scheduler event."""
+
+    async def test_filtration_stopped_auto_confirms(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """A filtration_stopped event during activation should auto-confirm intensive_filtration."""
+        from custom_components.poolman.const import EVENT_FILTRATION_STOPPED
+        from custom_components.poolman.domain.activation import ActivationStep
+
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.ACTIVATING
+        # Simulate scheduler event
+        coordinator._on_scheduler_event(EVENT_FILTRATION_STOPPED, {})
+        await hass.async_block_till_done()
+        assert coordinator.activation is not None
+        assert ActivationStep.INTENSIVE_FILTRATION in coordinator.activation.completed_steps
+
+    async def test_non_filtration_event_does_not_auto_confirm(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Other scheduler events should not auto-confirm intensive_filtration."""
+        from custom_components.poolman.domain.activation import ActivationStep
+
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.ACTIVATING
+        coordinator._on_scheduler_event("filtration_started", {})
+        await hass.async_block_till_done()
+        assert coordinator.activation is not None
+        assert ActivationStep.INTENSIVE_FILTRATION not in coordinator.activation.completed_steps
+
+    async def test_filtration_stopped_outside_activating_does_nothing(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """filtration_stopped outside activating mode should not create a checklist."""
+        from custom_components.poolman.const import EVENT_FILTRATION_STOPPED
+
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        assert coordinator.mode == PoolMode.ACTIVE
+        coordinator._on_scheduler_event(EVENT_FILTRATION_STOPPED, {})
+        await hass.async_block_till_done()
+        assert coordinator.activation is None
+
+    async def test_filtration_auto_complete_switches_to_active(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """If intensive_filtration is the last step, auto-confirm should switch to ACTIVE."""
+        from custom_components.poolman.const import EVENT_FILTRATION_STOPPED
+        from custom_components.poolman.domain.activation import ActivationStep
+
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        coordinator.mode = PoolMode.ACTIVATING
+        # Confirm all steps except intensive_filtration
+        for step in ActivationStep:
+            if step != ActivationStep.INTENSIVE_FILTRATION:
+                await coordinator.async_confirm_activation_step(step)
+                await hass.async_block_till_done()
+        assert coordinator.mode == PoolMode.ACTIVATING
+        # Auto-confirm via scheduler event
+        coordinator._on_scheduler_event(EVENT_FILTRATION_STOPPED, {})
+        await hass.async_block_till_done()
+        assert coordinator.mode == PoolMode.ACTIVE
+        assert coordinator.activation is None
+
+
 class TestAsyncAddTreatment:
     """Tests for async_add_treatment."""
 

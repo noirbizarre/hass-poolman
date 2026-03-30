@@ -61,6 +61,20 @@ FILTRATION_KINDS: Final = [
     FILTRATION_KIND_GLASS,
 ]
 
+# Pool modes
+MODE_ACTIVE: Final = "active"
+MODE_HIBERNATING: Final = "hibernating"
+MODE_WINTER_ACTIVE: Final = "winter_active"
+MODE_WINTER_PASSIVE: Final = "winter_passive"
+MODE_ACTIVATING: Final = "activating"
+MODES: Final = [
+    MODE_ACTIVE,
+    MODE_HIBERNATING,
+    MODE_WINTER_ACTIVE,
+    MODE_WINTER_PASSIVE,
+    MODE_ACTIVATING,
+]
+
 # Filtration duration modes
 FILTRATION_DURATION_MODE_MANUAL: Final = "manual"
 FILTRATION_DURATION_MODE_DYNAMIC: Final = "dynamic"
@@ -103,3 +117,4 @@ DEFAULT_MIN_DYNAMIC_DURATION_HOURS: Final = 0.0
 SERVICE_ADD_TREATMENT: Final = "add_treatment"
 SERVICE_RECORD_MEASURE: Final = "record_measure"
 SERVICE_BOOST_FILTRATION: Final = "boost_filtration"
+SERVICE_CONFIRM_ACTIVATION_STEP: Final = "confirm_activation_step"

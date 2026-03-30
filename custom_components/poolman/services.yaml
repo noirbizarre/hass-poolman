@@ -110,3 +110,28 @@ boost_filtration:
           step: 0.5
           unit_of_measurement: h
           mode: box
+
+confirm_activation_step:
+  name: Confirm activation step
+  description: Confirm completion of an activation wizard step.
+  fields:
+    device_id:
+      name: Pool device
+      description: The pool to confirm the activation step for.
+      required: true
+      selector:
+        device:
+          integration: poolman
+    step:
+      name: Step
+      description: The activation step to confirm as completed.
+      required: true
+      selector:
+        select:
+          translation_key: activation_step
+          options:
+            - "remove_cover"
+            - "raise_water_level"
+            - "clean_pool_and_filter"
+            - "shock_treatment"
+            - "intensive_filtration"

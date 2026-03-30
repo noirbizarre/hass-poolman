@@ -239,6 +239,57 @@ not yet ready for swimming and typically requires:
 - Shock treatment
 - Intensive filtration to restore water clarity
 
+### Activation Wizard
+
+When the pool mode is set to **Activating**, an activation wizard guides you
+through the five steps needed to bring the pool back to full operation.
+Progress is tracked via the `sensor.{pool}_activation_step` entity, which
+shows the current (next pending) step.
+
+#### Wizard steps
+
+| # | Step | Confirmation |
+| --- | --- | --- |
+| 1 | **Remove cover** | Manual |
+| 2 | **Raise water level** | Manual |
+| 3 | **Clean pool and filter** | Manual |
+| 4 | **Shock treatment** | Auto-detected when a shock product is recorded |
+| 5 | **Intensive filtration** | Auto-detected when a filtration cycle completes |
+
+Steps can be confirmed in any order. The three manual steps require
+calling the `poolman.confirm_activation_step` service. The two
+auto-detectable steps are confirmed automatically:
+
+- **Shock treatment** is auto-confirmed when a shock product
+  (`chlore_choc`, `bromine_shock`, or `active_oxygen_activator`) is
+  recorded via the `poolman.add_treatment` service.
+- **Intensive filtration** is auto-confirmed when a filtration cycle
+  completes (the scheduler fires a `filtration_stopped` event).
+
+When all five steps are confirmed, the pool mode automatically switches
+to **Active** and the activation checklist is cleared.
+
+#### Confirming steps manually
+
+Use the `poolman.confirm_activation_step` service:
+
+```yaml
+service: poolman.confirm_activation_step
+data:
+  device_id: "<your_pool_device_id>"
+  step: "remove_cover"
+```
+
+Valid step values: `remove_cover`, `raise_water_level`,
+`clean_pool_and_filter`, `shock_treatment`, `intensive_filtration`.
+
+#### Persistence
+
+The activation checklist persists across Home Assistant restarts. When
+HA restarts while the pool is in activating mode, already-confirmed
+steps are restored from the `activation_step` sensor's persisted state
+attributes.
+
 ### Activating filtration
 
 Uses the full **dynamic multi-factor algorithm** (same as active mode).

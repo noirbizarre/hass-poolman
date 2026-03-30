@@ -13,9 +13,11 @@ from custom_components.poolman.const import (
     DOMAIN,
     SERVICE_ADD_TREATMENT,
     SERVICE_BOOST_FILTRATION,
+    SERVICE_CONFIRM_ACTIVATION_STEP,
     SERVICE_RECORD_MEASURE,
 )
 from custom_components.poolman.coordinator import PoolmanCoordinator
+from custom_components.poolman.domain.model import PoolMode
 from tests.conftest import MOCK_CONFIG_DATA, setup_mock_states
 
 
@@ -55,6 +57,17 @@ class TestSetupEntry:
         await hass.async_block_till_done()
 
         assert hass.services.has_service(DOMAIN, SERVICE_BOOST_FILTRATION)
+
+    async def test_setup_registers_confirm_activation_step_service(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Setting up should register the confirm_activation_step service."""
+        mock_config_entry.add_to_hass(hass)
+        setup_mock_states(hass)
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert hass.services.has_service(DOMAIN, SERVICE_CONFIRM_ACTIVATION_STEP)
 
     async def test_service_registration_idempotent(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
@@ -122,6 +135,22 @@ class TestUnloadEntry:
         await hass.async_block_till_done()
 
         assert not hass.services.has_service(DOMAIN, SERVICE_BOOST_FILTRATION)
+
+    async def test_unload_last_entry_removes_confirm_activation_step_service(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Unloading the last entry should remove the confirm_activation_step service."""
+        mock_config_entry.add_to_hass(hass)
+        setup_mock_states(hass)
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert hass.services.has_service(DOMAIN, SERVICE_CONFIRM_ACTIVATION_STEP)
+
+        await hass.config_entries.async_unload(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert not hass.services.has_service(DOMAIN, SERVICE_CONFIRM_ACTIVATION_STEP)
 
 
 class TestMigrateEntry:
@@ -487,3 +516,94 @@ class TestBoostServiceHandler:
             blocking=True,
         )
         await hass.async_block_till_done()
+
+
+class TestConfirmActivationStepServiceHandler:
+    """Tests for the confirm_activation_step service handler."""
+
+    async def test_confirm_step_service_with_valid_device(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Service call with a valid device should confirm the activation step."""
+        from homeassistant.helpers import device_registry as dr
+
+        mock_config_entry.add_to_hass(hass)
+        setup_mock_states(hass)
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        coordinator: PoolmanCoordinator = mock_config_entry.runtime_data
+        coordinator.mode = PoolMode.ACTIVATING
+
+        device_registry = dr.async_get(hass)
+        device = device_registry.async_get_device(
+            identifiers={(DOMAIN, mock_config_entry.entry_id)}
+        )
+        assert device is not None
+
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_CONFIRM_ACTIVATION_STEP,
+            {
+                "device_id": device.id,
+                "step": "remove_cover",
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+        assert coordinator.activation is not None
+        assert "remove_cover" in [s.value for s in coordinator.activation.completed_steps]
+
+    async def test_confirm_step_service_with_unknown_device(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Service call with unknown device_id should not crash."""
+        mock_config_entry.add_to_hass(hass)
+        setup_mock_states(hass)
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_CONFIRM_ACTIVATION_STEP,
+            {
+                "device_id": "nonexistent_device_id",
+                "step": "remove_cover",
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    async def test_confirm_step_service_fails_when_not_activating(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Service call when not in activating mode should raise."""
+        import pytest
+
+        from homeassistant.helpers import device_registry as dr
+
+        mock_config_entry.add_to_hass(hass)
+        setup_mock_states(hass)
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        device_registry = dr.async_get(hass)
+        device = device_registry.async_get_device(
+            identifiers={(DOMAIN, mock_config_entry.entry_id)}
+        )
+        assert device is not None
+
+        coordinator: PoolmanCoordinator = mock_config_entry.runtime_data
+        assert coordinator.mode == PoolMode.ACTIVE
+
+        with pytest.raises(ValueError, match="not in activating mode"):
+            await hass.services.async_call(
+                DOMAIN,
+                SERVICE_CONFIRM_ACTIVATION_STEP,
+                {
+                    "device_id": device.id,
+                    "step": "remove_cover",
+                },
+                blocking=True,
+            )
