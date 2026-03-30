@@ -27,8 +27,8 @@ This skill follows a 4-phase interactive workflow:
 
 ## Phase 1: Ask the User
 
-Present the user with a choice of review scope. Use the question tool if available,
-otherwise ask in plain text:
+Ask the user to choose a review scope. Use the `question` tool to present the
+options below. If the `question` tool is not available, ask in plain text instead:
 
 **Review types:**
 
