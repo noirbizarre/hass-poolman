@@ -118,13 +118,13 @@ for more information.
 
 ### Does the recommended filtration duration control my pump?
 
-No. The `sensor.{pool}_recommended_filtration_duration` entity is
+No. The `sensor.{pool}_filtration_duration` entity is
 **advisory only** -- it tells you how long filtration should run, but does
 not act on it.
 
 To enable automatic pump control, you must configure a **pump switch entity**
 during setup and enable filtration control. This creates additional entities
-(`switch.{pool}_filtration`, `time.{pool}_filtration_start`, etc.) that
+(`switch.{pool}_filtration_control`, `time.{pool}_filtration_start_time`, etc.) that
 manage the pump schedule. See
 [Filtration Control](filtration-control.md) for the full setup.
 
@@ -138,8 +138,8 @@ pump is turned back on and filtration resumes for the remaining duration.
 
 ### Why are some entities missing?
 
-Filtration control entities (`switch.{pool}_filtration`,
-`time.{pool}_filtration_start`, `number.{pool}_filtration_duration`, etc.)
+Filtration control entities (`switch.{pool}_filtration_control`,
+`time.{pool}_filtration_start_time`, `number.{pool}_filtration_duration_setting`, etc.)
 are **only created** when a pump switch entity is configured during setup.
 
 Additionally, period 2 entities (for split filtration modes) are always
