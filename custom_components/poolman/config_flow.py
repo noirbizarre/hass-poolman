@@ -52,12 +52,14 @@ from .const import (
     CONF_STEPS,
     CONF_TAC_ENTITY,
     CONF_TARGET_MODE,
+    CONF_TDS_FACTOR,
     CONF_TEMPERATURE_ENTITY,
     CONF_TREATMENT,
     CONF_VOLUME_M3,
     CONF_WEATHER_ENTITY,
     DEFAULT_FILTRATION_KIND,
     DEFAULT_PUMP_FLOW_M3H,
+    DEFAULT_TDS_FACTOR,
     DEFAULT_TREATMENT,
     DEFAULT_VOLUME_M3,
     DOMAIN,
@@ -148,6 +150,17 @@ def _chemistry_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 CONF_EC_ENTITY,
                 default=defaults.get(CONF_EC_ENTITY, vol.UNDEFINED),
             ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+            vol.Optional(
+                CONF_TDS_FACTOR,
+                default=defaults.get(CONF_TDS_FACTOR, DEFAULT_TDS_FACTOR),
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=0.4,
+                    max=0.8,
+                    step=0.01,
+                    mode=NumberSelectorMode.BOX,
+                )
+            ),
             vol.Optional(
                 CONF_SALT_ENTITY,
                 default=defaults.get(CONF_SALT_ENTITY, vol.UNDEFINED),

@@ -26,6 +26,9 @@ from custom_components.poolman.domain.chemistry import (
     TAC_MAX,
     TAC_MIN,
     TAC_TARGET,
+    TDS_MAX,
+    TDS_MIN,
+    TDS_TARGET,
     compute_chemistry_report,
     compute_cya_adjustment,
     compute_free_chlorine_adjustment,
@@ -35,6 +38,7 @@ from custom_components.poolman.domain.chemistry import (
     compute_salt_adjustment,
     compute_sanitizer_status,
     compute_tac_adjustment,
+    compute_tds,
     compute_water_quality_score,
 )
 from custom_components.poolman.domain.model import (
@@ -339,6 +343,10 @@ class TestParameterStatus:
             # Salt ranges
             (SALT_TARGET, SALT_MIN, SALT_TARGET, SALT_MAX, ChemistryStatus.GOOD),
             (2000, SALT_MIN, SALT_TARGET, SALT_MAX, ChemistryStatus.BAD),
+            # TDS ranges
+            (TDS_TARGET, TDS_MIN, TDS_TARGET, TDS_MAX, ChemistryStatus.GOOD),
+            (100, TDS_MIN, TDS_TARGET, TDS_MAX, ChemistryStatus.BAD),
+            (2000, TDS_MIN, TDS_TARGET, TDS_MAX, ChemistryStatus.BAD),
         ],
     )
     def test_status_across_parameters(
@@ -372,6 +380,8 @@ class TestChemistryReport:
         assert report.cya.status == ChemistryStatus.GOOD
         assert report.hardness is not None
         assert report.hardness.status == ChemistryStatus.GOOD
+        assert report.tds is not None
+        assert report.tds.status == ChemistryStatus.GOOD
 
     def test_bad_reading_all_bad(self, bad_reading: PoolReading) -> None:
         report = compute_chemistry_report(bad_reading)
@@ -387,6 +397,8 @@ class TestChemistryReport:
         assert report.tac.status == ChemistryStatus.BAD
         assert report.hardness is not None
         assert report.hardness.status == ChemistryStatus.BAD
+        assert report.tds is not None
+        assert report.tds.status == ChemistryStatus.BAD
 
     def test_empty_reading_all_none(self, empty_reading: PoolReading) -> None:
         report = compute_chemistry_report(empty_reading)
@@ -397,6 +409,7 @@ class TestChemistryReport:
         assert report.tac is None
         assert report.cya is None
         assert report.hardness is None
+        assert report.tds is None
 
     def test_partial_reading(self) -> None:
         reading = PoolReading(ph=7.2, orp=750.0)
@@ -615,3 +628,96 @@ class TestSaltAdjustment:
         assert large_result.quantity_g is not None
         assert small_result.quantity_g is not None
         assert large_result.quantity_g > small_result.quantity_g
+
+
+class TestComputeTds:
+    """Tests for TDS computation from EC."""
+
+    def test_none_ec_returns_none(self) -> None:
+        assert compute_tds(None) is None
+
+    def test_default_factor(self) -> None:
+        """500 µS/cm * 0.5 = 250 ppm."""
+        assert compute_tds(500.0) == pytest.approx(250.0)
+
+    def test_custom_factor(self) -> None:
+        """1000 µS/cm * 0.7 = 700 ppm."""
+        assert compute_tds(1000.0, factor=0.7) == pytest.approx(700.0)
+
+    def test_zero_ec(self) -> None:
+        """0 µS/cm should return 0 ppm."""
+        assert compute_tds(0.0) == pytest.approx(0.0)
+
+    @pytest.mark.parametrize(
+        ("ec", "factor", "expected"),
+        [
+            (500.0, 0.4, 200.0),
+            (500.0, 0.5, 250.0),
+            (500.0, 0.8, 400.0),
+            (1000.0, 0.5, 500.0),
+            (3000.0, 0.5, 1500.0),
+        ],
+    )
+    def test_various_factors(self, ec: float, factor: float, expected: float) -> None:
+        assert compute_tds(ec, factor=factor) == pytest.approx(expected)
+
+
+class TestTdsInWaterQualityScore:
+    """Tests for TDS contribution to water quality score."""
+
+    def test_tds_at_target_scores_high(self) -> None:
+        reading = PoolReading(tds=TDS_TARGET)
+        score = compute_water_quality_score(reading)
+        assert score is not None
+        assert score == 100
+
+    def test_tds_out_of_range_scores_zero(self) -> None:
+        reading = PoolReading(tds=2000.0)
+        score = compute_water_quality_score(reading)
+        assert score is not None
+        assert score == 0
+
+    def test_tds_at_min_scores_zero(self) -> None:
+        reading = PoolReading(tds=TDS_MIN)
+        score = compute_water_quality_score(reading)
+        assert score is not None
+        assert score == 0
+
+    def test_tds_none_excluded(self) -> None:
+        """TDS=None should not contribute to score."""
+        reading = PoolReading(ph=7.2, tds=None)
+        score = compute_water_quality_score(reading)
+        assert score is not None
+        # Only pH contributes
+        assert score == 100
+
+
+class TestTdsInChemistryReport:
+    """Tests for TDS in the chemistry report."""
+
+    def test_tds_good_reading(self) -> None:
+        reading = PoolReading(tds=TDS_TARGET)
+        report = compute_chemistry_report(reading)
+        assert report.tds is not None
+        assert report.tds.status == ChemistryStatus.GOOD
+        assert report.tds.score == 100
+
+    def test_tds_bad_reading(self) -> None:
+        reading = PoolReading(tds=2000.0)
+        report = compute_chemistry_report(reading)
+        assert report.tds is not None
+        assert report.tds.status == ChemistryStatus.BAD
+
+    def test_tds_none_reading(self) -> None:
+        reading = PoolReading(tds=None)
+        report = compute_chemistry_report(reading)
+        assert report.tds is None
+
+    def test_tds_report_contains_range_info(self) -> None:
+        reading = PoolReading(tds=500.0)
+        report = compute_chemistry_report(reading)
+        assert report.tds is not None
+        assert report.tds.value == 500.0
+        assert report.tds.target == TDS_TARGET
+        assert report.tds.minimum == TDS_MIN
+        assert report.tds.maximum == TDS_MAX

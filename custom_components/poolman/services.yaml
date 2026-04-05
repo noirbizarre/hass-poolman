@@ -84,6 +84,7 @@ record_measure:
           options:
             - "ph"
             - "orp"
+            - "tds"
             - "tac"
             - "cya"
             - "hardness"

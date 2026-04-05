@@ -121,6 +121,7 @@ bromine-treated pool will receive bromine tablet recommendations.
 | TAC entity | entity (sensor) | Total Alkalinity sensor |
 | CYA entity | entity (sensor) | Cyanuric Acid / Stabilizer sensor |
 | Hardness entity | entity (sensor) | Calcium Hardness sensor |
+| TDS conversion factor | number | Factor to convert EC to TDS (default 0.5, range 0.4--0.8) |
 
 ### Step 3: Measuring spoons
 

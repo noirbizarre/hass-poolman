@@ -37,6 +37,7 @@ CONF_PH_ENTITY: Final = "ph_entity"
 CONF_ORP_ENTITY: Final = "orp_entity"
 CONF_FREE_CHLORINE_ENTITY: Final = "free_chlorine_entity"
 CONF_EC_ENTITY: Final = "ec_entity"
+CONF_TDS_FACTOR: Final = "tds_factor"
 CONF_SALT_ENTITY: Final = "salt_entity"
 CONF_TEMPERATURE_ENTITY: Final = "temperature_entity"
 CONF_TAC_ENTITY: Final = "tac_entity"
@@ -131,6 +132,7 @@ DEFAULT_FILTRATION_DURATION_MODE: Final = FILTRATION_DURATION_MODE_DYNAMIC
 DEFAULT_FILTRATION_START_TIME_2: Final = time(16, 0)
 DEFAULT_FILTRATION_DURATION_HOURS_2: Final = 4.0
 DEFAULT_MIN_DYNAMIC_DURATION_HOURS: Final = 0.0
+DEFAULT_TDS_FACTOR: Final = 0.5
 
 # Wizard subentry types
 SUBENTRY_HIBERNATION: Final = "hibernation"

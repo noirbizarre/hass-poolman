@@ -31,6 +31,7 @@ from .const import (
     CONF_SPOON_SIZES,
     CONF_STEPS,
     CONF_TAC_ENTITY,
+    CONF_TDS_FACTOR,
     CONF_TEMPERATURE_ENTITY,
     CONF_TREATMENT,
     CONF_VOLUME_M3,
@@ -38,6 +39,7 @@ from .const import (
     DEFAULT_FILTRATION_DURATION_MODE,
     DEFAULT_FILTRATION_KIND,
     DEFAULT_MIN_DYNAMIC_DURATION_HOURS,
+    DEFAULT_TDS_FACTOR,
     DEFAULT_TREATMENT,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
     DOMAIN,
@@ -46,7 +48,7 @@ from .const import (
     SUBENTRY_ACTIVATION,
 )
 from .domain.activation import SHOCK_PRODUCT_VALUES, ActivationChecklist, ActivationStep
-from .domain.chemistry import compute_chemistry_report, compute_water_quality_score
+from .domain.chemistry import compute_chemistry_report, compute_tds, compute_water_quality_score
 from .domain.filtration import compute_filtration_duration
 from .domain.model import (
     ChemicalProduct,
@@ -717,6 +719,19 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         if ec_src:
             reading_sources["ec"] = ec_src
 
+        # TDS is derived from EC using a configurable conversion factor.
+        # Manual TDS measurements override the computed value.
+        tds_factor = float(self._get_config(CONF_TDS_FACTOR, DEFAULT_TDS_FACTOR))
+        tds_manual = manual_measures.get(MeasureParameter.TDS)
+        if tds_manual is not None:
+            tds = tds_manual.value
+            reading_sources["tds"] = "manual"
+        elif ec is not None:
+            tds = compute_tds(ec, tds_factor)
+            reading_sources["tds"] = "computed"
+        else:
+            tds = None
+
         salt, salt_src = self._read_with_fallback(
             CONF_SALT_ENTITY, MeasureParameter.SALT, manual_measures
         )
@@ -756,6 +771,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             orp=orp,
             free_chlorine=free_chlorine,
             ec=ec,
+            tds=tds,
             salt=salt,
             temp_c=temp_c,
             outdoor_temp_c=outdoor_temp_c,
@@ -768,11 +784,13 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         # The CalibrationRule needs to know the raw sensor values to compare
         # against manual measures, even when the effective reading uses
         # manual values as fallback.
+        sensor_ec = self._read_sensor(CONF_EC_ENTITY)
         sensor_reading = PoolReading(
             ph=self._read_sensor(CONF_PH_ENTITY),
             orp=self._read_sensor(CONF_ORP_ENTITY),
             free_chlorine=self._read_sensor(CONF_FREE_CHLORINE_ENTITY),
-            ec=self._read_sensor(CONF_EC_ENTITY),
+            ec=sensor_ec,
+            tds=compute_tds(sensor_ec, tds_factor),
             salt=self._read_sensor(CONF_SALT_ENTITY),
             temp_c=self._read_sensor(CONF_TEMPERATURE_ENTITY),
             outdoor_temp_c=outdoor_temp_c,

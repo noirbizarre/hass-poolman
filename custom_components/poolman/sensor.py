@@ -143,6 +143,16 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         extra_attrs_fn=lambda state: _source_attr(state, "ec"),
     ),
     PoolmanSensorEntityDescription(
+        key="tds",
+        translation_key="tds",
+        native_unit_of_measurement="ppm",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        icon="mdi:water-opacity",
+        value_fn=lambda state: state.reading.tds,
+        extra_attrs_fn=lambda state: _source_attr(state, "tds"),
+    ),
+    PoolmanSensorEntityDescription(
         key="salt",
         translation_key="salt_level",
         native_unit_of_measurement="ppm",
@@ -289,6 +299,17 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         extra_attrs_fn=lambda state: _status_with_source(
             state, state.chemistry_report.salt, "salt"
         ),
+    ),
+    PoolmanSensorEntityDescription(
+        key="tds_status",
+        translation_key="tds_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=_CHEMISTRY_STATUS_OPTIONS,
+        icon="mdi:water-opacity",
+        value_fn=lambda state: (
+            state.chemistry_report.tds.status if state.chemistry_report.tds else None
+        ),
+        extra_attrs_fn=lambda state: _status_with_source(state, state.chemistry_report.tds, "tds"),
     ),
     PoolmanSensorEntityDescription(
         key="active_treatments",

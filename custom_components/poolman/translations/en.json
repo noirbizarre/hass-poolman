@@ -26,7 +26,8 @@
           "salt_entity": "Salt sensor",
           "tac_entity": "Total alkalinity (TAC) sensor",
           "cya_entity": "Cyanuric acid (stabilizer) sensor",
-          "hardness_entity": "Calcium hardness sensor"
+          "hardness_entity": "Calcium hardness sensor",
+          "tds_factor": "TDS conversion factor"
         },
         "data_description": {
           "treatment": "Water treatment method used in your pool.",
@@ -35,7 +36,8 @@
           "salt_entity": "Optional. Salt level sensor (ppm).",
           "tac_entity": "Optional. Total alkalinity sensor.",
           "cya_entity": "Optional. Cyanuric acid (stabilizer) sensor.",
-          "hardness_entity": "Optional. Calcium hardness sensor."
+          "hardness_entity": "Optional. Calcium hardness sensor.",
+          "tds_factor": "Factor to convert EC (µS/cm) to TDS (ppm). Typical range: 0.4--0.8."
         }
       },
       "filtration": {
@@ -167,7 +169,8 @@
           "salt_entity": "Salt sensor",
           "tac_entity": "Total alkalinity (TAC) sensor",
           "cya_entity": "Cyanuric acid (stabilizer) sensor",
-          "hardness_entity": "Calcium hardness sensor"
+          "hardness_entity": "Calcium hardness sensor",
+          "tds_factor": "TDS conversion factor"
         },
         "data_description": {
           "treatment": "Water treatment method used in your pool.",
@@ -176,7 +179,8 @@
           "salt_entity": "Optional. Salt level sensor (ppm).",
           "tac_entity": "Optional. Total alkalinity sensor.",
           "cya_entity": "Optional. Cyanuric acid (stabilizer) sensor.",
-          "hardness_entity": "Optional. Calcium hardness sensor."
+          "hardness_entity": "Optional. Calcium hardness sensor.",
+          "tds_factor": "Factor to convert EC (µS/cm) to TDS (ppm). Typical range: 0.4--0.8."
         }
       },
       "filtration": {
@@ -237,6 +241,9 @@
       },
       "ec": {
         "name": "Electrical conductivity"
+      },
+      "tds": {
+        "name": "Total dissolved solids"
       },
       "salt_level": {
         "name": "Salt level"
@@ -303,6 +310,14 @@
       },
       "salt_status": {
         "name": "Salt status",
+        "state": {
+          "good": "Good",
+          "warning": "Warning",
+          "bad": "Bad"
+        }
+      },
+      "tds_status": {
+        "name": "TDS status",
         "state": {
           "good": "Good",
           "warning": "Warning",
@@ -575,6 +590,16 @@
           }
         }
       },
+      "measure_tds": {
+        "name": "TDS measurement",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Measured"
+            }
+          }
+        }
+      },
       "measure_salt": {
         "name": "Salt measurement",
         "state_attributes": {
@@ -731,6 +756,7 @@
         "orp": "ORP",
         "free_chlorine": "Free chlorine",
         "ec": "Electrical conductivity (EC)",
+        "tds": "Total dissolved solids (TDS)",
         "salt": "Salt",
         "tac": "Total alkalinity (TAC)",
         "cya": "Cyanuric acid (CYA)",

@@ -26,6 +26,8 @@ from .chemistry import (
     SALT_MIN,
     TAC_MAX,
     TAC_MIN,
+    TDS_MAX,
+    TDS_MIN,
     compute_cya_adjustment,
     compute_free_chlorine_adjustment,
     compute_hardness_adjustment,
@@ -495,6 +497,60 @@ class SaltRule(Rule):
         return []
 
 
+class TdsRule(Rule):
+    """Rule for Total Dissolved Solids (TDS) evaluation.
+
+    TDS is derived from EC and indicates the concentration of dissolved
+    minerals in the water. High TDS reduces sanitizer effectiveness and
+    can cause cloudy water.
+
+    Skipped for salt electrolysis pools because dissolved salt naturally
+    raises TDS well above the freshwater thresholds. Also skipped in
+    winter modes.
+
+    TDS above maximum recommends a partial water drain (no chemical can
+    lower dissolved solids). TDS below minimum is uncommon and not
+    actionable.
+    """
+
+    def evaluate(
+        self,
+        pool: Pool,
+        reading: PoolReading,
+        mode: PoolMode,
+        manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
+    ) -> list[Recommendation]:
+        """Evaluate TDS and recommend actions when out of range."""
+        # Salt electrolysis pools naturally have high TDS from dissolved salt
+        if pool.treatment == TreatmentType.SALT_ELECTROLYSIS:
+            return []
+
+        if mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE) or reading.tds is None:
+            return []
+
+        if reading.tds > TDS_MAX:
+            return [
+                Recommendation(
+                    type=RecommendationType.ALERT,
+                    priority=RecommendationPriority.MEDIUM,
+                    kind=ActionKind.REQUIREMENT,
+                    message="TDS too high, consider partial water drain",
+                )
+            ]
+
+        if reading.tds < TDS_MIN:
+            return [
+                Recommendation(
+                    type=RecommendationType.ALERT,
+                    priority=RecommendationPriority.LOW,
+                    kind=ActionKind.SUGGESTION,
+                    message="TDS unusually low, verify EC sensor calibration",
+                )
+            ]
+
+        return []
+
+
 # Deviation thresholds per parameter for calibration checks.
 # When the absolute difference between a sensor reading and the last manual
 # measurement exceeds these values, a calibration recommendation is generated.
@@ -503,6 +559,7 @@ _CALIBRATION_THRESHOLDS: dict[MeasureParameter, float] = {
     MeasureParameter.ORP: 50.0,
     MeasureParameter.FREE_CHLORINE: 0.5,
     MeasureParameter.EC: 100.0,
+    MeasureParameter.TDS: 50.0,
     MeasureParameter.SALT: 100.0,
     MeasureParameter.TAC: 20.0,
     MeasureParameter.CYA: 10.0,
@@ -516,6 +573,7 @@ _MEASURE_TO_READING_FIELD: dict[MeasureParameter, str] = {
     MeasureParameter.ORP: "orp",
     MeasureParameter.FREE_CHLORINE: "free_chlorine",
     MeasureParameter.EC: "ec",
+    MeasureParameter.TDS: "tds",
     MeasureParameter.SALT: "salt",
     MeasureParameter.TAC: "tac",
     MeasureParameter.CYA: "cya",
@@ -529,6 +587,7 @@ _MEASURE_LABELS: dict[MeasureParameter, str] = {
     MeasureParameter.ORP: "ORP",
     MeasureParameter.FREE_CHLORINE: "free chlorine",
     MeasureParameter.EC: "EC",
+    MeasureParameter.TDS: "TDS",
     MeasureParameter.SALT: "salt",
     MeasureParameter.TAC: "TAC",
     MeasureParameter.CYA: "CYA",
@@ -617,6 +676,7 @@ class RuleEngine:
             CyaRule(),
             HardnessRule(),
             SaltRule(),
+            TdsRule(),
             CalibrationRule(),
         ]
 
