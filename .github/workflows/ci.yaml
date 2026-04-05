@@ -73,12 +73,11 @@ jobs:
       - uses: actions/checkout@v6
       - uses: home-assistant/actions/hassfest@master
 
-  # TODO: uncomment when the repository is public
-  # hacs:
-  #   name: HACS
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #     - uses: hacs/action@main
-  #       with:
-  #         category: integration
+  hacs:
+    name: HACS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hacs/action@main
+        with:
+          category: integration
