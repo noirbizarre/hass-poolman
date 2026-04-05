@@ -1,0 +1,452 @@
+title: "Pool (Built-in Cards)"
+views:
+  - title: Pool
+    icon: mdi:pool
+    cards:
+      # ── Pool Status ──────────────────────────────────────────────
+      - type: heading
+        heading: Pool Status
+        heading_style: title
+        icon: mdi:pool
+
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: tile
+            entity: select.demo_pool_pool_mode
+            name: Pool Mode
+            icon: mdi:pool
+          - type: tile
+            entity: binary_sensor.demo_pool_action_required
+            name: Action Required
+
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: tile
+            entity: binary_sensor.demo_pool_water_quality
+            name: Water Quality
+            color: green
+          - type: tile
+            entity: binary_sensor.demo_pool_swimming_safe
+            name: Swimming Safe
+            color: cyan
+
+      - type: gauge
+        entity: sensor.demo_pool_water_quality
+        name: Water Quality Score
+        min: 0
+        max: 100
+        needle: true
+        severity:
+          green: 80
+          yellow: 50
+          red: 0
+
+      # ── Chemistry Readings ───────────────────────────────────────
+      - type: heading
+        heading: Chemistry Readings
+        heading_style: title
+        icon: mdi:flask
+
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: sensor
+            entity: sensor.demo_pool_water_temperature
+            name: Temperature
+            graph: line
+          - type: sensor
+            entity: sensor.demo_pool_ph
+            name: pH
+            graph: line
+          - type: sensor
+            entity: sensor.demo_pool_orp
+            name: ORP
+            graph: line
+
+      - type: grid
+        columns: 5
+        square: false
+        cards:
+          - type: tile
+            entity: sensor.demo_pool_ph_status
+            name: pH
+            vertical: true
+          - type: tile
+            entity: sensor.demo_pool_orp_status
+            name: ORP
+            vertical: true
+          - type: tile
+            entity: sensor.demo_pool_tac_status
+            name: TAC
+            vertical: true
+          - type: tile
+            entity: sensor.demo_pool_cya_status
+            name: CYA
+            vertical: true
+          - type: tile
+            entity: sensor.demo_pool_hardness_status
+            name: Hardness
+            vertical: true
+
+      - type: history-graph
+        title: Chemistry History (24h)
+        hours_to_show: 24
+        entities:
+          - entity: sensor.demo_pool_water_temperature
+            name: Temperature
+          - entity: sensor.demo_pool_ph
+            name: pH
+          - entity: sensor.demo_pool_orp
+            name: ORP
+
+      # ── Recommendations ──────────────────────────────────────────
+      - type: heading
+        heading: Recommendations
+        heading_style: title
+        icon: mdi:clipboard-check
+
+      - type: entities
+        entities:
+          - entity: sensor.demo_pool_recommendations
+            name: Active Recommendations
+            icon: mdi:clipboard-list
+          - entity: sensor.demo_pool_chemistry_actions
+            name: Chemistry Actions
+            icon: mdi:beaker-check
+          - entity: binary_sensor.demo_pool_action_required
+            name: Action Required
+
+      - type: markdown
+        title: Current Recommendations
+        content: >
+          {% set recs = state_attr('sensor.demo_pool_recommendations', 'actions') %}
+          {% if recs and recs | length > 0 %}
+          {% for action in recs %}
+          - {{ action }}
+          {% endfor %}
+          {% else %}
+          No recommendations at this time.
+          {% endif %}
+
+      # ── Filtration Control ───────────────────────────────────────
+      - type: heading
+        heading: Filtration Control
+        heading_style: title
+        icon: mdi:pump
+
+      - type: entities
+        entities:
+          - entity: switch.demo_pool_filtration_control
+            name: Automatic Filtration
+          - entity: sensor.demo_pool_recommended_filtration
+            name: Recommended Duration
+          - entity: select.demo_pool_filtration_duration_mode
+            name: Duration Mode
+          - entity: number.demo_pool_filtration_duration
+            name: Duration Setting
+          - entity: time.demo_pool_filtration_start_time
+            name: Start Time
+
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: tile
+            entity: select.demo_pool_filtration_boost
+            name: Boost
+            icon: mdi:rocket-launch
+          - type: tile
+            entity: sensor.demo_pool_filtration_boost_remaining
+            name: Boost Remaining
+
+      - type: grid
+        columns: 5
+        square: false
+        cards:
+          - type: button
+            name: Cancel
+            icon: mdi:cancel
+            show_name: true
+            show_icon: true
+            tap_action:
+              action: perform-action
+              perform_action: select.select_option
+              target:
+                entity_id: select.demo_pool_filtration_boost
+              data:
+                option: "none"
+          - type: button
+            name: +2h
+            icon: mdi:numeric-2
+            show_name: true
+            show_icon: true
+            tap_action:
+              action: perform-action
+              perform_action: select.select_option
+              target:
+                entity_id: select.demo_pool_filtration_boost
+              data:
+                option: "2"
+          - type: button
+            name: +4h
+            icon: mdi:numeric-4
+            show_name: true
+            show_icon: true
+            tap_action:
+              action: perform-action
+              perform_action: select.select_option
+              target:
+                entity_id: select.demo_pool_filtration_boost
+              data:
+                option: "4"
+          - type: button
+            name: +8h
+            icon: mdi:numeric-8
+            show_name: true
+            show_icon: true
+            tap_action:
+              action: perform-action
+              perform_action: select.select_option
+              target:
+                entity_id: select.demo_pool_filtration_boost
+              data:
+                option: "8"
+          - type: button
+            name: +24h
+            icon: mdi:hours-24
+            show_name: true
+            show_icon: true
+            tap_action:
+              action: perform-action
+              perform_action: select.select_option
+              target:
+                entity_id: select.demo_pool_filtration_boost
+              data:
+                option: "24"
+
+      - type: history-graph
+        title: Filtration History (24h)
+        hours_to_show: 24
+        entities:
+          - entity: switch.demo_pool_filtration_control
+            name: Filtration
+
+      # ── Treatments ──────────────────────────────────────────────
+      - type: heading
+        heading: Treatments
+        heading_style: title
+        icon: mdi:bottle-tonic-plus
+
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: tile
+            entity: sensor.demo_pool_active_treatments
+            name: Active Treatments
+            icon: mdi:bottle-tonic
+          - type: tile
+            entity: sensor.demo_pool_safe_to_swim_at
+            name: Safe to Swim At
+            icon: mdi:clock-check
+
+      - type: markdown
+        title: Active Treatments
+        content: >
+          {% set treats = state_attr('sensor.demo_pool_active_treatments', 'treatments') %}
+          {% if treats and treats | length > 0 %}
+          | Product | Applied | Safe at | Quantity |
+          | ------- | ------- | ------- | -------- |
+          {% for t in treats %}
+          | {{ t.product }} | {{ t.applied_at }} | {{ t.safe_at }} | {{ t.quantity_g }}g |
+          {% endfor %}
+          {% else %}
+          No active treatments.
+          {% endif %}
+
+      # ── Activity Log ─────────────────────────────────────────────
+      - type: heading
+        heading: Activity Log
+        heading_style: title
+        icon: mdi:history
+
+      - type: logbook
+        hours_to_show: 48
+        entities:
+          - event.demo_pool_ph_measurement
+          - event.demo_pool_orp_measurement
+          - event.demo_pool_tac_measurement
+          - event.demo_pool_cya_measurement
+          - event.demo_pool_hardness_measurement
+          - event.demo_pool_temperature_measurement
+          - event.demo_pool_ph_minus_treatment
+          - event.demo_pool_ph_plus_treatment
+          - event.demo_pool_shock_chlorine_treatment
+          - event.demo_pool_chlorine_tablet_treatment
+          - event.demo_pool_filtration
+
+      # ── Activation Wizard (visible only in activating mode) ─────
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: select.demo_pool_pool_mode
+            state: activating
+        card:
+          type: vertical-stack
+          cards:
+            - type: heading
+              heading: Activation Wizard
+              heading_style: title
+              icon: mdi:wizard-hat
+
+            - type: grid
+              columns: 2
+              square: false
+              cards:
+                - type: tile
+                  entity: sensor.demo_pool_activation_step
+                  name: Current Step
+                  icon: mdi:wizard-hat
+                - type: tile
+                  entity: select.demo_pool_pool_mode
+                  name: Pool Mode
+                  icon: mdi:progress-wrench
+
+            - type: markdown
+              title: Activation Progress
+              content: >
+                {% set progress = state_attr('sensor.demo_pool_activation_step', 'progress') %}
+                {% set completed = state_attr('sensor.demo_pool_activation_step', 'completed_steps') %}
+                {% set pending = state_attr('sensor.demo_pool_activation_step', 'pending_steps') %}
+                **Progress:** {{ progress if progress else '0/5' }}
+
+                {% if completed %}
+                {% for step in completed %}
+                - ✅ {{ step | replace('_', ' ') | title }}
+                {% endfor %}
+                {% endif %}
+                {% if pending %}
+                {% for step in pending %}
+                - ⬜ {{ step | replace('_', ' ') | title }}
+                {% endfor %}
+                {% endif %}
+
+            - type: grid
+              columns: 3
+              square: false
+              cards:
+                - type: button
+                  name: Remove Cover
+                  icon: mdi:umbrella-beach
+                  show_name: true
+                  show_icon: true
+                  tap_action:
+                    action: perform-action
+                    perform_action: poolman.confirm_activation_step
+                    data:
+                      device_id: this
+                      step: remove_cover
+                    target: {}
+                - type: button
+                  name: Raise Water
+                  icon: mdi:water-plus
+                  show_name: true
+                  show_icon: true
+                  tap_action:
+                    action: perform-action
+                    perform_action: poolman.confirm_activation_step
+                    data:
+                      device_id: this
+                      step: raise_water_level
+                    target: {}
+                - type: button
+                  name: Clean Pool
+                  icon: mdi:broom
+                  show_name: true
+                  show_icon: true
+                  tap_action:
+                    action: perform-action
+                    perform_action: poolman.confirm_activation_step
+                    data:
+                      device_id: this
+                      step: clean_pool_and_filter
+                    target: {}
+
+      # ── Quick Actions ───────────────────────────────────────────
+      - type: heading
+        heading: Quick Actions
+        heading_style: title
+        icon: mdi:lightning-bolt
+
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: button
+            name: Record Measure
+            icon: mdi:test-tube
+            show_name: true
+            show_icon: true
+            tap_action:
+              action: perform-action
+              perform_action: poolman.record_measure
+              data:
+                device_id: this
+                parameter: ph
+                value: 7.2
+              target: {}
+              confirmation:
+                text: >-
+                  Record a pH measurement of 7.2?
+                  Edit the value in the action data if needed.
+          - type: button
+            name: Add Treatment
+            icon: mdi:bottle-tonic-plus
+            show_name: true
+            show_icon: true
+            tap_action:
+              action: perform-action
+              perform_action: poolman.add_treatment
+              data:
+                device_id: this
+                product: galet_chlore
+                quantity_g: 200
+              target: {}
+              confirmation:
+                text: >-
+                  Add a chlorine tablet treatment (200g)?
+                  Edit the action data to change product or quantity.
+
+      # ── Fake Sensor Controls (Demo Only) ─────────────────────────
+      - type: heading
+        heading: Sensor Controls (Demo)
+        heading_style: title
+        icon: mdi:tune
+
+      - type: entities
+        title: Adjust Simulated Values
+        entities:
+          - entity: number.fake_pool_sensor_water_temperature_target
+            name: Water Temperature Target
+          - entity: number.fake_pool_sensor_ph_target
+            name: pH Target
+          - entity: number.fake_pool_sensor_orp_target
+            name: ORP Target
+          - entity: number.fake_pool_sensor_total_alkalinity_target
+            name: TAC Target
+          - entity: number.fake_pool_sensor_cyanuric_acid_target
+            name: CYA Target
+          - entity: number.fake_pool_sensor_calcium_hardness_target
+            name: Hardness Target
+          - entity: number.fake_pool_sensor_outdoor_temperature_target
+            name: Outdoor Temperature Target
+
+      - type: tile
+        entity: switch.fake_pool_sensor_pump
+        name: Pump (Simulated)
+        icon: mdi:pump

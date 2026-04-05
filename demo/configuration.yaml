@@ -1,0 +1,15 @@
+# Pool Manager demo configuration
+# This file is mounted into the Home Assistant container to register
+# custom card frontend resources.
+
+homeassistant:
+  country: FR
+
+# Loads the default set of integrations. Do not remove.
+default_config:
+
+# Custom card JS modules are registered as Lovelace resources by
+# setup.py via the WebSocket API (lovelace/resources/create).
+# Sample dashboards are created as storage-mode dashboards by
+# setup.py via the WebSocket API. They appear in the sidebar and
+# can be edited from the HA UI. Reset with: docker compose up -V
