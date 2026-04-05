@@ -8,6 +8,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.poolman.const import (
     CONF_COMPLETED_AT,
     CONF_FILTRATION_KIND,
+    CONF_SPOON_SIZES,
     CONF_STARTED_AT,
     CONF_STEPS,
     CONF_TARGET_MODE,
@@ -400,13 +401,56 @@ class TestMigrateEntry:
     async def test_current_version_no_migration(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
     ) -> None:
-        """Current version (v1.3) should not trigger any migration."""
+        """Current version (v1.4) should not trigger any migration."""
         mock_config_entry.add_to_hass(hass)
         setup_mock_states(hass)
         await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
 
         assert mock_config_entry.data == MOCK_CONFIG_DATA
+
+    async def test_migrate_v1_3_to_v1_4_adds_spoon_sizes(self, hass: HomeAssistant) -> None:
+        """Migration from v1.3 should add spoon_sizes."""
+        data = MOCK_CONFIG_DATA.copy()
+        data.pop(CONF_SPOON_SIZES, None)
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Old Pool",
+            data=data,
+            version=1,
+            minor_version=3,
+        )
+        entry.add_to_hass(hass)
+        setup_mock_states(hass)
+
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert entry.data[CONF_SPOON_SIZES] == []
+        assert entry.minor_version >= 4
+
+    async def test_migrate_v1_1_adds_all(self, hass: HomeAssistant) -> None:
+        """Migration from v1.1 should add filtration_kind, treatment, and spoon_sizes."""
+        data = MOCK_CONFIG_DATA.copy()
+        data.pop(CONF_FILTRATION_KIND, None)
+        data.pop(CONF_TREATMENT, None)
+        data.pop(CONF_SPOON_SIZES, None)
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Old Pool",
+            data=data,
+            version=1,
+            minor_version=1,
+        )
+        entry.add_to_hass(hass)
+        setup_mock_states(hass)
+
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert entry.data[CONF_FILTRATION_KIND] == DEFAULT_FILTRATION_KIND
+        assert entry.data[CONF_TREATMENT] == DEFAULT_TREATMENT
+        assert entry.data[CONF_SPOON_SIZES] == []
 
 
 class TestServiceHandler:
@@ -486,6 +530,72 @@ class TestServiceHandler:
                 "product": "flocculant",
                 "quantity_g": 50.0,
                 "notes": "Test note",
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    async def test_add_treatment_service_with_spoons(self, hass: HomeAssistant) -> None:
+        """Service call with spoons and spoon_name should resolve to quantity_g."""
+        data = MOCK_CONFIG_DATA.copy()
+        data[CONF_SPOON_SIZES] = [{"name": "Large", "size_ml": 15.0}]
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Test Pool",
+            data=data,
+            version=1,
+            minor_version=4,
+        )
+        entry.add_to_hass(hass)
+        setup_mock_states(hass)
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        from homeassistant.helpers import device_registry as dr
+
+        device_registry = dr.async_get(hass)
+        device = device_registry.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+        assert device is not None
+
+        # ph_minus has density 1.1, so 2 spoons * 15 mL * 1.1 g/mL = 33g
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_ADD_TREATMENT,
+            {
+                "device_id": device.id,
+                "product": "ph_minus",
+                "spoons": 2.0,
+                "spoon_name": "Large",
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    async def test_add_treatment_service_with_unknown_spoon_name(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Service call with unknown spoon_name should not crash."""
+        mock_config_entry.add_to_hass(hass)
+        setup_mock_states(hass)
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        from homeassistant.helpers import device_registry as dr
+
+        device_registry = dr.async_get(hass)
+        device = device_registry.async_get_device(
+            identifiers={(DOMAIN, mock_config_entry.entry_id)}
+        )
+        assert device is not None
+
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_ADD_TREATMENT,
+            {
+                "device_id": device.id,
+                "product": "ph_minus",
+                "spoons": 2.0,
+                "spoon_name": "NonExistent",
             },
             blocking=True,
         )

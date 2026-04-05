@@ -57,6 +57,26 @@
           "outdoor_temperature_entity": "Optionnel. Capteur de temp\u00e9rature ext\u00e9rieure pour l'ajustement canicule.",
           "weather_entity": "Optionnel. Entit\u00e9 d'int\u00e9gration m\u00e9t\u00e9o (l'attribut temp\u00e9rature est utilis\u00e9 comme alternative pour la temp\u00e9rature ext\u00e9rieure)."
         }
+      },
+      "spoons": {
+        "title": "Cuill\u00e8res doseuses",
+        "description": "Optionnel. Configurez vos cuill\u00e8res doseuses pour afficher les recommandations de dosage en nombre de cuill\u00e8res en plus des grammes. Vous pouvez d\u00e9finir jusqu'\u00e0 3 tailles de cuill\u00e8res.",
+        "data": {
+          "spoon_name_1": "Nom cuill\u00e8re 1",
+          "spoon_size_1": "Volume cuill\u00e8re 1",
+          "spoon_name_2": "Nom cuill\u00e8re 2",
+          "spoon_size_2": "Volume cuill\u00e8re 2",
+          "spoon_name_3": "Nom cuill\u00e8re 3",
+          "spoon_size_3": "Volume cuill\u00e8re 3"
+        },
+        "data_description": {
+          "spoon_name_1": "Nom de la premi\u00e8re cuill\u00e8re doseuse (ex. Petite, Grande).",
+          "spoon_size_1": "Volume en millilitres.",
+          "spoon_name_2": "Nom de la deuxi\u00e8me cuill\u00e8re doseuse.",
+          "spoon_size_2": "Volume en millilitres.",
+          "spoon_name_3": "Nom de la troisi\u00e8me cuill\u00e8re doseuse.",
+          "spoon_size_3": "Volume en millilitres."
+        }
       }
     },
     "error": {
@@ -177,6 +197,26 @@
           "pump_entity": "Optionnel. Interrupteur pour contr\u00f4ler la pompe.",
           "outdoor_temperature_entity": "Optionnel. Capteur de temp\u00e9rature ext\u00e9rieure pour l'ajustement canicule.",
           "weather_entity": "Optionnel. Entit\u00e9 d'int\u00e9gration m\u00e9t\u00e9o (l'attribut temp\u00e9rature est utilis\u00e9 comme alternative pour la temp\u00e9rature ext\u00e9rieure)."
+        }
+      },
+      "spoons": {
+        "title": "Cuill\u00e8res doseuses",
+        "description": "Optionnel. Configurez vos cuill\u00e8res doseuses pour afficher les recommandations de dosage en nombre de cuill\u00e8res en plus des grammes.",
+        "data": {
+          "spoon_name_1": "Nom cuill\u00e8re 1",
+          "spoon_size_1": "Volume cuill\u00e8re 1",
+          "spoon_name_2": "Nom cuill\u00e8re 2",
+          "spoon_size_2": "Volume cuill\u00e8re 2",
+          "spoon_name_3": "Nom cuill\u00e8re 3",
+          "spoon_size_3": "Volume cuill\u00e8re 3"
+        },
+        "data_description": {
+          "spoon_name_1": "Nom de la premi\u00e8re cuill\u00e8re doseuse (ex. Petite, Grande).",
+          "spoon_size_1": "Volume en millilitres.",
+          "spoon_name_2": "Nom de la deuxi\u00e8me cuill\u00e8re doseuse.",
+          "spoon_size_2": "Volume en millilitres.",
+          "spoon_name_3": "Nom de la troisi\u00e8me cuill\u00e8re doseuse.",
+          "spoon_size_3": "Volume en millilitres."
         }
       }
     }
@@ -730,6 +770,14 @@
         "quantity_g": {
           "name": "Quantit\u00e9 (g)",
           "description": "Quantit\u00e9 de produit utilis\u00e9e en grammes."
+        },
+        "spoons": {
+          "name": "Cuill\u00e8res",
+          "description": "Nombre de cuill\u00e8res doseuses utilis\u00e9es. N\u00e9cessite de sp\u00e9cifier le nom de la cuill\u00e8re."
+        },
+        "spoon_name": {
+          "name": "Nom de la cuill\u00e8re",
+          "description": "Nom de la cuill\u00e8re doseuse configur\u00e9e \u00e0 utiliser."
         },
         "notes": {
           "name": "Notes",

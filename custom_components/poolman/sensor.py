@@ -192,6 +192,8 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
                     "message": r.message,
                     "product": r.product,
                     "quantity_g": r.quantity_g,
+                    "spoon_count": r.spoon_count,
+                    "spoon_name": r.spoon_name,
                 }
                 for r in state.chemistry_actions
             ],

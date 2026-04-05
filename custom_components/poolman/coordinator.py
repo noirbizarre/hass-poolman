@@ -28,6 +28,7 @@ from .const import (
     CONF_PUMP_FLOW_M3H,
     CONF_SALT_ENTITY,
     CONF_SHAPE,
+    CONF_SPOON_SIZES,
     CONF_STEPS,
     CONF_TAC_ENTITY,
     CONF_TEMPERATURE_ENTITY,
@@ -58,7 +59,10 @@ from .domain.model import (
     PoolReading,
     PoolShape,
     PoolState,
+    Recommendation,
+    SpoonSize,
     TreatmentType,
+    compute_spoon_equivalent,
     compute_status_changes,
 )
 from .domain.rules import RuleEngine
@@ -149,6 +153,12 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             A Pool instance reflecting the current configuration.
         """
         data = self.config_entry.data
+        spoon_data = self._get_config(CONF_SPOON_SIZES, [])
+        spoon_sizes = [
+            SpoonSize(name=s["name"], size_ml=s["size_ml"])
+            for s in spoon_data
+            if isinstance(s, dict) and s.get("name") and s.get("size_ml")
+        ]
         return Pool(
             volume_m3=data[CONF_VOLUME_M3],
             shape=PoolShape(data[CONF_SHAPE]),
@@ -157,7 +167,45 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
                 self._get_config(CONF_FILTRATION_KIND, DEFAULT_FILTRATION_KIND)
             ),
             pump_flow_m3h=self._get_config(CONF_PUMP_FLOW_M3H),
+            spoon_sizes=spoon_sizes,
         )
+
+    def _enrich_recommendations_with_spoons(
+        self, recommendations: list[Recommendation]
+    ) -> list[Recommendation]:
+        """Add spoon equivalents to recommendations that have a dosage.
+
+        For each recommendation with a ``quantity_g`` and ``product``,
+        computes the equivalent number of configured measuring spoons
+        and returns a new list with enriched recommendations.
+
+        Args:
+            recommendations: Original recommendations from the rule engine.
+
+        Returns:
+            List of recommendations with ``spoon_count`` and ``spoon_name``
+            populated where applicable.
+        """
+        if not self.pool.spoon_sizes:
+            return recommendations
+
+        enriched: list[Recommendation] = []
+        for rec in recommendations:
+            if rec.quantity_g and rec.product:
+                try:
+                    product = ChemicalProduct(rec.product)
+                except ValueError:
+                    enriched.append(rec)
+                    continue
+
+                result = compute_spoon_equivalent(rec.quantity_g, product, self.pool.spoon_sizes)
+                if result is not None:
+                    count, spoon = result
+                    rec = rec.model_copy(
+                        update={"spoon_count": int(count), "spoon_name": spoon.name}
+                    )
+            enriched.append(rec)
+        return enriched
 
     @property
     def mode(self) -> PoolMode:
@@ -736,6 +784,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         recommendations = self.engine.evaluate(
             self.pool, sensor_reading, self._mode, manual_measures=manual_measures
         )
+        recommendations = self._enrich_recommendations_with_spoons(recommendations)
         filtration_hours = compute_filtration_duration(self.pool, reading, self._mode)
         water_quality_score = compute_water_quality_score(reading)
         chemistry_report = compute_chemistry_report(reading)

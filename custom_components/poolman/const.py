@@ -15,6 +15,22 @@ CONF_SHAPE: Final = "shape"
 CONF_TREATMENT: Final = "treatment"
 CONF_FILTRATION_KIND: Final = "filtration_kind"
 CONF_PUMP_FLOW_M3H: Final = "pump_flow_m3h"
+CONF_SPOON_SIZES: Final = "spoon_sizes"
+
+# Spoon config flow field keys (3 optional pairs)
+CONF_SPOON_NAME_1: Final = "spoon_name_1"
+CONF_SPOON_SIZE_1: Final = "spoon_size_1"
+CONF_SPOON_NAME_2: Final = "spoon_name_2"
+CONF_SPOON_SIZE_2: Final = "spoon_size_2"
+CONF_SPOON_NAME_3: Final = "spoon_name_3"
+CONF_SPOON_SIZE_3: Final = "spoon_size_3"
+
+# Ordered pairs of spoon config keys
+SPOON_PAIRS: Final = [
+    (CONF_SPOON_NAME_1, CONF_SPOON_SIZE_1),
+    (CONF_SPOON_NAME_2, CONF_SPOON_SIZE_2),
+    (CONF_SPOON_NAME_3, CONF_SPOON_SIZE_3),
+]
 
 # Sensor entity config keys
 CONF_PH_ENTITY: Final = "ph_entity"

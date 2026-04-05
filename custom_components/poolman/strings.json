@@ -57,6 +57,26 @@
           "outdoor_temperature_entity": "Optional. Outdoor temperature sensor for heat stress adjustment.",
           "weather_entity": "Optional. Weather integration entity (temperature attribute is used as fallback for outdoor temperature)."
         }
+      },
+      "spoons": {
+        "title": "Measuring spoons",
+        "description": "Optional. Configure your measuring spoons to display dosage recommendations as a number of scoops alongside grams. You can define up to 3 spoon sizes.",
+        "data": {
+          "spoon_name_1": "Spoon 1 name",
+          "spoon_size_1": "Spoon 1 volume",
+          "spoon_name_2": "Spoon 2 name",
+          "spoon_size_2": "Spoon 2 volume",
+          "spoon_name_3": "Spoon 3 name",
+          "spoon_size_3": "Spoon 3 volume"
+        },
+        "data_description": {
+          "spoon_name_1": "Name of the first measuring spoon (e.g. Small, Large).",
+          "spoon_size_1": "Volume in milliliters.",
+          "spoon_name_2": "Name of the second measuring spoon.",
+          "spoon_size_2": "Volume in milliliters.",
+          "spoon_name_3": "Name of the third measuring spoon.",
+          "spoon_size_3": "Volume in milliliters."
+        }
       }
     },
     "error": {
@@ -177,6 +197,26 @@
           "pump_entity": "Optional. Switch entity to control the pump.",
           "outdoor_temperature_entity": "Optional. Outdoor temperature sensor for heat stress adjustment.",
           "weather_entity": "Optional. Weather integration entity (temperature attribute is used as fallback for outdoor temperature)."
+        }
+      },
+      "spoons": {
+        "title": "Measuring spoons",
+        "description": "Optional. Configure your measuring spoons to display dosage recommendations as a number of scoops alongside grams.",
+        "data": {
+          "spoon_name_1": "Spoon 1 name",
+          "spoon_size_1": "Spoon 1 volume",
+          "spoon_name_2": "Spoon 2 name",
+          "spoon_size_2": "Spoon 2 volume",
+          "spoon_name_3": "Spoon 3 name",
+          "spoon_size_3": "Spoon 3 volume"
+        },
+        "data_description": {
+          "spoon_name_1": "Name of the first measuring spoon (e.g. Small, Large).",
+          "spoon_size_1": "Volume in milliliters.",
+          "spoon_name_2": "Name of the second measuring spoon.",
+          "spoon_size_2": "Volume in milliliters.",
+          "spoon_name_3": "Name of the third measuring spoon.",
+          "spoon_size_3": "Volume in milliliters."
         }
       }
     }
@@ -730,6 +770,14 @@
         "quantity_g": {
           "name": "Quantity (g)",
           "description": "Amount of product used in grams."
+        },
+        "spoons": {
+          "name": "Spoons",
+          "description": "Number of measuring spoons used. Requires spoon name to be set."
+        },
+        "spoon_name": {
+          "name": "Spoon name",
+          "description": "Name of the configured measuring spoon to use."
         },
         "notes": {
           "name": "Notes",

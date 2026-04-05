@@ -17,6 +17,7 @@ from custom_components.poolman.const import (
     CONF_PUMP_ENTITY,
     CONF_PUMP_FLOW_M3H,
     CONF_SHAPE,
+    CONF_SPOON_SIZES,
     CONF_TEMPERATURE_ENTITY,
     CONF_TREATMENT,
     CONF_VOLUME_M3,
@@ -35,6 +36,7 @@ MOCK_CONFIG_DATA: dict[str, Any] = {
     CONF_ORP_ENTITY: "sensor.pool_orp",
     CONF_TEMPERATURE_ENTITY: "sensor.pool_temperature",
     CONF_PUMP_ENTITY: "switch.pool_pump",
+    CONF_SPOON_SIZES: [],
 }
 
 

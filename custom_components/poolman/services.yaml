@@ -44,6 +44,19 @@ add_treatment:
           step: 1
           unit_of_measurement: g
           mode: box
+    spoons:
+      name: Spoons
+      description: Number of measuring spoons used. Requires spoon_name to be set.
+      selector:
+        number:
+          min: 0
+          step: 0.5
+          mode: box
+    spoon_name:
+      name: Spoon name
+      description: Name of the configured measuring spoon to use.
+      selector:
+        text:
     notes:
       name: Notes
       description: Optional notes about the treatment.

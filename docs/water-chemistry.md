@@ -270,3 +270,83 @@ Where **3 kg of salt per m³** raises salt level by **1000 ppm**.
     The salt rule only activates when the pool treatment type is set to
     **Salt electrolysis**. For other treatment types, salt level is still
     tracked if a sensor is configured, but no recommendations are generated.
+
+## Spoon Equivalents
+
+When [measuring spoon sizes](getting-started.md#step-3-measuring-spoons) are
+configured, dosage recommendations include an approximate number of spoons
+alongside the gram-based quantity. This makes it easier to measure products
+in practice without a scale.
+
+### How it works
+
+Each chemical product has an approximate bulk density (g/mL) that is used to
+convert grams to milliliters. The volume is then divided by the spoon size
+to determine the number of spoons.
+
+$$
+\text{spoons} = \frac{\text{quantity\_g} / \text{density}}{\text{spoon\_size\_ml}}
+$$
+
+When multiple spoon sizes are configured, the integration selects the one
+that minimizes rounding error when rounded to a whole number of spoons
+(the **best-fit** strategy).
+
+### Product density table
+
+| Product | Density (g/mL) | Notes |
+| --- | --- | --- |
+| pH- (sodium bisulfate) | 1.1 | Dense granules |
+| pH+ (sodium carbonate) | 0.55 | Light powder |
+| Shock chlorine (dichlor) | 0.9 | Granules |
+| Neutralizer (sodium thiosulfate) | 1.1 | Granules |
+| TAC+ (sodium bicarbonate) | 0.9 | Powder |
+| Salt (NaCl) | 1.2 | Crystals |
+| Bromine shock | 0.8 | Granules |
+| Stabilizer (cyanuric acid) | 0.75 | Low density granules |
+| Calcium hardness increaser (CaCl₂) | 0.85 | Flakes / powder |
+| Active oxygen activator | 1.0 | Liquid |
+| Flocculant | 1.0 | Liquid |
+| Anti-algae | 1.0 | Liquid |
+| Clarifier | 1.0 | Liquid |
+| Metal sequestrant | 1.1 | Liquid |
+| Winterizing product | 1.0 | Liquid |
+
+### Tablet products
+
+Tablet products (chlorine tablets, bromine tablets, active oxygen tablets) are
+excluded from spoon equivalents because they are not measured with spoons.
+
+### Recommendation display
+
+When spoon equivalents are available, the recommendation message format is:
+
+```text
+Add 300g of ph_minus (300g of ph_minus, 18 Large spoons)
+```
+
+The `spoon_count` and `spoon_name` values are also available as
+[sensor attributes](entities.md#chemistry-actions-sensor-attributes)
+for use in dashboards and automations.
+
+### Service input
+
+The `poolman.add_treatment` service accepts spoon-based input as an
+alternative to grams:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `spoons` | float | Number of spoons used |
+| `spoon_name` | string | Name of the configured spoon size |
+
+When `spoons` and `spoon_name` are provided (and `quantity_g` is omitted),
+the service converts the spoon count to grams using the product's density
+and the named spoon's volume.
+
+??? example "Spoon equivalent example"
+
+    With a "Large" spoon (15 mL) and pH- (density 1.1 g/mL):
+
+    - Dosage: 300 g
+    - Volume: 300 / 1.1 = 272.7 mL
+    - Spoons: 272.7 / 15 = 18.2, rounded to **18 Large spoons**

@@ -118,6 +118,40 @@ class ChemicalProduct(StrEnum):
     WINTERIZING_PRODUCT = "winterizing_product"
 
 
+# Products that come as tablets and cannot be measured with a spoon
+TABLET_PRODUCTS: frozenset[ChemicalProduct] = frozenset(
+    {
+        ChemicalProduct.GALET_CHLORE,
+        ChemicalProduct.BROMINE_TABLET,
+        ChemicalProduct.ACTIVE_OXYGEN_TABLET,
+    }
+)
+
+# Approximate bulk density (g/mL) for each chemical product.
+# Used to convert gram-based dosages to volume (mL) for spoon equivalents.
+# Sources: typical pool chemical product data sheets.
+PRODUCT_DENSITY_G_PER_ML: dict[ChemicalProduct, float] = {
+    ChemicalProduct.PH_MINUS: 1.1,  # Sodium bisulfate, dense granules
+    ChemicalProduct.PH_PLUS: 0.55,  # Sodium carbonate (soda ash), light powder
+    ChemicalProduct.CHLORE_CHOC: 0.9,  # Calcium hypochlorite / dichlor granules
+    ChemicalProduct.GALET_CHLORE: 1.0,  # Pressed tablets (not spoon-measured)
+    ChemicalProduct.NEUTRALIZER: 1.1,  # Sodium thiosulfate granules
+    ChemicalProduct.TAC_PLUS: 0.9,  # Sodium bicarbonate powder
+    ChemicalProduct.SALT: 1.2,  # NaCl crystals
+    ChemicalProduct.BROMINE_TABLET: 1.0,  # Pressed tablets (not spoon-measured)
+    ChemicalProduct.BROMINE_SHOCK: 0.8,  # Bromine granules
+    ChemicalProduct.ACTIVE_OXYGEN_TABLET: 1.0,  # Pressed tablets (not spoon-measured)
+    ChemicalProduct.ACTIVE_OXYGEN_ACTIVATOR: 1.0,  # Liquid
+    ChemicalProduct.FLOCCULANT: 1.0,  # Liquid
+    ChemicalProduct.ANTI_ALGAE: 1.0,  # Liquid
+    ChemicalProduct.STABILIZER: 0.75,  # Cyanuric acid granules, low density
+    ChemicalProduct.CLARIFIER: 1.0,  # Liquid
+    ChemicalProduct.METAL_SEQUESTRANT: 1.1,  # Liquid, slightly dense
+    ChemicalProduct.CALCIUM_HARDNESS_INCREASER: 0.85,  # CaCl2 flakes/powder
+    ChemicalProduct.WINTERIZING_PRODUCT: 1.0,  # Liquid
+}
+
+
 class ChemistryStatus(StrEnum):
     """Status levels for individual chemistry parameters."""
 
@@ -206,6 +240,22 @@ class ChemistryReport(BaseModel, frozen=True):
     hardness: ParameterReport | None = None
 
 
+class SpoonSize(BaseModel, frozen=True):
+    """A named measuring spoon with a known volume.
+
+    Spoon sizes are global (not per-product) and are used to express
+    dosage recommendations as a number of scoops/spoons alongside the
+    native gram-based quantity.
+
+    Attributes:
+        name: Human-readable label for the spoon (e.g. "Small", "Large").
+        size_ml: Volume of the spoon in milliliters.
+    """
+
+    name: str
+    size_ml: float = Field(gt=0, description="Volume of the spoon in milliliters")
+
+
 class Pool(BaseModel):
     """Physical characteristics of a pool."""
 
@@ -215,11 +265,81 @@ class Pool(BaseModel):
     treatment: TreatmentType = TreatmentType.CHLORINE
     filtration_kind: FiltrationKind = FiltrationKind.SAND
     pump_flow_m3h: float = Field(gt=0, description="Pump flow rate in m3/h")
+    spoon_sizes: list[SpoonSize] = Field(
+        default_factory=list,
+        description="Configured measuring spoon sizes for dosage display",
+    )
 
     @property
     def turnovers_per_day(self) -> float:
         """Calculate how many full water turnovers per day at 24h operation."""
         return (self.pump_flow_m3h * 24) / self.volume_m3
+
+
+def compute_spoon_equivalent(
+    quantity_g: float,
+    product: ChemicalProduct,
+    spoon_sizes: list[SpoonSize],
+) -> tuple[float, SpoonSize] | None:
+    """Convert a gram-based dosage to a spoon count using the best-fit spoon.
+
+    Converts the gram quantity to milliliters using the product's bulk density,
+    then selects the spoon size that produces the smallest relative rounding
+    error when rounded to the nearest whole number of spoons.
+
+    Args:
+        quantity_g: Dosage amount in grams.
+        product: The chemical product (used for density lookup).
+        spoon_sizes: Available measuring spoon sizes.
+
+    Returns:
+        A tuple of ``(spoon_count, spoon)`` where ``spoon_count`` is the
+        rounded number of spoons, or ``None`` if no spoon sizes are
+        configured, the product is a tablet, the quantity is zero,
+        or the density is unknown.
+    """
+    if not spoon_sizes or product in TABLET_PRODUCTS or quantity_g <= 0:
+        return None
+
+    density = PRODUCT_DENSITY_G_PER_ML.get(product)
+    if density is None or density <= 0:
+        return None
+
+    quantity_ml = quantity_g / density
+
+    best_spoon: SpoonSize | None = None
+    best_count: float = 0
+    best_error: float = float("inf")
+
+    for spoon in spoon_sizes:
+        exact_count = quantity_ml / spoon.size_ml
+        rounded_count = max(1, round(exact_count))
+        # Relative error: how far the rounded count is from the exact count
+        error = abs(rounded_count - exact_count) / exact_count if exact_count > 0 else float("inf")
+        if error < best_error:
+            best_error = error
+            best_count = rounded_count
+            best_spoon = spoon
+
+    if best_spoon is None:
+        return None
+
+    return (best_count, best_spoon)
+
+
+def format_spoon_text(spoon_count: float, spoon_name: str) -> str:
+    """Format a spoon count and name into a human-readable string.
+
+    Args:
+        spoon_count: Number of spoons (typically a whole number).
+        spoon_name: Name of the spoon size.
+
+    Returns:
+        Formatted string like ``"6 Large spoons"`` or ``"1 Small spoon"``.
+    """
+    count_int = int(spoon_count)
+    unit = "spoon" if count_int == 1 else "spoons"
+    return f"{count_int} {spoon_name} {unit}"
 
 
 class PoolReading(BaseModel):
@@ -249,12 +369,25 @@ class Recommendation(BaseModel):
     message: str
     product: str | None = None
     quantity_g: float | None = Field(None, ge=0, description="Quantity in grams")
+    spoon_count: int | None = Field(None, ge=0, description="Equivalent number of spoons")
+    spoon_name: str | None = Field(
+        None, description="Name of the spoon size used for the equivalent"
+    )
 
     def __str__(self) -> str:
         """Return human-readable recommendation."""
+        base = self.message
         if self.quantity_g and self.product:
-            return f"{self.message} ({self.quantity_g:.0f}g of {self.product})"
-        return self.message
+            base = f"{base} ({self.quantity_g:.0f}g of {self.product})"
+        if self.spoon_count is not None and self.spoon_name is not None:
+            spoon_text = format_spoon_text(self.spoon_count, self.spoon_name)
+            if self.quantity_g and self.product:
+                # Append spoon info after the gram info: "msg (300g of ph_minus, 6 Large spoons)"
+                # Replace last ')' with ', spoon_text)'
+                base = base[:-1] + f", {spoon_text})"
+            else:
+                base = f"{base} ({spoon_text})"
+        return base
 
 
 class ManualMeasure(BaseModel, frozen=True):

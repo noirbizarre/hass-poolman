@@ -13,6 +13,7 @@ from homeassistant.helpers import device_registry as dr
 from .const import (
     CONF_COMPLETED_AT,
     CONF_FILTRATION_KIND,
+    CONF_SPOON_SIZES,
     CONF_STARTED_AT,
     CONF_STEPS,
     CONF_TREATMENT,
@@ -29,7 +30,7 @@ from .const import (
 )
 from .coordinator import PoolmanCoordinator
 from .domain.activation import ActivationChecklist, ActivationStep
-from .domain.model import ChemicalProduct, MeasureParameter, PoolMode
+from .domain.model import PRODUCT_DENSITY_G_PER_ML, ChemicalProduct, MeasureParameter, PoolMode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,6 +41,8 @@ SERVICE_ADD_TREATMENT_SCHEMA = vol.Schema(
         vol.Required("device_id"): str,
         vol.Required("product"): vol.In([p.value for p in ChemicalProduct]),
         vol.Optional("quantity_g"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+        vol.Optional("spoons"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+        vol.Optional("spoon_name"): str,
         vol.Optional("notes"): str,
     }
 )
@@ -144,6 +147,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) ->
 
     Handles migration from v1.1 to v1.2: adds filtration_kind with a default value.
     Handles migration from v1.2 to v1.3: adds treatment with a default value.
+    Handles migration from v1.3 to v1.4: adds spoon_sizes with an empty default.
     """
     if entry.version == 1 and entry.minor_version < 2:
         new_data = {**entry.data}
@@ -157,7 +161,51 @@ async def async_migrate_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) ->
             new_data[CONF_TREATMENT] = DEFAULT_TREATMENT
         hass.config_entries.async_update_entry(entry, data=new_data, minor_version=3)
 
+    if entry.version == 1 and entry.minor_version < 4:
+        new_data = {**entry.data}
+        if CONF_SPOON_SIZES not in new_data:
+            new_data[CONF_SPOON_SIZES] = []
+        hass.config_entries.async_update_entry(entry, data=new_data, minor_version=4)
+
     return True
+
+
+def _resolve_spoon_quantity(
+    coordinator: PoolmanCoordinator,
+    product: ChemicalProduct,
+    spoons: float,
+    spoon_name: str,
+) -> float | None:
+    """Convert a spoon-based quantity to grams.
+
+    Looks up the named spoon in the coordinator's pool configuration,
+    computes the volume in mL, then converts to grams using the product's
+    bulk density.
+
+    Args:
+        coordinator: The pool coordinator with pool configuration.
+        product: Chemical product being applied.
+        spoons: Number of spoons.
+        spoon_name: Name of the spoon size to use.
+
+    Returns:
+        Quantity in grams, or ``None`` if the spoon name is not found
+        or the product has no known density.
+    """
+    pool = coordinator.pool
+    matching = [s for s in pool.spoon_sizes if s.name == spoon_name]
+    if not matching:
+        _LOGGER.warning("Spoon name '%s' not found in pool configuration", spoon_name)
+        return None
+
+    spoon = matching[0]
+    density = PRODUCT_DENSITY_G_PER_ML.get(product)
+    if density is None or density <= 0:
+        _LOGGER.warning("No density defined for product %s", product)
+        return None
+
+    volume_ml = spoons * spoon.size_ml
+    return volume_ml * density
 
 
 def _async_register_services(hass: HomeAssistant) -> None:
@@ -170,9 +218,15 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
         Resolves the target device to find the corresponding coordinator,
         then records the treatment on the appropriate event entity.
+
+        When ``spoons`` and ``spoon_name`` are provided instead of
+        ``quantity_g``, the spoon count is converted to grams using the
+        configured spoon volume and the product's bulk density.
         """
         product = ChemicalProduct(call.data["product"])
         quantity_g: float | None = call.data.get("quantity_g")
+        spoons: float | None = call.data.get("spoons")
+        spoon_name: str | None = call.data.get("spoon_name")
         notes: str | None = call.data.get("notes")
         device_id: str = call.data["device_id"]
 
@@ -186,6 +240,11 @@ def _async_register_services(hass: HomeAssistant) -> None:
             entry = hass.config_entries.async_get_entry(entry_id)
             if entry and entry.domain == DOMAIN:
                 coordinator: PoolmanCoordinator = entry.runtime_data
+
+                # Resolve spoon-based input to quantity_g
+                if quantity_g is None and spoons is not None and spoon_name is not None:
+                    quantity_g = _resolve_spoon_quantity(coordinator, product, spoons, spoon_name)
+
                 await coordinator.async_add_treatment(product, quantity_g, notes)
 
     hass.services.async_register(
