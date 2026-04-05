@@ -42,7 +42,7 @@ The general contribution guidelines are outlined in `CONTRIBUTING.md` and should
 - Test files should be placed in the `tests/` directory and use the `test_` prefix.
 - Complete tests with clear assertions and nominal cases.
 - Run tests with `pytest -q <extra pytest args>` to limit output (add `-vv` with selectors if details are required).
-- Run linters with `prek -q` to limit output
+- Run linters with `prek -aq` to limit output
 - New features or bug fixes should be accompanied by relevant tests to ensure coverage and prevent regressions.
 - Changes to existing behavior should be reflected in updated tests.
 - Existing tests should be updated in last resort.
