@@ -66,7 +66,7 @@ cards or HACS installations required.
             square: false
             cards:
               - type: tile
-                entity: binary_sensor.{pool}_water_quality
+                entity: binary_sensor.{pool}_water_ok
                 name: Water Quality
                 color: green
               - type: tile
@@ -75,7 +75,7 @@ cards or HACS installations required.
                 color: cyan
 
           - type: gauge
-            entity: sensor.{pool}_water_quality
+            entity: sensor.{pool}_water_quality_score
             name: Water Quality Score
             min: 0
             max: 100
@@ -183,7 +183,7 @@ cards or HACS installations required.
             entities:
               - entity: switch.{pool}_filtration_control
                 name: Automatic Filtration
-              - entity: sensor.{pool}_recommended_filtration
+              - entity: sensor.{pool}_filtration_duration
                 name: Recommended Duration
               - entity: select.{pool}_filtration_duration_mode
                 name: Duration Mode
@@ -291,7 +291,7 @@ cards or HACS installations required.
                 name: Active Treatments
                 icon: mdi:bottle-tonic
               - type: tile
-                entity: sensor.{pool}_safe_to_swim_at
+                entity: sensor.{pool}_safe_at
                 name: Safe to Swim At
                 icon: mdi:clock-check
 
@@ -636,7 +636,7 @@ Install the following custom cards via [HACS](https://hacs.xyz/):
           - type: custom:bubble-card
             card_type: button
             button_type: state
-            entity: sensor.{pool}_water_quality
+            entity: sensor.{pool}_water_quality_score
             name: Water Quality Score
             icon: mdi:water-check
             show_state: true
@@ -646,7 +646,7 @@ Install the following custom cards via [HACS](https://hacs.xyz/):
             card_type: sub-buttons
             hide_main_background: true
             sub_button:
-              - entity: binary_sensor.{pool}_water_quality
+              - entity: binary_sensor.{pool}_water_ok
                 name: Water OK
                 icon: mdi:water-check
                 show_state: true
@@ -826,7 +826,7 @@ Install the following custom cards via [HACS](https://hacs.xyz/):
                   - type: custom:bubble-card
                     card_type: button
                     button_type: state
-                    entity: sensor.{pool}_recommended_filtration
+                    entity: sensor.{pool}_filtration_duration
                     name: Recommended
                     icon: mdi:clock-outline
                     show_state: true
@@ -1404,4 +1404,4 @@ real time.
 - **Services:** Use the `poolman.record_measure`,
   `poolman.add_treatment`, `poolman.boost_filtration`, and
   `poolman.confirm_activation_step` services in button tap actions.
-  See [Entities -- Services](entities.md#events) for required fields.
+  See [Entities -- Events](entities.md#events) for required fields.
