@@ -88,6 +88,7 @@ class MeasureParameter(StrEnum):
     ORP = "orp"
     FREE_CHLORINE = "free_chlorine"
     EC = "ec"
+    TDS = "tds"
     SALT = "salt"
     TAC = "tac"
     CYA = "cya"
@@ -234,6 +235,7 @@ class ChemistryReport(BaseModel, frozen=True):
     ph: ParameterReport | None = None
     orp: ParameterReport | None = None
     free_chlorine: ParameterReport | None = None
+    tds: ParameterReport | None = None
     salt: ParameterReport | None = None
     tac: ParameterReport | None = None
     cya: ParameterReport | None = None
@@ -352,6 +354,7 @@ class PoolReading(BaseModel):
     orp: float | None = Field(None, description="ORP in millivolts")
     free_chlorine: float | None = Field(None, ge=0, description="Free chlorine in ppm")
     ec: float | None = Field(None, ge=0, description="Electrical conductivity in µS/cm")
+    tds: float | None = Field(None, ge=0, description="Total dissolved solids in ppm")
     salt: float | None = Field(None, ge=0, description="Salt level in ppm")
     temp_c: float | None = Field(None, description="Water temperature in Celsius")
     outdoor_temp_c: float | None = Field(None, description="Outdoor/ambient temperature in Celsius")
@@ -483,6 +486,7 @@ _CHEMISTRY_PARAMS: tuple[str, ...] = (
     "ph",
     "orp",
     "free_chlorine",
+    "tds",
     "salt",
     "tac",
     "cya",

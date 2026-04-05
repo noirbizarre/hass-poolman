@@ -26,7 +26,8 @@
           "salt_entity": "Capteur de sel",
           "tac_entity": "Capteur d'alcalinit\u00e9 totale (TAC)",
           "cya_entity": "Capteur d'acide cyanurique (stabilisant)",
-          "hardness_entity": "Capteur de duret\u00e9 calcique"
+          "hardness_entity": "Capteur de duret\u00e9 calcique",
+          "tds_factor": "Facteur de conversion TDS"
         },
         "data_description": {
           "treatment": "M\u00e9thode de traitement de l'eau utilis\u00e9e dans votre piscine.",
@@ -35,7 +36,8 @@
           "salt_entity": "Optionnel. Capteur de niveau de sel (ppm).",
           "tac_entity": "Optionnel. Capteur d'alcalinit\u00e9 totale.",
           "cya_entity": "Optionnel. Capteur d'acide cyanurique (stabilisant).",
-          "hardness_entity": "Optionnel. Capteur de duret\u00e9 calcique."
+          "hardness_entity": "Optionnel. Capteur de duret\u00e9 calcique.",
+          "tds_factor": "Facteur de conversion de l'EC (µS/cm) en TDS (ppm). Plage typique : 0,4--0,8."
         }
       },
       "filtration": {
@@ -167,7 +169,8 @@
           "salt_entity": "Capteur de sel",
           "tac_entity": "Capteur d'alcalinit\u00e9 totale (TAC)",
           "cya_entity": "Capteur d'acide cyanurique (stabilisant)",
-          "hardness_entity": "Capteur de duret\u00e9 calcique"
+          "hardness_entity": "Capteur de duret\u00e9 calcique",
+          "tds_factor": "Facteur de conversion TDS"
         },
         "data_description": {
           "treatment": "M\u00e9thode de traitement de l'eau utilis\u00e9e dans votre piscine.",
@@ -176,7 +179,8 @@
           "salt_entity": "Optionnel. Capteur de niveau de sel (ppm).",
           "tac_entity": "Optionnel. Capteur d'alcalinit\u00e9 totale.",
           "cya_entity": "Optionnel. Capteur d'acide cyanurique (stabilisant).",
-          "hardness_entity": "Optionnel. Capteur de duret\u00e9 calcique."
+          "hardness_entity": "Optionnel. Capteur de duret\u00e9 calcique.",
+          "tds_factor": "Facteur de conversion de l'EC (µS/cm) en TDS (ppm). Plage typique : 0,4--0,8."
         }
       },
       "filtration": {
@@ -237,6 +241,9 @@
       },
       "ec": {
         "name": "Conductivité électrique"
+      },
+      "tds": {
+        "name": "Total des solides dissous"
       },
       "salt_level": {
         "name": "Niveau de sel"
@@ -303,6 +310,14 @@
       },
       "salt_status": {
         "name": "Statut sel",
+        "state": {
+          "good": "Bon",
+          "warning": "Attention",
+          "bad": "Mauvais"
+        }
+      },
+      "tds_status": {
+        "name": "Statut TDS",
         "state": {
           "good": "Bon",
           "warning": "Attention",
@@ -575,6 +590,16 @@
           }
         }
       },
+      "measure_tds": {
+        "name": "Mesure TDS",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Mesuré"
+            }
+          }
+        }
+      },
       "measure_salt": {
         "name": "Mesure sel",
         "state_attributes": {
@@ -731,6 +756,7 @@
         "orp": "ORP",
         "free_chlorine": "Chlore libre",
         "ec": "Conductivité électrique (EC)",
+        "tds": "Total des solides dissous (TDS)",
         "salt": "Sel",
         "tac": "Alcalinit\u00e9 totale (TAC)",
         "cya": "Acide cyanurique (CYA)",

@@ -57,6 +57,7 @@ def _make_state(
     tac_status: ChemistryStatus | None = None,
     cya_status: ChemistryStatus | None = None,
     hardness_status: ChemistryStatus | None = None,
+    tds_status: ChemistryStatus | None = None,
     recommendations: list[Recommendation] | None = None,
 ) -> PoolState:
     """Build a PoolState with the given chemistry statuses."""
@@ -69,6 +70,7 @@ def _make_state(
             tac=_make_report(tac_status) if tac_status else None,
             cya=_make_report(cya_status) if cya_status else None,
             hardness=_make_report(hardness_status) if hardness_status else None,
+            tds=_make_report(tds_status) if tds_status else None,
         ),
         recommendations=recommendations or [],
     )
@@ -216,7 +218,7 @@ class TestComputeStatusChanges:
         assert types == {"water_status_changed", "chemistry_status_changed"}
 
     @pytest.mark.parametrize(
-        "param", ["ph", "orp", "free_chlorine", "salt", "tac", "cya", "hardness"]
+        "param", ["ph", "orp", "free_chlorine", "salt", "tac", "cya", "hardness", "tds"]
     )
     def test_all_chemistry_params_detected(self, param: str) -> None:
         good_report = _make_report(ChemistryStatus.GOOD)
@@ -414,6 +416,7 @@ class TestMeasureParameter:
             "orp",
             "free_chlorine",
             "ec",
+            "tds",
             "salt",
             "tac",
             "cya",
@@ -428,6 +431,7 @@ class TestMeasureParameter:
         assert MeasureParameter.ORP == "orp"
         assert MeasureParameter.FREE_CHLORINE == "free_chlorine"
         assert MeasureParameter.EC == "ec"
+        assert MeasureParameter.TDS == "tds"
         assert MeasureParameter.SALT == "salt"
         assert MeasureParameter.TAC == "tac"
         assert MeasureParameter.CYA == "cya"

@@ -50,6 +50,16 @@ SALT_MIN: float = 2700.0
 SALT_TARGET: float = 3200.0
 SALT_MAX: float = 3400.0
 
+# TDS (Total Dissolved Solids) target ranges for freshwater pools (ppm).
+# Salt electrolysis pools are excluded from TDS evaluation because dissolved
+# salt naturally raises TDS well above these thresholds.
+TDS_MIN: float = 250.0
+TDS_TARGET: float = 500.0
+TDS_MAX: float = 1500.0
+
+# Default EC-to-TDS conversion factor (configurable per pool)
+EC_TO_TDS_DEFAULT_FACTOR: float = 0.5
+
 # Dosage constants (grams per 10m3 for 0.2 pH change)
 PH_DOSAGE_PER_10M3: float = 150.0
 PH_DOSAGE_STEP: float = 0.2
@@ -280,6 +290,25 @@ def compute_salt_adjustment(pool: Pool, reading: PoolReading) -> DosageAdjustmen
     return None
 
 
+def compute_tds(ec: float | None, factor: float = EC_TO_TDS_DEFAULT_FACTOR) -> float | None:
+    """Compute Total Dissolved Solids (TDS) from Electrical Conductivity (EC).
+
+    TDS is derived from EC using a linear conversion factor. The default
+    factor of 0.5 is standard for freshwater pool applications. The factor
+    is configurable per pool to accommodate different water compositions.
+
+    Args:
+        ec: Electrical conductivity reading in µS/cm, or None if unavailable.
+        factor: Conversion factor (typically 0.4--0.8, default 0.5).
+
+    Returns:
+        TDS value in ppm, or None if EC is unavailable.
+    """
+    if ec is None:
+        return None
+    return ec * factor
+
+
 def compute_water_quality_score(reading: PoolReading) -> int | None:
     """Compute an overall water quality score from 0 to 100.
 
@@ -318,6 +347,9 @@ def compute_water_quality_score(reading: PoolReading) -> int | None:
 
     if reading.salt is not None:
         scores.append(_score_range(reading.salt, SALT_MIN, SALT_TARGET, SALT_MAX))
+
+    if reading.tds is not None:
+        scores.append(_score_range(reading.tds, TDS_MIN, TDS_TARGET, TDS_MAX))
 
     if not scores:
         return None
@@ -422,6 +454,11 @@ def compute_chemistry_report(reading: PoolReading) -> ChemistryReport:
                 FREE_CHLORINE_MAX,
             )
             if reading.free_chlorine is not None
+            else None
+        ),
+        tds=(
+            compute_parameter_status(reading.tds, TDS_MIN, TDS_TARGET, TDS_MAX)
+            if reading.tds is not None
             else None
         ),
         salt=(

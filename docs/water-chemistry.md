@@ -4,7 +4,7 @@ icon: lucide/flask-conical
 
 # Water Chemistry
 
-Pool Manager monitors up to seven water chemistry parameters. Each parameter
+Pool Manager monitors up to eight water chemistry parameters. Each parameter
 has a defined acceptable range and an ideal target value used for scoring
 and dosage calculations.
 
@@ -19,6 +19,7 @@ and dosage calculations.
 | TAC (Total Alkalinity) | ppm | 80 | 120 | 150 |
 | CYA (Cyanuric Acid) | ppm | 20 | 40 | 75 |
 | Calcium Hardness | ppm | 150 | 250 | 400 |
+| TDS (Total Dissolved Solids) | ppm | 250 | 500 | 1500 |
 
 Values within the minimum--maximum range are considered acceptable. The target
 value represents the ideal level for each parameter.
@@ -231,6 +232,44 @@ vary widely depending on treatment type (salt electrolysis pools run at
 
 Use the `sensor.{pool}_ec` entity for trending and diagnostics in your
 dashboards.
+
+## Total Dissolved Solids (TDS)
+
+Total Dissolved Solids (TDS) estimates the concentration of all dissolved
+minerals, salts, and organic matter in the pool water. High TDS reduces
+sanitizer effectiveness, can cause cloudy water, and may lead to scaling
+on pool surfaces and equipment.
+
+TDS is **computed from EC** (Electrical Conductivity) using a configurable
+conversion factor:
+
+$$
+\text{TDS (ppm)} = \text{EC (µS/cm)} \times \text{factor}
+$$
+
+The default factor is **0.5**, which is standard for freshwater pools.
+You can adjust it during setup or in the options flow (typical range:
+0.4--0.8) to match your water composition.
+
+When TDS is out of range, Pool Manager recommends the appropriate action:
+
+| Condition | Recommended action |
+| --- | --- |
+| TDS > 1500 ppm | Partial water drain (no chemical fix) |
+| TDS < 250 ppm | Verify EC sensor calibration |
+
+!!! note
+
+    The TDS rule is **skipped** for pools using **salt electrolysis**
+    treatment, because dissolved salt naturally raises TDS well above
+    freshwater thresholds. TDS scoring and status are still computed but
+    the rule engine does not generate recommendations.
+
+### Manual TDS measurement
+
+You can record a manual TDS measurement using the `poolman.record_measure`
+service with the `tds` parameter. Manual measurements override the
+computed value until the next sensor update.
 
 ## Salt
 

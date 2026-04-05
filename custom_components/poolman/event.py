@@ -237,6 +237,12 @@ MEASURE_EVENT_DESCRIPTIONS: tuple[PoolmanMeasureEventEntityDescription, ...] = (
         parameter=MeasureParameter.EC,
     ),
     PoolmanMeasureEventEntityDescription(
+        key="measure_tds",
+        translation_key="measure_tds",
+        event_types=["measured"],
+        parameter=MeasureParameter.TDS,
+    ),
+    PoolmanMeasureEventEntityDescription(
         key="measure_tac",
         translation_key="measure_tac",
         event_types=["measured"],

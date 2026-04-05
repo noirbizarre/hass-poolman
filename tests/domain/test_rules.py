@@ -29,6 +29,7 @@ from custom_components.poolman.domain.rules import (
     SaltRule,
     SanitizerRule,
     TacRule,
+    TdsRule,
 )
 
 
@@ -386,7 +387,7 @@ class TestRuleEngine:
 
     def test_default_rules_loaded(self) -> None:
         engine = RuleEngine()
-        assert len(engine.rules) == 10
+        assert len(engine.rules) == 11
 
     def test_good_readings_produce_filtration_only(
         self, pool: Pool, good_reading: PoolReading
@@ -1047,4 +1048,117 @@ class TestSaltRule:
         pool = self._make_salt_pool()
         reading = PoolReading(salt=3400.0)
         result = SaltRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert result == []
+
+
+class TestTdsRule:
+    """Tests for TDS (Total Dissolved Solids) rule evaluation."""
+
+    def test_tds_in_range_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(tds=500.0)
+        result = TdsRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert result == []
+
+    def test_tds_at_target_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(tds=500.0)
+        result = TdsRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert result == []
+
+    def test_tds_too_high_recommends_drain(self, pool: Pool) -> None:
+        reading = PoolReading(tds=2000.0)
+        result = TdsRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert len(result) == 1
+        assert result[0].type == RecommendationType.ALERT
+        assert result[0].priority == RecommendationPriority.MEDIUM
+        assert result[0].kind == ActionKind.REQUIREMENT
+        assert result[0].product is None
+        assert "drain" in result[0].message.lower()
+
+    def test_tds_too_low_suggests_calibration(self, pool: Pool) -> None:
+        reading = PoolReading(tds=100.0)
+        result = TdsRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert len(result) == 1
+        assert result[0].type == RecommendationType.ALERT
+        assert result[0].priority == RecommendationPriority.LOW
+        assert result[0].kind == ActionKind.SUGGESTION
+        assert "calibration" in result[0].message.lower()
+
+    def test_tds_none_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(tds=None)
+        result = TdsRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert result == []
+
+    def test_salt_electrolysis_skips(self) -> None:
+        """TDS rule should skip for salt electrolysis pools."""
+        pool = Pool(
+            name="Salt Pool",
+            volume_m3=50.0,
+            pump_flow_m3h=10.0,
+            treatment=TreatmentType.SALT_ELECTROLYSIS,
+        )
+        reading = PoolReading(tds=2000.0)
+        result = TdsRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert result == []
+
+    def test_chlorine_treatment_evaluates(self, pool: Pool) -> None:
+        """TDS rule should evaluate for chlorine-treated pools."""
+        reading = PoolReading(tds=2000.0)
+        result = TdsRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert len(result) == 1
+
+    def test_bromine_treatment_evaluates(self) -> None:
+        pool = Pool(
+            name="Bromine Pool",
+            volume_m3=50.0,
+            pump_flow_m3h=10.0,
+            treatment=TreatmentType.BROMINE,
+        )
+        reading = PoolReading(tds=2000.0)
+        result = TdsRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert len(result) == 1
+
+    def test_active_oxygen_treatment_evaluates(self) -> None:
+        pool = Pool(
+            name="O2 Pool",
+            volume_m3=50.0,
+            pump_flow_m3h=10.0,
+            treatment=TreatmentType.ACTIVE_OXYGEN,
+        )
+        reading = PoolReading(tds=2000.0)
+        result = TdsRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert len(result) == 1
+
+    def test_winter_passive_skips(self, pool: Pool) -> None:
+        reading = PoolReading(tds=2000.0)
+        result = TdsRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
+        assert result == []
+
+    def test_winter_active_skips(self, pool: Pool) -> None:
+        """TDS rule should skip in active winter mode."""
+        reading = PoolReading(tds=2000.0)
+        result = TdsRule().evaluate(pool, reading, PoolMode.WINTER_ACTIVE)
+        assert result == []
+
+    def test_hibernating_evaluates(self, pool: Pool) -> None:
+        """TDS rule should still evaluate in hibernating mode."""
+        reading = PoolReading(tds=2000.0)
+        result = TdsRule().evaluate(pool, reading, PoolMode.HIBERNATING)
+        assert len(result) == 1
+        assert "drain" in result[0].message.lower()
+
+    def test_activating_evaluates(self, pool: Pool) -> None:
+        """TDS rule should still evaluate in activating mode."""
+        reading = PoolReading(tds=2000.0)
+        result = TdsRule().evaluate(pool, reading, PoolMode.ACTIVATING)
+        assert len(result) == 1
+        assert "drain" in result[0].message.lower()
+
+    def test_tds_at_min_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(tds=250.0)
+        result = TdsRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert result == []
+
+    def test_tds_at_max_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(tds=1500.0)
+        result = TdsRule().evaluate(pool, reading, PoolMode.ACTIVE)
         assert result == []
