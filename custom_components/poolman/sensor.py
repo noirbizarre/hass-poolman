@@ -143,6 +143,16 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         extra_attrs_fn=lambda state: _source_attr(state, "ec"),
     ),
     PoolmanSensorEntityDescription(
+        key="salt",
+        translation_key="salt_level",
+        native_unit_of_measurement="ppm",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        icon="mdi:shaker-outline",
+        value_fn=lambda state: state.reading.salt,
+        extra_attrs_fn=lambda state: _source_attr(state, "salt"),
+    ),
+    PoolmanSensorEntityDescription(
         key="filtration_duration",
         translation_key="filtration_duration",
         native_unit_of_measurement=UnitOfTime.HOURS,
@@ -263,6 +273,19 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         ),
         extra_attrs_fn=lambda state: _status_with_source(
             state, state.chemistry_report.hardness, "hardness"
+        ),
+    ),
+    PoolmanSensorEntityDescription(
+        key="salt_status",
+        translation_key="salt_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=_CHEMISTRY_STATUS_OPTIONS,
+        icon="mdi:shaker-outline",
+        value_fn=lambda state: (
+            state.chemistry_report.salt.status if state.chemistry_report.salt else None
+        ),
+        extra_attrs_fn=lambda state: _status_with_source(
+            state, state.chemistry_report.salt, "salt"
         ),
     ),
     PoolmanSensorEntityDescription(

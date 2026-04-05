@@ -120,6 +120,17 @@ SENSOR_SPECS: Final[tuple[FakeSensorSpec, ...]] = (
         icon="mdi:flash-outline",
     ),
     FakeSensorSpec(
+        key="salt",
+        name="Salt level",
+        default=3200.0,
+        min_value=0.0,
+        max_value=6000.0,
+        step=1.0,
+        noise=50.0,
+        unit="mg/L",
+        icon="mdi:shaker-outline",
+    ),
+    FakeSensorSpec(
         key="outdoor_temperature",
         name="Outdoor temperature",
         default=25.0,

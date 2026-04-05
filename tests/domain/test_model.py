@@ -47,6 +47,7 @@ def _make_state(
     ph_status: ChemistryStatus | None = None,
     orp_status: ChemistryStatus | None = None,
     free_chlorine_status: ChemistryStatus | None = None,
+    salt_status: ChemistryStatus | None = None,
     tac_status: ChemistryStatus | None = None,
     cya_status: ChemistryStatus | None = None,
     hardness_status: ChemistryStatus | None = None,
@@ -58,6 +59,7 @@ def _make_state(
             ph=_make_report(ph_status) if ph_status else None,
             orp=_make_report(orp_status) if orp_status else None,
             free_chlorine=_make_report(free_chlorine_status) if free_chlorine_status else None,
+            salt=_make_report(salt_status) if salt_status else None,
             tac=_make_report(tac_status) if tac_status else None,
             cya=_make_report(cya_status) if cya_status else None,
             hardness=_make_report(hardness_status) if hardness_status else None,
@@ -207,7 +209,9 @@ class TestComputeStatusChanges:
         types = {c.type for c in changes}
         assert types == {"water_status_changed", "chemistry_status_changed"}
 
-    @pytest.mark.parametrize("param", ["ph", "orp", "free_chlorine", "tac", "cya", "hardness"])
+    @pytest.mark.parametrize(
+        "param", ["ph", "orp", "free_chlorine", "salt", "tac", "cya", "hardness"]
+    )
     def test_all_chemistry_params_detected(self, param: str) -> None:
         good_report = _make_report(ChemistryStatus.GOOD)
         bad_report = _make_report(ChemistryStatus.BAD)
@@ -399,7 +403,17 @@ class TestMeasureParameter:
 
     def test_all_parameters_defined(self) -> None:
         """All expected parameters should be present."""
-        expected = {"ph", "orp", "free_chlorine", "ec", "tac", "cya", "hardness", "temperature"}
+        expected = {
+            "ph",
+            "orp",
+            "free_chlorine",
+            "ec",
+            "salt",
+            "tac",
+            "cya",
+            "hardness",
+            "temperature",
+        }
         assert {p.value for p in MeasureParameter} == expected
 
     def test_str_values(self) -> None:
@@ -408,6 +422,7 @@ class TestMeasureParameter:
         assert MeasureParameter.ORP == "orp"
         assert MeasureParameter.FREE_CHLORINE == "free_chlorine"
         assert MeasureParameter.EC == "ec"
+        assert MeasureParameter.SALT == "salt"
         assert MeasureParameter.TAC == "tac"
         assert MeasureParameter.CYA == "cya"
         assert MeasureParameter.HARDNESS == "hardness"

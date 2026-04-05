@@ -11,7 +11,7 @@ name you set during configuration.
 
 ## Sensors
 
-The integration creates 18 sensor entities:
+The integration creates 20 sensor entities:
 
 ### Reading sensors
 
@@ -24,6 +24,7 @@ These sensors mirror your source sensor values, giving you a unified view under 
 | `sensor.{pool}_orp` | ORP | mV | -- | Oxidation-Reduction Potential reading |
 | `sensor.{pool}_free_chlorine` | Free chlorine | ppm | -- | Free chlorine level reading |
 | `sensor.{pool}_ec` | Electrical conductivity | µS/cm | -- | Electrical conductivity reading (diagnostic/trending) |
+| `sensor.{pool}_salt_level` | Salt level | ppm | -- | Salt level reading (salt electrolysis pools) |
 
 ### Computed sensors
 
@@ -76,6 +77,7 @@ for how the status is determined.
 | `sensor.{pool}_ph_status` | pH status | `good`, `warning`, `bad` | pH level status |
 | `sensor.{pool}_orp_status` | ORP status | `good`, `warning`, `bad` | Oxidation-Reduction Potential status |
 | `sensor.{pool}_free_chlorine_status` | Free chlorine status | `good`, `warning`, `bad` | Free chlorine level status |
+| `sensor.{pool}_salt_status` | Salt status | `good`, `warning`, `bad` | Salt level status (salt electrolysis pools) |
 | `sensor.{pool}_tac_status` | TAC status | `good`, `warning`, `bad` | Total alkalinity status |
 | `sensor.{pool}_cya_status` | CYA status | `good`, `warning`, `bad` | Cyanuric acid (stabilizer) status |
 | `sensor.{pool}_hardness_status` | Hardness status | `good`, `warning`, `bad` | Calcium hardness status |
@@ -236,7 +238,7 @@ Fired when an individual chemistry parameter transitions between `good`,
 | --- | --- | --- |
 | `device_id` | string | Device registry ID of the pool device |
 | `type` | string | `chemistry_status_changed` |
-| `parameter` | string | `ph`, `orp`, `free_chlorine`, `tac`, `cya`, or `hardness` |
+| `parameter` | string | `ph`, `orp`, `free_chlorine`, `salt`, `tac`, `cya`, or `hardness` |
 | `previous_status` | string \| null | Previous status (`good`, `warning`, `bad`), or null if the parameter was unavailable |
 | `status` | string \| null | New status (`good`, `warning`, `bad`), or null if the parameter became unavailable |
 

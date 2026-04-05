@@ -43,6 +43,7 @@ from .const import (
     CONF_POOL_NAME,
     CONF_PUMP_ENTITY,
     CONF_PUMP_FLOW_M3H,
+    CONF_SALT_ENTITY,
     CONF_SHAPE,
     CONF_STARTED_AT,
     CONF_STEPS,
@@ -144,6 +145,10 @@ def _chemistry_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 default=defaults.get(CONF_EC_ENTITY, vol.UNDEFINED),
             ): EntitySelector(EntitySelectorConfig(domain="sensor")),
             vol.Optional(
+                CONF_SALT_ENTITY,
+                default=defaults.get(CONF_SALT_ENTITY, vol.UNDEFINED),
+            ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+            vol.Optional(
                 CONF_TAC_ENTITY,
                 default=defaults.get(CONF_TAC_ENTITY, vol.UNDEFINED),
             ): EntitySelector(EntitySelectorConfig(domain="sensor")),
@@ -217,7 +222,7 @@ class PoolmanConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Pool Manager."""
 
     VERSION = 1
-    MINOR_VERSION = 3
+    MINOR_VERSION = 4
 
     def __init__(self) -> None:
         """Initialize the config flow."""

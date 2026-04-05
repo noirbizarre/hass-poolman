@@ -255,6 +255,12 @@ MEASURE_EVENT_DESCRIPTIONS: tuple[PoolmanMeasureEventEntityDescription, ...] = (
         parameter=MeasureParameter.HARDNESS,
     ),
     PoolmanMeasureEventEntityDescription(
+        key="measure_salt",
+        translation_key="measure_salt",
+        event_types=["measured"],
+        parameter=MeasureParameter.SALT,
+    ),
+    PoolmanMeasureEventEntityDescription(
         key="measure_temperature",
         translation_key="measure_temperature",
         event_types=["measured"],

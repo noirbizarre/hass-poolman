@@ -178,3 +178,21 @@ See [Hardness Dosage Calculation](water-chemistry.md#hardness-dosage-calculation
 !!! note
 
     This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering) mode.
+
+### Salt Rule
+
+Monitors salt level for pools using **salt electrolysis** treatment.
+This rule only activates when the pool treatment type is set to salt
+electrolysis; for other treatment types it is silently skipped.
+
+| Condition | Priority | Kind | Recommendation |
+| --- | --- | --- | --- |
+| Salt < 2700 ppm | Medium | Requirement | Add salt with calculated dosage |
+| Salt > 3400 ppm | Low | Requirement | Consider partial water drain (no chemical fix) |
+
+See [Salt Dosage Calculation](water-chemistry.md#salt-dosage-calculation) for dosage details.
+
+!!! note
+
+    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering)
+    and [Active Wintering](pool-modes.md#active-wintering) modes.

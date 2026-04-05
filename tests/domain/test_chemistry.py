@@ -20,6 +20,9 @@ from custom_components.poolman.domain.chemistry import (
     PH_MAX,
     PH_MIN,
     PH_TARGET,
+    SALT_MAX,
+    SALT_MIN,
+    SALT_TARGET,
     TAC_MAX,
     TAC_MIN,
     TAC_TARGET,
@@ -29,6 +32,7 @@ from custom_components.poolman.domain.chemistry import (
     compute_hardness_adjustment,
     compute_parameter_status,
     compute_ph_adjustment,
+    compute_salt_adjustment,
     compute_sanitizer_status,
     compute_tac_adjustment,
     compute_water_quality_score,
@@ -332,6 +336,9 @@ class TestParameterStatus:
                 ChemistryStatus.GOOD,
             ),
             (0.5, FREE_CHLORINE_MIN, FREE_CHLORINE_TARGET, FREE_CHLORINE_MAX, ChemistryStatus.BAD),
+            # Salt ranges
+            (SALT_TARGET, SALT_MIN, SALT_TARGET, SALT_MAX, ChemistryStatus.GOOD),
+            (2000, SALT_MIN, SALT_TARGET, SALT_MAX, ChemistryStatus.BAD),
         ],
     )
     def test_status_across_parameters(
@@ -357,6 +364,8 @@ class TestChemistryReport:
         assert report.orp.status == ChemistryStatus.GOOD
         assert report.free_chlorine is not None
         assert report.free_chlorine.status == ChemistryStatus.GOOD
+        assert report.salt is not None
+        assert report.salt.status == ChemistryStatus.GOOD
         assert report.tac is not None
         assert report.tac.status == ChemistryStatus.GOOD
         assert report.cya is not None
@@ -372,6 +381,8 @@ class TestChemistryReport:
         assert report.orp.status == ChemistryStatus.BAD
         assert report.free_chlorine is not None
         assert report.free_chlorine.status == ChemistryStatus.BAD
+        assert report.salt is not None
+        assert report.salt.status == ChemistryStatus.BAD
         assert report.tac is not None
         assert report.tac.status == ChemistryStatus.BAD
         assert report.hardness is not None
@@ -382,6 +393,7 @@ class TestChemistryReport:
         assert report.ph is None
         assert report.orp is None
         assert report.free_chlorine is None
+        assert report.salt is None
         assert report.tac is None
         assert report.cya is None
         assert report.hardness is None
@@ -549,3 +561,57 @@ class TestFreeChlorineAdjustment:
         assert result is not None
         assert result.product == ChemicalProduct.NEUTRALIZER
         assert result.quantity_g is None
+
+
+class TestSaltAdjustment:
+    """Tests for salt level adjustment calculation."""
+
+    def test_salt_in_range_returns_none(self, pool: Pool) -> None:
+        reading = PoolReading(salt=3200.0)
+        assert compute_salt_adjustment(pool, reading) is None
+
+    def test_salt_at_min_returns_none(self, pool: Pool) -> None:
+        reading = PoolReading(salt=SALT_MIN)
+        assert compute_salt_adjustment(pool, reading) is None
+
+    def test_salt_at_max_returns_none(self, pool: Pool) -> None:
+        reading = PoolReading(salt=SALT_MAX)
+        assert compute_salt_adjustment(pool, reading) is None
+
+    def test_salt_none_returns_none(self, pool: Pool) -> None:
+        reading = PoolReading(salt=None)
+        assert compute_salt_adjustment(pool, reading) is None
+
+    def test_salt_too_low_recommends_salt(self, pool: Pool) -> None:
+        reading = PoolReading(salt=2000.0)
+        result = compute_salt_adjustment(pool, reading)
+        assert result is not None
+        assert result.product == ChemicalProduct.SALT
+        assert result.quantity_g is not None
+        assert result.quantity_g > 0
+
+    def test_salt_too_low_dosage_formula(self, pool: Pool) -> None:
+        """(3200 - 2000) / 1000 * 3000 * 50 = 180000g = 180kg."""
+        reading = PoolReading(salt=2000.0)
+        result = compute_salt_adjustment(pool, reading)
+        assert result is not None
+        assert result.quantity_g == pytest.approx(180000.0)
+
+    def test_salt_above_max_returns_none(self, pool: Pool) -> None:
+        """No chemical can lower salt -- returns None (alert handled by rule)."""
+        reading = PoolReading(salt=4000.0)
+        assert compute_salt_adjustment(pool, reading) is None
+
+    def test_salt_quantity_scales_with_volume(self) -> None:
+        small_pool = Pool(name="Small", volume_m3=20.0, pump_flow_m3h=5.0)
+        large_pool = Pool(name="Large", volume_m3=100.0, pump_flow_m3h=20.0)
+        reading = PoolReading(salt=2000.0)
+
+        small_result = compute_salt_adjustment(small_pool, reading)
+        large_result = compute_salt_adjustment(large_pool, reading)
+
+        assert small_result is not None
+        assert large_result is not None
+        assert large_result.quantity_g is not None
+        assert small_result.quantity_g is not None
+        assert large_result.quantity_g > small_result.quantity_g

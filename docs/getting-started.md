@@ -27,6 +27,7 @@ These sensors enable additional recommendations and improve the water quality sc
 | --- | --- | --- |
 | Free Chlorine | ppm | Free chlorine level (supplements ORP) |
 | EC (Electrical Conductivity) | µS/cm | Conductivity level (diagnostic/trending) |
+| Salt | ppm | Salt level (for salt electrolysis pools) |
 | TAC (Total Alkalinity) | ppm | Alkalinity level |
 | CYA (Cyanuric Acid) | ppm | Stabilizer level |
 | Calcium Hardness | ppm | Water hardness |
@@ -116,6 +117,7 @@ bromine-treated pool will receive bromine tablet recommendations.
 | --- | --- | --- |
 | Free chlorine entity | entity (sensor) | Free chlorine sensor (supplements ORP for sanitizer evaluation) |
 | EC entity | entity (sensor) | Electrical conductivity sensor (diagnostic, no scoring) |
+| Salt entity | entity (sensor) | Salt level sensor (for salt electrolysis pools) |
 | TAC entity | entity (sensor) | Total Alkalinity sensor |
 | CYA entity | entity (sensor) | Cyanuric Acid / Stabilizer sensor |
 | Hardness entity | entity (sensor) | Calcium Hardness sensor |
