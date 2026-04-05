@@ -120,8 +120,8 @@ Recommends daily filtration duration based on the current [pool mode](pool-modes
 
 | Condition | Priority |
 | --- | --- |
-| Running mode, recommended duration >= 12h | Medium |
-| Running mode, recommended duration < 12h | Low |
+| Active/Activating mode, recommended duration >= 12h | Medium |
+| Active/Activating mode, recommended duration < 12h | Low |
 | Wintering modes | Low |
 
 ### TAC Rule (Total Alkalinity)
