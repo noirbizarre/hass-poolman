@@ -51,7 +51,7 @@ Pool Manager reads your existing Home Assistant sensor entities every 5 minutes 
 1. A **water quality score** (0--100%) based on how close each parameter is to its ideal target
 2. A **recommended filtration duration** using the classic temperature/2 rule, adjusted for your pump capacity
 3. **Chemical dosage recommendations** with specific product and quantity (e.g., "Add 450g of pH-")
-4. **Alerts** for conditions like algae risk (high temperature + low ORP)
+4. **Recommendations** for conditions like algae risk (high temperature + low ORP)
 
 All computations happen locally. No cloud API, no account, no internet connection required.
 
