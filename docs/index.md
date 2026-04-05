@@ -64,4 +64,5 @@ All computations happen locally. No cloud API, no account, no internet connectio
 - [Pool Modes](pool-modes.md) -- Running, Active Wintering, and Passive Wintering explained
 - [Water Chemistry](water-chemistry.md) -- Target ranges, scoring, and parameter details
 - [Rules & Recommendations](rules-and-recommendations.md) -- The rule engine, priority system, and chemical dosages
+- [FAQ](faq.md) -- Common questions and answers about Pool Manager
 - [Contributing](contributing.md) -- How to contribute to the project

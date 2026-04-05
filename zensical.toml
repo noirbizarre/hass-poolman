@@ -59,6 +59,7 @@ nav = [
   { "Water Chemistry" = "water-chemistry.md" },
   { "Rules & Recommendations" = "rules-and-recommendations.md" },
   { "Sample Dashboards" = "sample-dashboards.md" },
+  { "FAQ" = "faq.md" },
   { "Contributing" = "contributing.md" },
 ]
 
