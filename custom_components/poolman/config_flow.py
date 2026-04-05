@@ -65,6 +65,7 @@ from .const import (
     DOMAIN,
     FILTRATION_KINDS,
     HIBERNATION_TARGET_MODES,
+    SHAPE_RECTANGULAR,
     SHAPES,
     SPOON_PAIRS,
     SUBENTRY_ACTIVATION,
@@ -100,7 +101,7 @@ def _pool_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 )
             ),
             vol.Required(
-                CONF_SHAPE, default=defaults.get(CONF_SHAPE, "rectangular")
+                CONF_SHAPE, default=defaults.get(CONF_SHAPE, SHAPE_RECTANGULAR)
             ): SelectSelector(
                 SelectSelectorConfig(
                     options=SHAPES,

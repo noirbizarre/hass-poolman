@@ -91,7 +91,8 @@ readings. The recommended products depend on the configured
 
 !!! note
 
-    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering) mode.
+    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering)
+    and [Active Wintering](pool-modes.md#active-wintering) modes.
 
 ### Free Chlorine Rule
 
@@ -119,8 +120,8 @@ Recommends daily filtration duration based on the current [pool mode](pool-modes
 
 | Condition | Priority |
 | --- | --- |
-| Running mode, recommended duration >= 12h | Medium |
-| Running mode, recommended duration < 12h | Low |
+| Active/Activating mode, recommended duration >= 12h | Medium |
+| Active/Activating mode, recommended duration < 12h | Low |
 | Wintering modes | Low |
 
 ### TAC Rule (Total Alkalinity)
@@ -136,7 +137,8 @@ See [TAC Dosage Calculation](water-chemistry.md#tac-dosage-calculation) for dosa
 
 !!! note
 
-    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering) mode.
+    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering)
+    and [Active Wintering](pool-modes.md#active-wintering) modes.
 
 ### Algae Risk Rule
 
@@ -147,7 +149,8 @@ Detects conditions favorable to algae growth by combining temperature and ORP re
 | Water temperature > 28°C **and** ORP < 720 mV | High | Requirement | High algae risk alert |
 
 Both conditions must be met simultaneously. This rule is disabled in
-[Passive Wintering](pool-modes.md#passive-wintering) mode.
+[Passive Wintering](pool-modes.md#passive-wintering) and
+[Active Wintering](pool-modes.md#active-wintering) modes.
 
 ### CYA Rule (Cyanuric Acid)
 
@@ -162,7 +165,8 @@ See [CYA Dosage Calculation](water-chemistry.md#cya-dosage-calculation) for dosa
 
 !!! note
 
-    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering) mode.
+    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering)
+    and [Active Wintering](pool-modes.md#active-wintering) modes.
 
 ### Hardness Rule (Calcium Hardness)
 
@@ -177,7 +181,8 @@ See [Hardness Dosage Calculation](water-chemistry.md#hardness-dosage-calculation
 
 !!! note
 
-    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering) mode.
+    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering)
+    and [Active Wintering](pool-modes.md#active-wintering) modes.
 
 ### Salt Rule
 
@@ -196,3 +201,47 @@ See [Salt Dosage Calculation](water-chemistry.md#salt-dosage-calculation) for do
 
     This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering)
     and [Active Wintering](pool-modes.md#active-wintering) modes.
+
+### TDS Rule (Total Dissolved Solids)
+
+Monitors total dissolved solids and alerts when levels are out of range.
+This rule is automatically skipped for **salt electrolysis** pools, since
+dissolved salt naturally raises TDS.
+
+| Condition | Priority | Kind | Recommendation |
+| --- | --- | --- | --- |
+| TDS > 1500 ppm | Medium | Requirement | Consider partial water drain |
+| TDS < 250 ppm | Low | Suggestion | Verify EC sensor calibration |
+
+!!! note
+
+    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering)
+    and [Active Wintering](pool-modes.md#active-wintering) modes.
+
+### Calibration Rule
+
+Detects deviation between sensor readings and manual measurements recorded
+via the `poolman.record_measure` service. When a sensor value diverges
+significantly from the last manual measurement for the same parameter,
+this rule suggests sensor recalibration or a new manual measurement.
+
+| Parameter | Deviation Threshold |
+| --- | --- |
+| pH | 0.3 |
+| ORP | 50 mV |
+| Free chlorine | 0.5 ppm |
+| EC | 100 µS/cm |
+| TDS | 50 ppm |
+| Salt | 100 ppm |
+| TAC | 20 ppm |
+| CYA | 10 ppm |
+| Hardness | 50 ppm |
+| Temperature | 2 °C |
+
+All calibration recommendations have **Medium** priority and are classified
+as **Suggestions** of type **Maintenance**.
+
+!!! note
+
+    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering) mode.
+    It requires at least one manual measurement to be recorded.

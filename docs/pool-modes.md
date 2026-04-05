@@ -149,8 +149,8 @@ The result is bounded between **2 hours minimum** and **24 hours maximum**.
 
 ### Rules
 
-All chemistry rules are active: pH, sanitizer/ORP, free chlorine, salt, TAC, and
-algae risk.
+All rules are active: pH, sanitizer/ORP, free chlorine, filtration, TAC,
+algae risk, CYA, hardness, salt, TDS, and calibration.
 
 ## Hibernating
 

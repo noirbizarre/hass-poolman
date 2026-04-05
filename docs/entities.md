@@ -25,7 +25,7 @@ These sensors mirror your source sensor values, giving you a unified view under 
 | `sensor.{pool}_free_chlorine` | Free chlorine | ppm | -- | Free chlorine level reading |
 | `sensor.{pool}_ec` | Electrical conductivity | µS/cm | -- | Electrical conductivity reading (diagnostic/trending) |
 | `sensor.{pool}_tds` | Total dissolved solids | ppm | -- | TDS reading (computed from EC or manual measurement) |
-| `sensor.{pool}_salt_level` | Salt level | ppm | -- | Salt level reading (salt electrolysis pools) |
+| `sensor.{pool}_salt` | Salt level | ppm | -- | Salt level reading (salt electrolysis pools) |
 
 ### Computed sensors
 

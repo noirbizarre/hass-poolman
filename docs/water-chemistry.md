@@ -115,6 +115,11 @@ universal.
 | TAC+ (alkalinity increaser) | Raise total alkalinity when it is below minimum |
 | Stabilizer (CYA) | Raise cyanuric acid when it is below minimum |
 | Calcium hardness increaser | Raise calcium hardness when it is below minimum |
+| Flocculant | Clarify cloudy water by clumping fine particles for filtration |
+| Anti-algae | Preventive or curative algae treatment |
+| Clarifier | Improve water clarity by binding micro-particles |
+| Metal sequestrant | Bind dissolved metals to prevent staining and discoloration |
+| Winterizing product | Protect pool water during winter shutdown |
 
 ### Sanitizer products by treatment type
 

@@ -51,7 +51,7 @@ Pool Manager reads your existing Home Assistant sensor entities every 5 minutes 
 1. A **water quality score** (0--100%) based on how close each parameter is to its ideal target
 2. A **recommended filtration duration** using the classic temperature/2 rule, adjusted for your pump capacity
 3. **Chemical dosage recommendations** with specific product and quantity (e.g., "Add 450g of pH-")
-4. **Alerts** for conditions like algae risk (high temperature + low ORP)
+4. **Recommendations** for conditions like algae risk (high temperature + low ORP)
 
 All computations happen locally. No cloud API, no account, no internet connection required.
 
@@ -64,5 +64,6 @@ All computations happen locally. No cloud API, no account, no internet connectio
 - [Pool Modes](pool-modes.md) -- Running, Active Wintering, and Passive Wintering explained
 - [Water Chemistry](water-chemistry.md) -- Target ranges, scoring, and parameter details
 - [Rules & Recommendations](rules-and-recommendations.md) -- The rule engine, priority system, and chemical dosages
+- [Sample Dashboards](sample-dashboards.md) -- Ready-to-use Lovelace dashboard examples
 - [FAQ](faq.md) -- Common questions and answers about Pool Manager
 - [Contributing](contributing.md) -- How to contribute to the project

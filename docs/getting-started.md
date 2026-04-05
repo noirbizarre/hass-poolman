@@ -31,7 +31,7 @@ These sensors enable additional recommendations and improve the water quality sc
 | TAC (Total Alkalinity) | ppm | Alkalinity level |
 | CYA (Cyanuric Acid) | ppm | Stabilizer level |
 | Calcium Hardness | ppm | Water hardness |
-| Outdoor temperature | °C | Ambient / air temperature (improves filtration suggestion) |
+| Outdoor temperature | °C | Ambient / air temperature (improves filtration recommendation) |
 
 ### Optional actuators
 

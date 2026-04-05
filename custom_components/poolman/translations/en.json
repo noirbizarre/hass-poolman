@@ -835,15 +835,15 @@
     },
     "boost_filtration": {
       "name": "Boost filtration",
-      "description": "Activate a manual filtration boost for extra continuous pump runtime.",
+      "description": "Activate a manual filtration boost for extra continuous pump time.",
       "fields": {
         "device_id": {
           "name": "Pool device",
           "description": "The pool to boost filtration for."
         },
         "hours": {
-          "name": "Hours",
-          "description": "Number of extra filtration hours (0 to cancel)."
+          "name": "Duration (hours)",
+          "description": "Number of extra filtration hours to add. Set to 0 to cancel an active boost."
         }
       }
     },

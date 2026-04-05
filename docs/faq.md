@@ -33,7 +33,7 @@ and filtration duration calculation.
 
 Additional sensors (free chlorine, TAC, CYA, hardness, salt, EC) improve
 accuracy and unlock more rules and recommendations. See
-[Getting Started](getting-started.md#sensor-requirements) for the full list.
+[Getting Started](getting-started.md#required-sensors) for the full list.
 
 ### Does this work with my Flipr / iopool / Sutro / ESPHome sensors?
 
@@ -88,7 +88,7 @@ readings at the boundary score 50%; readings outside the acceptable range
 score 0%. The overall water quality score is the **average** of all
 individual parameter scores.
 
-See [Water Chemistry -- Scoring](water-chemistry.md#scoring-algorithm) for
+See [Water Chemistry -- Scoring](water-chemistry.md#water-quality-score) for
 the full algorithm.
 
 ### Why doesn't free chlorine show a calculated dosage?
@@ -118,13 +118,13 @@ for more information.
 
 ### Does the recommended filtration duration control my pump?
 
-No. The `sensor.{pool}_recommended_filtration_duration` entity is
+No. The `sensor.{pool}_filtration_duration` entity is
 **advisory only** -- it tells you how long filtration should run, but does
 not act on it.
 
 To enable automatic pump control, you must configure a **pump switch entity**
 during setup and enable filtration control. This creates additional entities
-(`switch.{pool}_filtration`, `time.{pool}_filtration_start`, etc.) that
+(`switch.{pool}_filtration_control`, `time.{pool}_filtration_start_time`, etc.) that
 manage the pump schedule. See
 [Filtration Control](filtration-control.md) for the full setup.
 
@@ -138,8 +138,8 @@ pump is turned back on and filtration resumes for the remaining duration.
 
 ### Why are some entities missing?
 
-Filtration control entities (`switch.{pool}_filtration`,
-`time.{pool}_filtration_start`, `number.{pool}_filtration_duration`, etc.)
+Filtration control entities (`switch.{pool}_filtration_control`,
+`time.{pool}_filtration_start_time`, `number.{pool}_filtration_duration_setting`, etc.)
 are **only created** when a pump switch entity is configured during setup.
 
 Additionally, period 2 entities (for split filtration modes) are always

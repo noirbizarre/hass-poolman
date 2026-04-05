@@ -56,6 +56,7 @@ nav = [
   { "Entities" = "entities.md" },
   { "Pool Modes" = "pool-modes.md" },
   { "Filtration Control" = "filtration-control.md" },
+  { "Chemistry Tracking" = "chemistry-tracking.md" },
   { "Water Chemistry" = "water-chemistry.md" },
   { "Rules & Recommendations" = "rules-and-recommendations.md" },
   { "Sample Dashboards" = "sample-dashboards.md" },

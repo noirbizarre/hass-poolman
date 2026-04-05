@@ -6,7 +6,7 @@ icon: lucide/flask-conical
 
 Pool Manager lets you record chemical treatments applied to your pool and
 automatically tracks safety wait times. The system uses Home Assistant event
-entities as storage, so all treatment history appears in HA's logbook and
+entities as storage, so all treatment history appears in Home Assistant's logbook and
 history views without any external database.
 
 ## How It Works
@@ -92,8 +92,8 @@ swimming-compatible products that do not impose any safety restriction.
 One event entity per chemical product. Each entity:
 
 - Fires an `applied` event type when the product is used.
-- Persists its last event across HA restarts via `RestoreEntity`.
-- Appears in HA's logbook with timestamp and event data.
+- Persists its last event across Home Assistant restarts via `RestoreEntity`.
+- Appears in Home Assistant's logbook with timestamp and event data.
 
 ### Sensors
 
