@@ -853,6 +853,20 @@ class TestCalibrationRule:
         assert len(result) == 1
         assert "free chlorine" in result[0].message
 
+    def test_ec_deviation(self, pool: Pool) -> None:
+        """EC deviation exceeding 100 µS/cm should generate recommendation."""
+        reading = PoolReading(ec=650.0)
+        measures = {
+            MeasureParameter.EC: ManualMeasure(
+                parameter=MeasureParameter.EC, value=500.0, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.ACTIVE, manual_measures=measures
+        )
+        assert len(result) == 1
+        assert "EC" in result[0].message
+
     def test_winter_active_evaluates(self, pool: Pool) -> None:
         """CalibrationRule should still evaluate in active winter mode."""
         reading = PoolReading(ph=7.8)

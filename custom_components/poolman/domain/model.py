@@ -87,6 +87,7 @@ class MeasureParameter(StrEnum):
     PH = "ph"
     ORP = "orp"
     FREE_CHLORINE = "free_chlorine"
+    EC = "ec"
     TAC = "tac"
     CYA = "cya"
     HARDNESS = "hardness"
@@ -228,6 +229,7 @@ class PoolReading(BaseModel):
     ph: float | None = Field(None, ge=0, le=14, description="pH level")
     orp: float | None = Field(None, description="ORP in millivolts")
     free_chlorine: float | None = Field(None, ge=0, description="Free chlorine in ppm")
+    ec: float | None = Field(None, ge=0, description="Electrical conductivity in µS/cm")
     temp_c: float | None = Field(None, description="Water temperature in Celsius")
     outdoor_temp_c: float | None = Field(None, description="Outdoor/ambient temperature in Celsius")
     tac: float | None = Field(None, ge=0, description="Total alkalinity in ppm")

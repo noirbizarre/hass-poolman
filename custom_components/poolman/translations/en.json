@@ -22,6 +22,7 @@
           "ph_entity": "pH sensor",
           "orp_entity": "ORP sensor",
           "free_chlorine_entity": "Free chlorine sensor",
+          "ec_entity": "EC (conductivity) sensor",
           "tac_entity": "Total alkalinity (TAC) sensor",
           "cya_entity": "Cyanuric acid (stabilizer) sensor",
           "hardness_entity": "Calcium hardness sensor"
@@ -29,6 +30,7 @@
         "data_description": {
           "treatment": "Water treatment method used in your pool.",
           "free_chlorine_entity": "Optional. Free chlorine sensor (ppm).",
+          "ec_entity": "Optional. Electrical conductivity sensor (µS/cm).",
           "tac_entity": "Optional. Total alkalinity sensor.",
           "cya_entity": "Optional. Cyanuric acid (stabilizer) sensor.",
           "hardness_entity": "Optional. Calcium hardness sensor."
@@ -139,6 +141,7 @@
           "ph_entity": "pH sensor",
           "orp_entity": "ORP sensor",
           "free_chlorine_entity": "Free chlorine sensor",
+          "ec_entity": "EC (conductivity) sensor",
           "tac_entity": "Total alkalinity (TAC) sensor",
           "cya_entity": "Cyanuric acid (stabilizer) sensor",
           "hardness_entity": "Calcium hardness sensor"
@@ -146,6 +149,7 @@
         "data_description": {
           "treatment": "Water treatment method used in your pool.",
           "free_chlorine_entity": "Optional. Free chlorine sensor (ppm).",
+          "ec_entity": "Optional. Electrical conductivity sensor (µS/cm).",
           "tac_entity": "Optional. Total alkalinity sensor.",
           "cya_entity": "Optional. Cyanuric acid (stabilizer) sensor.",
           "hardness_entity": "Optional. Calcium hardness sensor."
@@ -186,6 +190,9 @@
       },
       "free_chlorine": {
         "name": "Free chlorine"
+      },
+      "ec": {
+        "name": "Electrical conductivity"
       },
       "filtration_duration": {
         "name": "Recommended filtration"
@@ -503,6 +510,16 @@
           }
         }
       },
+      "measure_ec": {
+        "name": "EC measurement",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Measured"
+            }
+          }
+        }
+      },
       "measure_tac": {
         "name": "TAC measurement",
         "state_attributes": {
@@ -648,6 +665,7 @@
         "ph": "pH",
         "orp": "ORP",
         "free_chlorine": "Free chlorine",
+        "ec": "Electrical conductivity (EC)",
         "tac": "Total alkalinity (TAC)",
         "cya": "Cyanuric acid (CYA)",
         "hardness": "Calcium hardness",

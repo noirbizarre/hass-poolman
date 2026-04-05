@@ -133,6 +133,16 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         extra_attrs_fn=lambda state: _source_attr(state, "free_chlorine"),
     ),
     PoolmanSensorEntityDescription(
+        key="ec",
+        translation_key="ec",
+        native_unit_of_measurement="µS/cm",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        icon="mdi:flash-outline",
+        value_fn=lambda state: state.reading.ec,
+        extra_attrs_fn=lambda state: _source_attr(state, "ec"),
+    ),
+    PoolmanSensorEntityDescription(
         key="filtration_duration",
         translation_key="filtration_duration",
         native_unit_of_measurement=UnitOfTime.HOURS,

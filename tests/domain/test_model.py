@@ -399,7 +399,7 @@ class TestMeasureParameter:
 
     def test_all_parameters_defined(self) -> None:
         """All expected parameters should be present."""
-        expected = {"ph", "orp", "free_chlorine", "tac", "cya", "hardness", "temperature"}
+        expected = {"ph", "orp", "free_chlorine", "ec", "tac", "cya", "hardness", "temperature"}
         assert {p.value for p in MeasureParameter} == expected
 
     def test_str_values(self) -> None:
@@ -407,6 +407,7 @@ class TestMeasureParameter:
         assert MeasureParameter.PH == "ph"
         assert MeasureParameter.ORP == "orp"
         assert MeasureParameter.FREE_CHLORINE == "free_chlorine"
+        assert MeasureParameter.EC == "ec"
         assert MeasureParameter.TAC == "tac"
         assert MeasureParameter.CYA == "cya"
         assert MeasureParameter.HARDNESS == "hardness"

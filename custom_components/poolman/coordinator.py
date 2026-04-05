@@ -17,6 +17,7 @@ from homeassistant.util.dt import utcnow
 from .const import (
     CONF_COMPLETED_AT,
     CONF_CYA_ENTITY,
+    CONF_EC_ENTITY,
     CONF_FILTRATION_KIND,
     CONF_FREE_CHLORINE_ENTITY,
     CONF_HARDNESS_ENTITY,
@@ -79,6 +80,7 @@ _MEASURE_SENSOR_KEY: dict[MeasureParameter, str] = {
     MeasureParameter.PH: CONF_PH_ENTITY,
     MeasureParameter.ORP: CONF_ORP_ENTITY,
     MeasureParameter.FREE_CHLORINE: CONF_FREE_CHLORINE_ENTITY,
+    MeasureParameter.EC: CONF_EC_ENTITY,
     MeasureParameter.TAC: CONF_TAC_ENTITY,
     MeasureParameter.CYA: CONF_CYA_ENTITY,
     MeasureParameter.HARDNESS: CONF_HARDNESS_ENTITY,
@@ -661,6 +663,10 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         if free_chlorine_src:
             reading_sources["free_chlorine"] = free_chlorine_src
 
+        ec, ec_src = self._read_with_fallback(CONF_EC_ENTITY, MeasureParameter.EC, manual_measures)
+        if ec_src:
+            reading_sources["ec"] = ec_src
+
         temp_c, temp_src = self._read_with_fallback(
             CONF_TEMPERATURE_ENTITY, MeasureParameter.TEMPERATURE, manual_measures
         )
@@ -693,6 +699,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             ph=ph,
             orp=orp,
             free_chlorine=free_chlorine,
+            ec=ec,
             temp_c=temp_c,
             outdoor_temp_c=outdoor_temp_c,
             tac=tac,
@@ -708,6 +715,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             ph=self._read_sensor(CONF_PH_ENTITY),
             orp=self._read_sensor(CONF_ORP_ENTITY),
             free_chlorine=self._read_sensor(CONF_FREE_CHLORINE_ENTITY),
+            ec=self._read_sensor(CONF_EC_ENTITY),
             temp_c=self._read_sensor(CONF_TEMPERATURE_ENTITY),
             outdoor_temp_c=outdoor_temp_c,
             tac=self._read_sensor(CONF_TAC_ENTITY),

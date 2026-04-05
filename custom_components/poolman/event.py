@@ -231,6 +231,12 @@ MEASURE_EVENT_DESCRIPTIONS: tuple[PoolmanMeasureEventEntityDescription, ...] = (
         parameter=MeasureParameter.FREE_CHLORINE,
     ),
     PoolmanMeasureEventEntityDescription(
+        key="measure_ec",
+        translation_key="measure_ec",
+        event_types=["measured"],
+        parameter=MeasureParameter.EC,
+    ),
+    PoolmanMeasureEventEntityDescription(
         key="measure_tac",
         translation_key="measure_tac",
         event_types=["measured"],

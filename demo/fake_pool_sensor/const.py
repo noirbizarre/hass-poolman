@@ -109,6 +109,17 @@ SENSOR_SPECS: Final[tuple[FakeSensorSpec, ...]] = (
         icon="mdi:flask-outline",
     ),
     FakeSensorSpec(
+        key="ec",
+        name="Electrical conductivity",
+        default=500.0,
+        min_value=0.0,
+        max_value=5000.0,
+        step=1.0,
+        noise=20.0,
+        unit="µS/cm",
+        icon="mdi:flash-outline",
+    ),
+    FakeSensorSpec(
         key="outdoor_temperature",
         name="Outdoor temperature",
         default=25.0,

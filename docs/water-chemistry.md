@@ -214,3 +214,19 @@ amount depends on many factors (CYA level, UV exposure, bather load, etc.):
 | --- | --- |
 | Free chlorine < 1.0 ppm | Shock chlorine |
 | Free chlorine > 3.0 ppm | Neutralizer |
+
+## Electrical Conductivity (EC)
+
+Electrical conductivity (EC) measures the water's ability to conduct an
+electrical current, which correlates with total dissolved solids (TDS).
+It is a useful diagnostic indicator for tracking mineral buildup, salt
+levels, or general water freshness over time.
+
+EC is exposed as a **read-only sensor** with no status, no scoring, and
+no rules. There is no universal ideal range because acceptable EC values
+vary widely depending on treatment type (salt electrolysis pools run at
+3000--6000 µS/cm, while chlorine-treated pools are typically 500--1500
+µS/cm), water source, and local conditions.
+
+Use the `sensor.{pool}_ec` entity for trending and diagnostics in your
+dashboards.

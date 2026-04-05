@@ -40,6 +40,7 @@ FAKE_CHEMISTRY_SENSORS = {
     "ph_entity": "sensor.fake_pool_sensor_ph",
     "orp_entity": "sensor.fake_pool_sensor_orp",
     "free_chlorine_entity": "sensor.fake_pool_sensor_free_chlorine",
+    "ec_entity": "sensor.fake_pool_sensor_electrical_conductivity",
     "tac_entity": "sensor.fake_pool_sensor_total_alkalinity",
     "cya_entity": "sensor.fake_pool_sensor_cyanuric_acid",
     "hardness_entity": "sensor.fake_pool_sensor_calcium_hardness",
@@ -582,7 +583,7 @@ def main() -> None:
         )
 
     # Wait for fake sensor entities to appear
-    wait_for_entities(token, "sensor.fake_pool_sensor_", expected_count=8)
+    wait_for_entities(token, "sensor.fake_pool_sensor_", expected_count=9)
     wait_for_entities(token, "switch.fake_pool_sensor_", expected_count=1)
 
     # Set up Pool Manager (three-step flow: pool basics, chemistry, filtration)

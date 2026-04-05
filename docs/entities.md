@@ -11,7 +11,7 @@ name you set during configuration.
 
 ## Sensors
 
-The integration creates 17 sensor entities:
+The integration creates 18 sensor entities:
 
 ### Reading sensors
 
@@ -23,6 +23,7 @@ These sensors mirror your source sensor values, giving you a unified view under 
 | `sensor.{pool}_ph` | pH | -- | `ph` | pH level reading |
 | `sensor.{pool}_orp` | ORP | mV | -- | Oxidation-Reduction Potential reading |
 | `sensor.{pool}_free_chlorine` | Free chlorine | ppm | -- | Free chlorine level reading |
+| `sensor.{pool}_ec` | Electrical conductivity | µS/cm | -- | Electrical conductivity reading (diagnostic/trending) |
 
 ### Computed sensors
 
