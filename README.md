@@ -33,7 +33,7 @@ cloud service or specific hardware required.
 
 - **Computed analytics**: recommended daily filtration duration and a 0-100% water quality score
 - **Rule engine**: actionable recommendations with chemical product names and dosage in grams
-- **3 operational modes**: Running, Active Wintering, Passive Wintering
+- **5 operational modes**: Active, Activating, Hibernating, Active Wintering, Passive Wintering
 - **Hardware agnostic**: works with any pool sensor source (Flipr, iopool, Sutro, ESPHome, manual input)
 - **Multi-language**: English and French translations included
 
