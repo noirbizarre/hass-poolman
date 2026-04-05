@@ -18,6 +18,11 @@ from custom_components.poolman.const import (
     CONF_POOL_NAME,
     CONF_PUMP_FLOW_M3H,
     CONF_SHAPE,
+    CONF_SPOON_NAME_1,
+    CONF_SPOON_NAME_2,
+    CONF_SPOON_SIZE_1,
+    CONF_SPOON_SIZE_2,
+    CONF_SPOON_SIZES,
     CONF_STARTED_AT,
     CONF_STEPS,
     CONF_TARGET_MODE,
@@ -70,11 +75,20 @@ class TestConfigFlow:
         assert result["type"] is FlowResultType.FORM
         assert result["step_id"] == "chemistry"
 
-    async def test_filtration_step_shows_form(self, hass: HomeAssistant) -> None:
-        """After chemistry step, filtration form should be shown."""
+    async def test_spoons_step_shows_form(self, hass: HomeAssistant) -> None:
+        """After chemistry step, spoons form should be shown."""
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], POOL_INPUT)
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CHEMISTRY_INPUT)
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "spoons"
+
+    async def test_filtration_step_shows_form(self, hass: HomeAssistant) -> None:
+        """After spoons step, filtration form should be shown."""
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], POOL_INPUT)
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CHEMISTRY_INPUT)
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
         assert result["type"] is FlowResultType.FORM
         assert result["step_id"] == "filtration"
 
@@ -83,6 +97,7 @@ class TestConfigFlow:
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], POOL_INPUT)
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CHEMISTRY_INPUT)
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
 
         with patch("custom_components.poolman.async_setup_entry", return_value=True):
             result = await hass.config_entries.flow.async_configure(
@@ -95,6 +110,68 @@ class TestConfigFlow:
         assert result["data"][CONF_SHAPE] == "round"
         assert result["data"][CONF_TREATMENT] == "chlorine"
         assert result["data"][CONF_FILTRATION_KIND] == "sand"
+
+    async def test_full_flow_stores_empty_spoons(self, hass: HomeAssistant) -> None:
+        """Skipping spoon configuration should store an empty spoon_sizes list."""
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], POOL_INPUT)
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CHEMISTRY_INPUT)
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+
+        with patch("custom_components.poolman.async_setup_entry", return_value=True):
+            result = await hass.config_entries.flow.async_configure(
+                result["flow_id"], FILTRATION_INPUT
+            )
+
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert result["data"][CONF_SPOON_SIZES] == []
+
+    async def test_full_flow_stores_spoon_sizes(self, hass: HomeAssistant) -> None:
+        """Configuring spoon sizes should store them in config entry data."""
+        spoon_input = {
+            CONF_SPOON_NAME_1: "Small",
+            CONF_SPOON_SIZE_1: 5,
+            CONF_SPOON_NAME_2: "Large",
+            CONF_SPOON_SIZE_2: 15,
+        }
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], POOL_INPUT)
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CHEMISTRY_INPUT)
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], spoon_input)
+
+        with patch("custom_components.poolman.async_setup_entry", return_value=True):
+            result = await hass.config_entries.flow.async_configure(
+                result["flow_id"], FILTRATION_INPUT
+            )
+
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        spoons = result["data"][CONF_SPOON_SIZES]
+        assert len(spoons) == 2
+        assert spoons[0] == {"name": "Small", "size_ml": 5.0}
+        assert spoons[1] == {"name": "Large", "size_ml": 15.0}
+
+    async def test_full_flow_ignores_empty_spoon_names(self, hass: HomeAssistant) -> None:
+        """Spoon pairs with empty names should be ignored."""
+        spoon_input = {
+            CONF_SPOON_NAME_1: "Small",
+            CONF_SPOON_SIZE_1: 5,
+            CONF_SPOON_NAME_2: "",
+            CONF_SPOON_SIZE_2: 15,
+        }
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], POOL_INPUT)
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CHEMISTRY_INPUT)
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], spoon_input)
+
+        with patch("custom_components.poolman.async_setup_entry", return_value=True):
+            result = await hass.config_entries.flow.async_configure(
+                result["flow_id"], FILTRATION_INPUT
+            )
+
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        spoons = result["data"][CONF_SPOON_SIZES]
+        assert len(spoons) == 1
+        assert spoons[0]["name"] == "Small"
 
     async def test_duplicate_unique_id_aborts(self, hass: HomeAssistant) -> None:
         """Setting up a pool with the same name should abort."""
@@ -109,6 +186,7 @@ class TestConfigFlow:
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], POOL_INPUT)
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CHEMISTRY_INPUT)
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], FILTRATION_INPUT)
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "already_configured"
@@ -127,16 +205,30 @@ class TestOptionsFlow:
         assert result["type"] is FlowResultType.FORM
         assert result["step_id"] == "init"
 
-    async def test_options_flow_filtration_shows_form(
+    async def test_options_flow_spoons_shows_form(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
     ) -> None:
-        """After init step, filtration form should be shown."""
+        """After init step, spoons form should be shown."""
         mock_config_entry.add_to_hass(hass)
 
         result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
         result = await hass.config_entries.options.async_configure(
             result["flow_id"], CHEMISTRY_INPUT
         )
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "spoons"
+
+    async def test_options_flow_filtration_shows_form(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """After spoons step, filtration form should be shown."""
+        mock_config_entry.add_to_hass(hass)
+
+        result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], CHEMISTRY_INPUT
+        )
+        result = await hass.config_entries.options.async_configure(result["flow_id"], {})
         assert result["type"] is FlowResultType.FORM
         assert result["step_id"] == "filtration"
 
@@ -150,12 +242,36 @@ class TestOptionsFlow:
         result = await hass.config_entries.options.async_configure(
             result["flow_id"], CHEMISTRY_INPUT
         )
+        result = await hass.config_entries.options.async_configure(result["flow_id"], {})
         result = await hass.config_entries.options.async_configure(
             result["flow_id"], FILTRATION_INPUT
         )
         assert result["type"] is FlowResultType.CREATE_ENTRY
         assert result["data"][CONF_TREATMENT] == "chlorine"
         assert result["data"][CONF_FILTRATION_KIND] == "sand"
+
+    async def test_options_flow_stores_spoon_sizes(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Options flow should store configured spoon sizes."""
+        mock_config_entry.add_to_hass(hass)
+
+        spoon_input = {
+            CONF_SPOON_NAME_1: "Medium",
+            CONF_SPOON_SIZE_1: 10,
+        }
+        result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], CHEMISTRY_INPUT
+        )
+        result = await hass.config_entries.options.async_configure(result["flow_id"], spoon_input)
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], FILTRATION_INPUT
+        )
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        spoons = result["data"][CONF_SPOON_SIZES]
+        assert len(spoons) == 1
+        assert spoons[0] == {"name": "Medium", "size_ml": 10.0}
 
 
 async def _setup_entry(hass: HomeAssistant, entry: MockConfigEntry) -> PoolmanCoordinator:

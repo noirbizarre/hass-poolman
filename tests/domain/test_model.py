@@ -7,7 +7,10 @@ from datetime import UTC, datetime
 import pytest
 
 from custom_components.poolman.domain.model import (
+    PRODUCT_DENSITY_G_PER_ML,
+    TABLET_PRODUCTS,
     ActionKind,
+    ChemicalProduct,
     ChemistryReport,
     ChemistryStatus,
     ManualMeasure,
@@ -18,8 +21,11 @@ from custom_components.poolman.domain.model import (
     Recommendation,
     RecommendationPriority,
     RecommendationType,
+    SpoonSize,
     StatusChange,
+    compute_spoon_equivalent,
     compute_status_changes,
+    format_spoon_text,
 )
 
 
@@ -496,3 +502,189 @@ class TestPoolStateManualMeasures:
         state = PoolState(reading_sources={"ph": "sensor", "orp": "manual"})
         assert state.reading_sources["ph"] == "sensor"
         assert state.reading_sources["orp"] == "manual"
+
+
+class TestSpoonSize:
+    """Tests for SpoonSize model."""
+
+    def test_creation(self) -> None:
+        spoon = SpoonSize(name="Small", size_ml=20.0)
+        assert spoon.name == "Small"
+        assert spoon.size_ml == 20.0
+
+    def test_frozen(self) -> None:
+        from pydantic import ValidationError
+
+        spoon = SpoonSize(name="Small", size_ml=20.0)
+        with pytest.raises(ValidationError):
+            spoon.name = "Large"  # type: ignore[misc]  # ty: ignore[invalid-assignment]
+
+    def test_size_must_be_positive(self) -> None:
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            SpoonSize(name="Bad", size_ml=0)
+        with pytest.raises(ValidationError):
+            SpoonSize(name="Bad", size_ml=-5)
+
+    def test_equality(self) -> None:
+        s1 = SpoonSize(name="Small", size_ml=20.0)
+        s2 = SpoonSize(name="Small", size_ml=20.0)
+        assert s1 == s2
+
+
+class TestPoolSpoonSizes:
+    """Tests for Pool.spoon_sizes field."""
+
+    def test_default_empty(self) -> None:
+        pool = Pool(name="Test", volume_m3=50, pump_flow_m3h=10)
+        assert pool.spoon_sizes == []
+
+    def test_with_spoon_sizes(self) -> None:
+        spoons = [
+            SpoonSize(name="Small", size_ml=20),
+            SpoonSize(name="Large", size_ml=50),
+        ]
+        pool = Pool(name="Test", volume_m3=50, pump_flow_m3h=10, spoon_sizes=spoons)
+        assert len(pool.spoon_sizes) == 2
+        assert pool.spoon_sizes[0].name == "Small"
+        assert pool.spoon_sizes[1].name == "Large"
+
+
+class TestProductDensityTable:
+    """Tests for the product density table."""
+
+    def test_all_products_have_density(self) -> None:
+        """Every ChemicalProduct should have a density entry."""
+        for product in ChemicalProduct:
+            assert product in PRODUCT_DENSITY_G_PER_ML, f"Missing density for {product}"
+
+    def test_all_densities_positive(self) -> None:
+        for product, density in PRODUCT_DENSITY_G_PER_ML.items():
+            assert density > 0, f"Density for {product} must be positive"
+
+
+class TestTabletProducts:
+    """Tests for TABLET_PRODUCTS constant."""
+
+    def test_expected_tablet_products(self) -> None:
+        assert ChemicalProduct.GALET_CHLORE in TABLET_PRODUCTS
+        assert ChemicalProduct.BROMINE_TABLET in TABLET_PRODUCTS
+        assert ChemicalProduct.ACTIVE_OXYGEN_TABLET in TABLET_PRODUCTS
+
+    def test_non_tablet_products_excluded(self) -> None:
+        assert ChemicalProduct.PH_MINUS not in TABLET_PRODUCTS
+        assert ChemicalProduct.CHLORE_CHOC not in TABLET_PRODUCTS
+        assert ChemicalProduct.STABILIZER not in TABLET_PRODUCTS
+
+
+class TestComputeSpoonEquivalent:
+    """Tests for compute_spoon_equivalent."""
+
+    @pytest.fixture
+    def small_spoon(self) -> SpoonSize:
+        return SpoonSize(name="Small", size_ml=20.0)
+
+    @pytest.fixture
+    def large_spoon(self) -> SpoonSize:
+        return SpoonSize(name="Large", size_ml=50.0)
+
+    def test_no_spoon_sizes_returns_none(self) -> None:
+        result = compute_spoon_equivalent(300.0, ChemicalProduct.PH_MINUS, [])
+        assert result is None
+
+    def test_tablet_product_returns_none(self, small_spoon: SpoonSize) -> None:
+        result = compute_spoon_equivalent(300.0, ChemicalProduct.GALET_CHLORE, [small_spoon])
+        assert result is None
+
+    def test_zero_quantity_returns_none(self, small_spoon: SpoonSize) -> None:
+        result = compute_spoon_equivalent(0.0, ChemicalProduct.PH_MINUS, [small_spoon])
+        assert result is None
+
+    def test_negative_quantity_returns_none(self, small_spoon: SpoonSize) -> None:
+        result = compute_spoon_equivalent(-10.0, ChemicalProduct.PH_MINUS, [small_spoon])
+        assert result is None
+
+    def test_single_spoon_exact_fit(self, small_spoon: SpoonSize) -> None:
+        """pH- density is 1.1 g/mL. 220g = 200 mL = 10 small spoons (20mL each)."""
+        result = compute_spoon_equivalent(220.0, ChemicalProduct.PH_MINUS, [small_spoon])
+        assert result is not None
+        count, spoon = result
+        assert count == 10
+        assert spoon.name == "Small"
+
+    def test_single_spoon_rounded(self, large_spoon: SpoonSize) -> None:
+        """pH- density is 1.1 g/mL. 300g = 272.7 mL. 272.7/50 = 5.45 -> rounds to 5."""
+        result = compute_spoon_equivalent(300.0, ChemicalProduct.PH_MINUS, [large_spoon])
+        assert result is not None
+        count, spoon = result
+        assert count == 5
+        assert spoon.name == "Large"
+
+    def test_best_fit_picks_least_error(
+        self, small_spoon: SpoonSize, large_spoon: SpoonSize
+    ) -> None:
+        """Should pick the spoon that minimizes rounding error."""
+        # pH+ density is 0.55 g/mL. 55g ≈ 100 mL.
+        # Small (20mL): 100/20 = 5.0 -> near-exact fit
+        # Large (50mL): 100/50 = 2.0 -> near-exact fit
+        # Both are essentially exact; either is a valid result.
+        result = compute_spoon_equivalent(55.0, ChemicalProduct.PH_PLUS, [small_spoon, large_spoon])
+        assert result is not None
+        count, spoon = result
+        # Both spoons produce near-exact fits; verify a valid spoon was chosen
+        assert (count == 5 and spoon.name == "Small") or (count == 2 and spoon.name == "Large")
+
+    def test_best_fit_prefers_closer_match(self) -> None:
+        """Should pick the spoon that gives the closer rounded count."""
+        small = SpoonSize(name="Small", size_ml=15.0)
+        large = SpoonSize(name="Large", size_ml=40.0)
+        # TAC+ density is 0.9 g/mL. 180g = 200 mL.
+        # Small (15mL): 200/15 = 13.33 -> rounds to 13, error = 0.33/13.33 = 0.025
+        # Large (40mL): 200/40 = 5.0 -> rounds to 5, error = 0
+        result = compute_spoon_equivalent(180.0, ChemicalProduct.TAC_PLUS, [small, large])
+        assert result is not None
+        count, spoon = result
+        assert count == 5
+        assert spoon.name == "Large"
+
+    def test_minimum_one_spoon(self, large_spoon: SpoonSize) -> None:
+        """Very small quantities should still return at least 1 spoon."""
+        # pH- density 1.1 g/mL. 1g = 0.91 mL. 0.91/50 = 0.018 -> rounds to 0, clamped to 1
+        result = compute_spoon_equivalent(1.0, ChemicalProduct.PH_MINUS, [large_spoon])
+        assert result is not None
+        count, _ = result
+        assert count >= 1
+
+    def test_low_density_product(self, small_spoon: SpoonSize) -> None:
+        """pH+ has low density (0.55 g/mL), so same grams = more volume."""
+        # 110g pH+ = 200 mL = 10 small spoons
+        result = compute_spoon_equivalent(110.0, ChemicalProduct.PH_PLUS, [small_spoon])
+        assert result is not None
+        count, spoon = result
+        assert count == 10
+        assert spoon.name == "Small"
+
+    def test_all_tablet_products_return_none(self, small_spoon: SpoonSize) -> None:
+        """All tablet products should return None."""
+        for product in TABLET_PRODUCTS:
+            result = compute_spoon_equivalent(100.0, product, [small_spoon])
+            assert result is None, f"Expected None for tablet product {product}"
+
+
+class TestFormatSpoonText:
+    """Tests for format_spoon_text."""
+
+    def test_singular(self) -> None:
+        assert format_spoon_text(1, "Large") == "1 Large spoon"
+
+    def test_plural(self) -> None:
+        assert format_spoon_text(5, "Small") == "5 Small spoons"
+
+    def test_zero_spoons(self) -> None:
+        # Edge case: 0 spoons should say "spoons" (plural)
+        assert format_spoon_text(0, "Small") == "0 Small spoons"
+
+    def test_float_count_truncated(self) -> None:
+        # Float is truncated to int for display
+        assert format_spoon_text(3.7, "Medium") == "3 Medium spoons"

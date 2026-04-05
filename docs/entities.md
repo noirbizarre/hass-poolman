@@ -58,9 +58,20 @@ state attributes:
 
 | Attribute | Type | Description |
 | --- | --- | --- |
-| `actions` | list of objects | Each action includes `kind` (suggestion/requirement), `message`, `product`, and `quantity_g` |
+| `actions` | list of objects | Each action includes `kind` (suggestion/requirement), `message`, `product`, `quantity_g`, `spoon_count`, and `spoon_name` |
 | `suggestion_count` | integer | Number of actions classified as suggestions |
 | `requirement_count` | integer | Number of actions classified as requirements |
+
+When [measuring spoon sizes](getting-started.md#step-3-measuring-spoons) are
+configured, each action object also includes:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `spoon_count` | integer or null | Number of spoons equivalent to the gram dosage (null for tablet products or when no spoons are configured) |
+| `spoon_name` | string or null | Name of the selected spoon size (null when spoon_count is null) |
+
+See [Spoon Equivalents](water-chemistry.md#spoon-equivalents) for details on
+how spoon counts are calculated.
 
 Actions are classified as either **suggestions** (optional improvements)
 or **requirements** (needed to keep the pool safe).

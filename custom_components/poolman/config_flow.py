@@ -26,6 +26,8 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
 )
 from homeassistant.util.dt import utcnow
 
@@ -45,6 +47,7 @@ from .const import (
     CONF_PUMP_FLOW_M3H,
     CONF_SALT_ENTITY,
     CONF_SHAPE,
+    CONF_SPOON_SIZES,
     CONF_STARTED_AT,
     CONF_STEPS,
     CONF_TAC_ENTITY,
@@ -61,6 +64,7 @@ from .const import (
     FILTRATION_KINDS,
     HIBERNATION_TARGET_MODES,
     SHAPES,
+    SPOON_PAIRS,
     SUBENTRY_ACTIVATION,
     SUBENTRY_HIBERNATION,
     TREATMENTS,
@@ -218,6 +222,85 @@ def _filtration_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     )
 
 
+def _spoon_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    """Build the schema for spoon size configuration.
+
+    Provides up to 3 optional name/size pairs. Each pair consists of a
+    text field for the spoon name and a number field for its volume in mL.
+    Empty name fields are ignored.
+
+    Args:
+        defaults: Optional default values to pre-populate the form.
+
+    Returns:
+        A voluptuous schema for the spoon configuration step.
+    """
+    defaults = defaults or {}
+    fields: dict[vol.Optional, Any] = {}
+    for name_key, size_key in SPOON_PAIRS:
+        fields[vol.Optional(name_key, default=defaults.get(name_key, ""))] = TextSelector(
+            TextSelectorConfig()
+        )
+        fields[vol.Optional(size_key, default=defaults.get(size_key, 0))] = NumberSelector(
+            NumberSelectorConfig(
+                min=0,
+                max=1000,
+                step=1,
+                unit_of_measurement="mL",
+                mode=NumberSelectorMode.BOX,
+            )
+        )
+    return vol.Schema(fields)
+
+
+def _parse_spoon_sizes(user_input: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract valid spoon size pairs from form data.
+
+    Iterates over the configured spoon name/size pairs and returns a list
+    of dictionaries with ``name`` and ``size_ml`` keys for each pair where
+    the name is non-empty and the size is positive.
+
+    Args:
+        user_input: Form data from the spoon configuration step.
+
+    Returns:
+        List of spoon size dicts suitable for storage in config entry data.
+    """
+    spoons: list[dict[str, Any]] = []
+    for name_key, size_key in SPOON_PAIRS:
+        name = user_input.get(name_key, "").strip()
+        size = user_input.get(size_key, 0)
+        if name and size and float(size) > 0:
+            spoons.append({"name": name, "size_ml": float(size)})
+    return spoons
+
+
+def _spoon_defaults_from_config(
+    current: dict[str, Any],
+) -> dict[str, Any]:
+    """Build spoon form defaults from stored spoon_sizes config data.
+
+    Converts the stored list of ``{"name": ..., "size_ml": ...}`` dicts
+    back into flat form field defaults for the spoon schema.
+
+    Args:
+        current: Current config data containing ``spoon_sizes`` key.
+
+    Returns:
+        Dictionary of form field defaults for ``_spoon_schema``.
+    """
+    defaults: dict[str, Any] = {}
+    spoon_list = current.get(CONF_SPOON_SIZES, [])
+    for i, (name_key, size_key) in enumerate(SPOON_PAIRS):
+        if i < len(spoon_list):
+            defaults[name_key] = spoon_list[i].get("name", "")
+            defaults[size_key] = spoon_list[i].get("size_ml", 0)
+        else:
+            defaults[name_key] = ""
+            defaults[size_key] = 0
+    return defaults
+
+
 class PoolmanConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Pool Manager."""
 
@@ -261,11 +344,27 @@ class PoolmanConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle the chemistry configuration step (treatment + sensors)."""
         if user_input is not None:
             self._user_input.update(user_input)
-            return await self.async_step_filtration()
+            return await self.async_step_spoons()
 
         return self.async_show_form(
             step_id="chemistry",
             data_schema=_chemistry_schema(),
+        )
+
+    async def async_step_spoons(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Handle the spoon size configuration step.
+
+        Optional step that lets users configure up to 3 named measuring
+        spoons. Dosage recommendations will include spoon equivalents
+        when spoon sizes are configured.
+        """
+        if user_input is not None:
+            self._user_input[CONF_SPOON_SIZES] = _parse_spoon_sizes(user_input)
+            return await self.async_step_filtration()
+
+        return self.async_show_form(
+            step_id="spoons",
+            data_schema=_spoon_schema(),
         )
 
     async def async_step_filtration(
@@ -301,7 +400,7 @@ class PoolmanOptionsFlowHandler(OptionsFlowWithConfigEntry):
         """Handle the options flow init step (chemistry settings)."""
         if user_input is not None:
             self._options.update(user_input)
-            return await self.async_step_filtration()
+            return await self.async_step_spoons()
 
         # Pre-populate with current values from options (fallback to data)
         current = {**self.config_entry.data, **self.config_entry.options}
@@ -309,6 +408,21 @@ class PoolmanOptionsFlowHandler(OptionsFlowWithConfigEntry):
         return self.async_show_form(
             step_id="init",
             data_schema=_chemistry_schema(defaults=current),
+        )
+
+    async def async_step_spoons(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Handle the spoon size options step."""
+        if user_input is not None:
+            self._options[CONF_SPOON_SIZES] = _parse_spoon_sizes(user_input)
+            return await self.async_step_filtration()
+
+        # Pre-populate with current spoon sizes
+        current = {**self.config_entry.data, **self.config_entry.options}
+        defaults = _spoon_defaults_from_config(current)
+
+        return self.async_show_form(
+            step_id="spoons",
+            data_schema=_spoon_schema(defaults=defaults),
         )
 
     async def async_step_filtration(

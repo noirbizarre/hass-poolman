@@ -80,7 +80,7 @@ Or manually add as a custom repository:
 
 Or go to **Settings > Devices & Services > Add Integration** and search for **Pool Manager**.
 
-The integration is configured through a three-step UI flow. No YAML configuration is needed.
+The integration is configured through a four-step UI flow. No YAML configuration is needed.
 
 ### Step 1: Pool basics
 
@@ -122,9 +122,39 @@ bromine-treated pool will receive bromine tablet recommendations.
 | CYA entity | entity (sensor) | Cyanuric Acid / Stabilizer sensor |
 | Hardness entity | entity (sensor) | Calcium Hardness sensor |
 
-### Step 3: Filtration
+### Step 3: Measuring spoons
 
-The third step configures your filtration system.
+The third step lets you configure up to three named measuring spoon sizes.
+When spoon sizes are defined, dosage recommendations will include an
+approximate number of spoons alongside the gram-based quantity
+(see [Spoon Equivalents](water-chemistry.md#spoon-equivalents)).
+
+This step is entirely optional -- you can skip it by submitting the form
+without filling in any spoon names.
+
+#### Optional parameters (up to 3 pairs)
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| Spoon name | text | Label for the spoon (e.g. "Small", "Large", "Tablespoon") |
+| Spoon size | number (mL) | Volume of the spoon in milliliters |
+
+Only pairs where both the name is non-empty and the size is greater than
+zero are saved.
+
+!!! tip "Common spoon sizes"
+
+    | Spoon | Approximate volume |
+    | --- | --- |
+    | Teaspoon | 5 mL |
+    | Dessertspoon | 10 mL |
+    | Tablespoon | 15 mL |
+    | Pool scoop (small) | 25 mL |
+    | Pool scoop (large) | 50 mL |
+
+### Step 4: Filtration
+
+The fourth step configures your filtration system.
 
 #### Required parameters
 
@@ -162,8 +192,9 @@ through the integration's options:
 
 1. Go to **Settings > Devices & Services**
 2. Find **Pool Manager** and click **Configure**
-3. Update the treatment type, chemistry sensors, filtration type, pump flow rate,
-   temperature sensor, outdoor temperature sensor, weather entity, or pump entity
+3. Update the treatment type, chemistry sensors, spoon sizes, filtration type,
+   pump flow rate, temperature sensor, outdoor temperature sensor, weather entity,
+   or pump entity
 
 Changes take effect immediately -- the integration reloads automatically.
 
