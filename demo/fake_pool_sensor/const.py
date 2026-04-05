@@ -98,6 +98,17 @@ SENSOR_SPECS: Final[tuple[FakeSensorSpec, ...]] = (
         icon="mdi:water-opacity",
     ),
     FakeSensorSpec(
+        key="free_chlorine",
+        name="Free chlorine",
+        default=2.0,
+        min_value=0.0,
+        max_value=10.0,
+        step=0.1,
+        noise=0.2,
+        unit="mg/L",
+        icon="mdi:flask-outline",
+    ),
+    FakeSensorSpec(
         key="outdoor_temperature",
         name="Outdoor temperature",
         default=25.0,

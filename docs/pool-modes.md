@@ -149,7 +149,8 @@ The result is bounded between **2 hours minimum** and **24 hours maximum**.
 
 ### Rules
 
-All chemistry rules are active: pH, sanitizer/ORP, TAC, and algae risk.
+All chemistry rules are active: pH, sanitizer/ORP, free chlorine, TAC, and
+algae risk.
 
 ## Hibernating
 
@@ -245,6 +246,7 @@ calibration checks remain active:
 | --- | --- | --- |
 | pH | Active | Equipment and liner protection |
 | Sanitizer/ORP | Disabled | Low bather load, reduced biological activity |
+| Free chlorine | Disabled | Supplements ORP, same winter logic |
 | TAC | Disabled | Not actionable during winter |
 | Algae risk | Disabled | Cold temperatures prevent algae growth |
 | CYA | Disabled | Not actionable during winter |
@@ -389,6 +391,7 @@ phase to bring water parameters back to safe levels.
 | Filtration | Multi-factor (2--24h) | 4h fixed | temp/3 dynamic (2--24h) | 0h | Multi-factor (2--24h) |
 | pH rule | Active | Active | Active | Disabled | Active |
 | Sanitizer/ORP rule | Active | Active | Disabled | Disabled | Active |
+| Free chlorine rule | Active | Active | Disabled | Disabled | Active |
 | TAC rule | Active | Active | Disabled | Disabled | Active |
 | Algae risk alert | Active | Active | Disabled | Disabled | Active |
 | CYA rule | Active | Active | Disabled | Disabled | Active |

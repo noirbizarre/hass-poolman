@@ -123,6 +123,16 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         extra_attrs_fn=lambda state: _source_attr(state, "orp"),
     ),
     PoolmanSensorEntityDescription(
+        key="free_chlorine",
+        translation_key="free_chlorine",
+        native_unit_of_measurement="ppm",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        icon="mdi:flask-outline",
+        value_fn=lambda state: state.reading.free_chlorine,
+        extra_attrs_fn=lambda state: _source_attr(state, "free_chlorine"),
+    ),
+    PoolmanSensorEntityDescription(
         key="filtration_duration",
         translation_key="filtration_duration",
         native_unit_of_measurement=UnitOfTime.HOURS,
@@ -194,6 +204,21 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
             state.chemistry_report.orp.status if state.chemistry_report.orp else None
         ),
         extra_attrs_fn=lambda state: _status_with_source(state, state.chemistry_report.orp, "orp"),
+    ),
+    PoolmanSensorEntityDescription(
+        key="free_chlorine_status",
+        translation_key="free_chlorine_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=_CHEMISTRY_STATUS_OPTIONS,
+        icon="mdi:flask-outline",
+        value_fn=lambda state: (
+            state.chemistry_report.free_chlorine.status
+            if state.chemistry_report.free_chlorine
+            else None
+        ),
+        extra_attrs_fn=lambda state: _status_with_source(
+            state, state.chemistry_report.free_chlorine, "free_chlorine"
+        ),
     ),
     PoolmanSensorEntityDescription(
         key="tac_status",

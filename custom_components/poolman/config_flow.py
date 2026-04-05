@@ -34,6 +34,7 @@ from .const import (
     CONF_COMPLETED_AT,
     CONF_CYA_ENTITY,
     CONF_FILTRATION_KIND,
+    CONF_FREE_CHLORINE_ENTITY,
     CONF_HARDNESS_ENTITY,
     CONF_ORP_ENTITY,
     CONF_OUTDOOR_TEMPERATURE_ENTITY,
@@ -132,6 +133,10 @@ def _chemistry_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
             vol.Required(
                 CONF_ORP_ENTITY,
                 default=defaults.get(CONF_ORP_ENTITY, vol.UNDEFINED),
+            ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+            vol.Optional(
+                CONF_FREE_CHLORINE_ENTITY,
+                default=defaults.get(CONF_FREE_CHLORINE_ENTITY, vol.UNDEFINED),
             ): EntitySelector(EntitySelectorConfig(domain="sensor")),
             vol.Optional(
                 CONF_TAC_ENTITY,

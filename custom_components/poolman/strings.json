@@ -21,12 +21,14 @@
           "treatment": "Treatment type",
           "ph_entity": "pH sensor",
           "orp_entity": "ORP sensor",
+          "free_chlorine_entity": "Free chlorine sensor",
           "tac_entity": "Total alkalinity (TAC) sensor",
           "cya_entity": "Cyanuric acid (stabilizer) sensor",
           "hardness_entity": "Calcium hardness sensor"
         },
         "data_description": {
           "treatment": "Water treatment method used in your pool.",
+          "free_chlorine_entity": "Optional. Free chlorine sensor (ppm).",
           "tac_entity": "Optional. Total alkalinity sensor.",
           "cya_entity": "Optional. Cyanuric acid (stabilizer) sensor.",
           "hardness_entity": "Optional. Calcium hardness sensor."
@@ -136,12 +138,14 @@
           "treatment": "Treatment type",
           "ph_entity": "pH sensor",
           "orp_entity": "ORP sensor",
+          "free_chlorine_entity": "Free chlorine sensor",
           "tac_entity": "Total alkalinity (TAC) sensor",
           "cya_entity": "Cyanuric acid (stabilizer) sensor",
           "hardness_entity": "Calcium hardness sensor"
         },
         "data_description": {
           "treatment": "Water treatment method used in your pool.",
+          "free_chlorine_entity": "Optional. Free chlorine sensor (ppm).",
           "tac_entity": "Optional. Total alkalinity sensor.",
           "cya_entity": "Optional. Cyanuric acid (stabilizer) sensor.",
           "hardness_entity": "Optional. Calcium hardness sensor."
@@ -180,6 +184,9 @@
       "orp": {
         "name": "ORP"
       },
+      "free_chlorine": {
+        "name": "Free chlorine"
+      },
       "filtration_duration": {
         "name": "Recommended filtration"
       },
@@ -202,6 +209,14 @@
       },
       "orp_status": {
         "name": "ORP status",
+        "state": {
+          "good": "Good",
+          "warning": "Warning",
+          "bad": "Bad"
+        }
+      },
+      "free_chlorine_status": {
+        "name": "Free chlorine status",
         "state": {
           "good": "Good",
           "warning": "Warning",
@@ -478,6 +493,16 @@
           }
         }
       },
+      "measure_free_chlorine": {
+        "name": "Free chlorine measurement",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Measured"
+            }
+          }
+        }
+      },
       "measure_tac": {
         "name": "TAC measurement",
         "state_attributes": {
@@ -622,6 +647,7 @@
       "options": {
         "ph": "pH",
         "orp": "ORP",
+        "free_chlorine": "Free chlorine",
         "tac": "Total alkalinity (TAC)",
         "cya": "Cyanuric acid (CYA)",
         "hardness": "Calcium hardness",

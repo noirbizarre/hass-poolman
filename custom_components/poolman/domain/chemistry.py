@@ -42,6 +42,10 @@ HARDNESS_MIN: float = 150.0
 HARDNESS_TARGET: float = 250.0
 HARDNESS_MAX: float = 400.0
 
+FREE_CHLORINE_MIN: float = 1.0
+FREE_CHLORINE_TARGET: float = 2.0
+FREE_CHLORINE_MAX: float = 3.0
+
 # Dosage constants (grams per 10m3 for 0.2 pH change)
 PH_DOSAGE_PER_10M3: float = 150.0
 PH_DOSAGE_STEP: float = 0.2
@@ -215,6 +219,33 @@ def compute_hardness_adjustment(pool: Pool, reading: PoolReading) -> DosageAdjus
     return None
 
 
+def compute_free_chlorine_adjustment(reading: PoolReading) -> DosageAdjustment | None:
+    """Evaluate free chlorine level and return a dosage adjustment if out of range.
+
+    Unlike other chemistry adjustments, no precise dosage can be calculated for
+    free chlorine because the effect depends on many factors (CYA level, UV
+    exposure, bather load). The recommendation points to the appropriate product
+    without a specific gram amount.
+
+    Args:
+        reading: Current sensor readings.
+
+    Returns:
+        DosageAdjustment with product (no quantity), or None if free chlorine
+        is within range.
+    """
+    if reading.free_chlorine is None:
+        return None
+
+    if reading.free_chlorine < FREE_CHLORINE_MIN:
+        return DosageAdjustment(product=ChemicalProduct.CHLORE_CHOC)
+
+    if reading.free_chlorine > FREE_CHLORINE_MAX:
+        return DosageAdjustment(product=ChemicalProduct.NEUTRALIZER)
+
+    return None
+
+
 def compute_water_quality_score(reading: PoolReading) -> int | None:
     """Compute an overall water quality score from 0 to 100.
 
@@ -234,6 +265,13 @@ def compute_water_quality_score(reading: PoolReading) -> int | None:
 
     if reading.orp is not None:
         scores.append(_score_range(reading.orp, ORP_MIN_CRITICAL, ORP_TARGET, ORP_MAX))
+
+    if reading.free_chlorine is not None:
+        scores.append(
+            _score_range(
+                reading.free_chlorine, FREE_CHLORINE_MIN, FREE_CHLORINE_TARGET, FREE_CHLORINE_MAX
+            )
+        )
 
     if reading.tac is not None:
         scores.append(_score_range(reading.tac, TAC_MIN, TAC_TARGET, TAC_MAX))
@@ -337,6 +375,16 @@ def compute_chemistry_report(reading: PoolReading) -> ChemistryReport:
         orp=(
             compute_parameter_status(reading.orp, ORP_MIN_CRITICAL, ORP_TARGET, ORP_MAX)
             if reading.orp is not None
+            else None
+        ),
+        free_chlorine=(
+            compute_parameter_status(
+                reading.free_chlorine,
+                FREE_CHLORINE_MIN,
+                FREE_CHLORINE_TARGET,
+                FREE_CHLORINE_MAX,
+            )
+            if reading.free_chlorine is not None
             else None
         ),
         tac=(

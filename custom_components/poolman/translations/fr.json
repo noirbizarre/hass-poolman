@@ -21,12 +21,14 @@
           "treatment": "Type de traitement",
           "ph_entity": "Capteur de pH",
           "orp_entity": "Capteur ORP",
+          "free_chlorine_entity": "Capteur de chlore libre",
           "tac_entity": "Capteur d'alcalinit\u00e9 totale (TAC)",
           "cya_entity": "Capteur d'acide cyanurique (stabilisant)",
           "hardness_entity": "Capteur de duret\u00e9 calcique"
         },
         "data_description": {
           "treatment": "M\u00e9thode de traitement de l'eau utilis\u00e9e dans votre piscine.",
+          "free_chlorine_entity": "Optionnel. Capteur de chlore libre (ppm).",
           "tac_entity": "Optionnel. Capteur d'alcalinit\u00e9 totale.",
           "cya_entity": "Optionnel. Capteur d'acide cyanurique (stabilisant).",
           "hardness_entity": "Optionnel. Capteur de duret\u00e9 calcique."
@@ -136,12 +138,14 @@
           "treatment": "Type de traitement",
           "ph_entity": "Capteur de pH",
           "orp_entity": "Capteur ORP",
+          "free_chlorine_entity": "Capteur de chlore libre",
           "tac_entity": "Capteur d'alcalinit\u00e9 totale (TAC)",
           "cya_entity": "Capteur d'acide cyanurique (stabilisant)",
           "hardness_entity": "Capteur de duret\u00e9 calcique"
         },
         "data_description": {
           "treatment": "M\u00e9thode de traitement de l'eau utilis\u00e9e dans votre piscine.",
+          "free_chlorine_entity": "Optionnel. Capteur de chlore libre (ppm).",
           "tac_entity": "Optionnel. Capteur d'alcalinit\u00e9 totale.",
           "cya_entity": "Optionnel. Capteur d'acide cyanurique (stabilisant).",
           "hardness_entity": "Optionnel. Capteur de duret\u00e9 calcique."
@@ -180,6 +184,9 @@
       "orp": {
         "name": "ORP"
       },
+      "free_chlorine": {
+        "name": "Chlore libre"
+      },
       "filtration_duration": {
         "name": "Filtration recommand\u00e9e"
       },
@@ -202,6 +209,14 @@
       },
       "orp_status": {
         "name": "Statut ORP",
+        "state": {
+          "good": "Bon",
+          "warning": "Attention",
+          "bad": "Mauvais"
+        }
+      },
+      "free_chlorine_status": {
+        "name": "Statut chlore libre",
         "state": {
           "good": "Bon",
           "warning": "Attention",
@@ -478,6 +493,16 @@
           }
         }
       },
+      "measure_free_chlorine": {
+        "name": "Mesure chlore libre",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Mesuré"
+            }
+          }
+        }
+      },
       "measure_tac": {
         "name": "Mesure TAC",
         "state_attributes": {
@@ -622,6 +647,7 @@
       "options": {
         "ph": "pH",
         "orp": "ORP",
+        "free_chlorine": "Chlore libre",
         "tac": "Alcalinit\u00e9 totale (TAC)",
         "cya": "Acide cyanurique (CYA)",
         "hardness": "Duret\u00e9 calcique",

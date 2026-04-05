@@ -25,6 +25,7 @@ These sensors enable additional recommendations and improve the water quality sc
 
 | Sensor | Unit | Description |
 | --- | --- | --- |
+| Free Chlorine | ppm | Free chlorine level (supplements ORP) |
 | TAC (Total Alkalinity) | ppm | Alkalinity level |
 | CYA (Cyanuric Acid) | ppm | Stabilizer level |
 | Calcium Hardness | ppm | Water hardness |
@@ -112,6 +113,7 @@ bromine-treated pool will receive bromine tablet recommendations.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
+| Free chlorine entity | entity (sensor) | Free chlorine sensor (supplements ORP for sanitizer evaluation) |
 | TAC entity | entity (sensor) | Total Alkalinity sensor |
 | CYA entity | entity (sensor) | Cyanuric Acid / Stabilizer sensor |
 | Hardness entity | entity (sensor) | Calcium Hardness sensor |

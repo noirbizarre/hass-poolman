@@ -19,6 +19,7 @@ CONF_PUMP_FLOW_M3H: Final = "pump_flow_m3h"
 # Sensor entity config keys
 CONF_PH_ENTITY: Final = "ph_entity"
 CONF_ORP_ENTITY: Final = "orp_entity"
+CONF_FREE_CHLORINE_ENTITY: Final = "free_chlorine_entity"
 CONF_TEMPERATURE_ENTITY: Final = "temperature_entity"
 CONF_TAC_ENTITY: Final = "tac_entity"
 CONF_CYA_ENTITY: Final = "cya_entity"

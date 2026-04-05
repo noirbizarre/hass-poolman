@@ -93,6 +93,26 @@ readings. The recommended products depend on the configured
 
     This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering) mode.
 
+### Free Chlorine Rule
+
+Supplements the ORP-based Sanitizer Rule with a direct free chlorine reading.
+Unlike ORP, free chlorine provides a direct measurement of available
+sanitizer. When free chlorine is configured, this rule operates alongside
+(not instead of) the sanitizer rule.
+
+| Condition | Priority | Kind | Recommendation |
+| --- | --- | --- | --- |
+| Free chlorine < 1.0 ppm | High | Requirement | Add chlorine (shock chlorine product) |
+| Free chlorine > 3.0 ppm | Low | Suggestion | Reduce chlorine dosage (neutralizer product) |
+
+No specific dosage is calculated because the required amount depends on
+multiple factors (CYA level, UV exposure, bather load).
+
+!!! note
+
+    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering)
+    and [Active Wintering](pool-modes.md#active-wintering) modes.
+
 ### Filtration Rule
 
 Recommends daily filtration duration based on the current [pool mode](pool-modes.md).

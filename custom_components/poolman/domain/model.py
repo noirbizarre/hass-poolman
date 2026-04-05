@@ -86,6 +86,7 @@ class MeasureParameter(StrEnum):
 
     PH = "ph"
     ORP = "orp"
+    FREE_CHLORINE = "free_chlorine"
     TAC = "tac"
     CYA = "cya"
     HARDNESS = "hardness"
@@ -196,6 +197,7 @@ class ChemistryReport(BaseModel, frozen=True):
 
     ph: ParameterReport | None = None
     orp: ParameterReport | None = None
+    free_chlorine: ParameterReport | None = None
     tac: ParameterReport | None = None
     cya: ParameterReport | None = None
     hardness: ParameterReport | None = None
@@ -225,6 +227,7 @@ class PoolReading(BaseModel):
 
     ph: float | None = Field(None, ge=0, le=14, description="pH level")
     orp: float | None = Field(None, description="ORP in millivolts")
+    free_chlorine: float | None = Field(None, ge=0, description="Free chlorine in ppm")
     temp_c: float | None = Field(None, description="Water temperature in Celsius")
     outdoor_temp_c: float | None = Field(None, description="Outdoor/ambient temperature in Celsius")
     tac: float | None = Field(None, ge=0, description="Total alkalinity in ppm")
@@ -338,7 +341,7 @@ class PoolState(BaseModel):
 
 
 # Chemistry parameter names evaluated for status changes
-_CHEMISTRY_PARAMS: tuple[str, ...] = ("ph", "orp", "tac", "cya", "hardness")
+_CHEMISTRY_PARAMS: tuple[str, ...] = ("ph", "orp", "free_chlorine", "tac", "cya", "hardness")
 
 
 class StatusChange(BaseModel, frozen=True):

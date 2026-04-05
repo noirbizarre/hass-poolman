@@ -22,6 +22,7 @@ from custom_components.poolman.domain.rules import (
     CalibrationRule,
     CyaRule,
     FiltrationRule,
+    FreeChlorineRule,
     HardnessRule,
     PhRule,
     RuleEngine,
@@ -384,7 +385,7 @@ class TestRuleEngine:
 
     def test_default_rules_loaded(self) -> None:
         engine = RuleEngine()
-        assert len(engine.rules) == 8
+        assert len(engine.rules) == 9
 
     def test_good_readings_produce_filtration_only(
         self, pool: Pool, good_reading: PoolReading
@@ -596,6 +597,73 @@ class TestHardnessRule:
         assert result == []
 
 
+class TestFreeChlorineRule:
+    """Tests for free chlorine rule evaluation."""
+
+    def test_in_range_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(free_chlorine=2.0)
+        result = FreeChlorineRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert result == []
+
+    def test_too_low_recommends_chlore_choc(self, pool: Pool) -> None:
+        reading = PoolReading(free_chlorine=0.5)
+        result = FreeChlorineRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert len(result) == 1
+        assert result[0].product == "chlore_choc"
+        assert result[0].type == RecommendationType.CHEMICAL
+        assert result[0].priority == RecommendationPriority.HIGH
+        assert result[0].kind == ActionKind.REQUIREMENT
+
+    def test_too_high_recommends_neutralizer(self, pool: Pool) -> None:
+        reading = PoolReading(free_chlorine=4.0)
+        result = FreeChlorineRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert len(result) == 1
+        assert result[0].product == "neutralizer"
+        assert result[0].type == RecommendationType.ALERT
+        assert result[0].priority == RecommendationPriority.LOW
+        assert result[0].kind == ActionKind.SUGGESTION
+
+    def test_none_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(free_chlorine=None)
+        result = FreeChlorineRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert result == []
+
+    def test_winter_passive_skips(self, pool: Pool) -> None:
+        reading = PoolReading(free_chlorine=0.5)
+        result = FreeChlorineRule().evaluate(pool, reading, PoolMode.WINTER_PASSIVE)
+        assert result == []
+
+    def test_winter_active_skips(self, pool: Pool) -> None:
+        """Free chlorine rule should skip in active winter mode (like SanitizerRule)."""
+        reading = PoolReading(free_chlorine=0.5)
+        result = FreeChlorineRule().evaluate(pool, reading, PoolMode.WINTER_ACTIVE)
+        assert result == []
+
+    def test_hibernating_evaluates(self, pool: Pool) -> None:
+        """Free chlorine rule should still evaluate in hibernating mode."""
+        reading = PoolReading(free_chlorine=0.5)
+        result = FreeChlorineRule().evaluate(pool, reading, PoolMode.HIBERNATING)
+        assert len(result) == 1
+        assert result[0].product == "chlore_choc"
+
+    def test_activating_evaluates(self, pool: Pool) -> None:
+        """Free chlorine rule should still evaluate in activating mode."""
+        reading = PoolReading(free_chlorine=0.5)
+        result = FreeChlorineRule().evaluate(pool, reading, PoolMode.ACTIVATING)
+        assert len(result) == 1
+        assert result[0].product == "chlore_choc"
+
+    def test_at_min_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(free_chlorine=1.0)
+        result = FreeChlorineRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert result == []
+
+    def test_at_max_no_recommendation(self, pool: Pool) -> None:
+        reading = PoolReading(free_chlorine=3.0)
+        result = FreeChlorineRule().evaluate(pool, reading, PoolMode.ACTIVE)
+        assert result == []
+
+
 def _ts() -> datetime:
     """Return a fixed timestamp for test measures."""
     return datetime(2025, 7, 15, 10, 0, tzinfo=UTC)
@@ -770,6 +838,20 @@ class TestCalibrationRule:
         )
         assert len(result) == 1
         assert "hardness" in result[0].message
+
+    def test_free_chlorine_deviation(self, pool: Pool) -> None:
+        """Free chlorine deviation exceeding 0.5 ppm should generate recommendation."""
+        reading = PoolReading(free_chlorine=2.8)
+        measures = {
+            MeasureParameter.FREE_CHLORINE: ManualMeasure(
+                parameter=MeasureParameter.FREE_CHLORINE, value=2.0, measured_at=_ts()
+            ),
+        }
+        result = CalibrationRule().evaluate(
+            pool, reading, PoolMode.ACTIVE, manual_measures=measures
+        )
+        assert len(result) == 1
+        assert "free chlorine" in result[0].message
 
     def test_winter_active_evaluates(self, pool: Pool) -> None:
         """CalibrationRule should still evaluate in active winter mode."""

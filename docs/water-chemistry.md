@@ -4,7 +4,7 @@ icon: lucide/flask-conical
 
 # Water Chemistry
 
-Pool Manager monitors up to five water chemistry parameters. Each parameter
+Pool Manager monitors up to six water chemistry parameters. Each parameter
 has a defined acceptable range and an ideal target value used for scoring
 and dosage calculations.
 
@@ -14,6 +14,7 @@ and dosage calculations.
 | --- | --- | --- | --- | --- |
 | pH | -- | 6.8 | 7.2 | 7.8 |
 | ORP | mV | 650 | 750 | 900 |
+| Free Chlorine | ppm | 1.0 | 2.0 | 3.0 |
 | TAC (Total Alkalinity) | ppm | 80 | 120 | 150 |
 | CYA (Cyanuric Acid) | ppm | 20 | 40 | 75 |
 | Calcium Hardness | ppm | 150 | 250 | 400 |
@@ -91,8 +92,8 @@ The overall water quality score is the **average** of all individual parameter s
 
 Only parameters for which a sensor is configured and currently reporting a
 valid value are included in the score. If you only have pH and ORP sensors,
-the score is computed from those two. Adding TAC, CYA, or hardness sensors
-increases the accuracy of the score.
+the score is computed from those two. Adding free chlorine, TAC, CYA, or
+hardness sensors increases the accuracy of the score.
 
 If no parameter has a valid reading, the score is unavailable.
 
@@ -197,3 +198,19 @@ The integration recommends a partial water drain instead.
 
     - Delta: 250 - 100 = 150
     - Quantity: 150 x 1.5 x 50 = **11250 g of calcium hardness increaser**
+
+## Free Chlorine
+
+Free chlorine measures the amount of active, available chlorine in the water.
+Unlike ORP (which provides an indirect measure of sanitizer effectiveness),
+free chlorine is a direct measurement that supplements the ORP-based
+sanitizer evaluation.
+
+When free chlorine is out of range, Pool Manager recommends the appropriate
+product but does **not** calculate a specific dosage, because the required
+amount depends on many factors (CYA level, UV exposure, bather load, etc.):
+
+| Condition | Recommended product |
+| --- | --- |
+| Free chlorine < 1.0 ppm | Shock chlorine |
+| Free chlorine > 3.0 ppm | Neutralizer |
