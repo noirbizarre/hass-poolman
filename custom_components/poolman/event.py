@@ -225,6 +225,18 @@ MEASURE_EVENT_DESCRIPTIONS: tuple[PoolmanMeasureEventEntityDescription, ...] = (
         parameter=MeasureParameter.ORP,
     ),
     PoolmanMeasureEventEntityDescription(
+        key="measure_free_chlorine",
+        translation_key="measure_free_chlorine",
+        event_types=["measured"],
+        parameter=MeasureParameter.FREE_CHLORINE,
+    ),
+    PoolmanMeasureEventEntityDescription(
+        key="measure_ec",
+        translation_key="measure_ec",
+        event_types=["measured"],
+        parameter=MeasureParameter.EC,
+    ),
+    PoolmanMeasureEventEntityDescription(
         key="measure_tac",
         translation_key="measure_tac",
         event_types=["measured"],
@@ -241,6 +253,12 @@ MEASURE_EVENT_DESCRIPTIONS: tuple[PoolmanMeasureEventEntityDescription, ...] = (
         translation_key="measure_hardness",
         event_types=["measured"],
         parameter=MeasureParameter.HARDNESS,
+    ),
+    PoolmanMeasureEventEntityDescription(
+        key="measure_salt",
+        translation_key="measure_salt",
+        event_types=["measured"],
+        parameter=MeasureParameter.SALT,
     ),
     PoolmanMeasureEventEntityDescription(
         key="measure_temperature",

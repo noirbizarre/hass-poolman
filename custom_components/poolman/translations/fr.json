@@ -21,12 +21,18 @@
           "treatment": "Type de traitement",
           "ph_entity": "Capteur de pH",
           "orp_entity": "Capteur ORP",
+          "free_chlorine_entity": "Capteur de chlore libre",
+          "ec_entity": "Capteur de conductivité (EC)",
+          "salt_entity": "Capteur de sel",
           "tac_entity": "Capteur d'alcalinit\u00e9 totale (TAC)",
           "cya_entity": "Capteur d'acide cyanurique (stabilisant)",
           "hardness_entity": "Capteur de duret\u00e9 calcique"
         },
         "data_description": {
           "treatment": "M\u00e9thode de traitement de l'eau utilis\u00e9e dans votre piscine.",
+          "free_chlorine_entity": "Optionnel. Capteur de chlore libre (ppm).",
+          "ec_entity": "Optionnel. Capteur de conductivité électrique (µS/cm).",
+          "salt_entity": "Optionnel. Capteur de niveau de sel (ppm).",
           "tac_entity": "Optionnel. Capteur d'alcalinit\u00e9 totale.",
           "cya_entity": "Optionnel. Capteur d'acide cyanurique (stabilisant).",
           "hardness_entity": "Optionnel. Capteur de duret\u00e9 calcique."
@@ -136,12 +142,18 @@
           "treatment": "Type de traitement",
           "ph_entity": "Capteur de pH",
           "orp_entity": "Capteur ORP",
+          "free_chlorine_entity": "Capteur de chlore libre",
+          "ec_entity": "Capteur de conductivité (EC)",
+          "salt_entity": "Capteur de sel",
           "tac_entity": "Capteur d'alcalinit\u00e9 totale (TAC)",
           "cya_entity": "Capteur d'acide cyanurique (stabilisant)",
           "hardness_entity": "Capteur de duret\u00e9 calcique"
         },
         "data_description": {
           "treatment": "M\u00e9thode de traitement de l'eau utilis\u00e9e dans votre piscine.",
+          "free_chlorine_entity": "Optionnel. Capteur de chlore libre (ppm).",
+          "ec_entity": "Optionnel. Capteur de conductivité électrique (µS/cm).",
+          "salt_entity": "Optionnel. Capteur de niveau de sel (ppm).",
           "tac_entity": "Optionnel. Capteur d'alcalinit\u00e9 totale.",
           "cya_entity": "Optionnel. Capteur d'acide cyanurique (stabilisant).",
           "hardness_entity": "Optionnel. Capteur de duret\u00e9 calcique."
@@ -180,6 +192,15 @@
       "orp": {
         "name": "ORP"
       },
+      "free_chlorine": {
+        "name": "Chlore libre"
+      },
+      "ec": {
+        "name": "Conductivité électrique"
+      },
+      "salt_level": {
+        "name": "Niveau de sel"
+      },
       "filtration_duration": {
         "name": "Filtration recommand\u00e9e"
       },
@@ -208,6 +229,14 @@
           "bad": "Mauvais"
         }
       },
+      "free_chlorine_status": {
+        "name": "Statut chlore libre",
+        "state": {
+          "good": "Bon",
+          "warning": "Attention",
+          "bad": "Mauvais"
+        }
+      },
       "tac_status": {
         "name": "Statut TAC",
         "state": {
@@ -226,6 +255,14 @@
       },
       "hardness_status": {
         "name": "Statut dureté",
+        "state": {
+          "good": "Bon",
+          "warning": "Attention",
+          "bad": "Mauvais"
+        }
+      },
+      "salt_status": {
+        "name": "Statut sel",
         "state": {
           "good": "Bon",
           "warning": "Attention",
@@ -478,6 +515,36 @@
           }
         }
       },
+      "measure_free_chlorine": {
+        "name": "Mesure chlore libre",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Mesuré"
+            }
+          }
+        }
+      },
+      "measure_ec": {
+        "name": "Mesure conductivité",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Mesuré"
+            }
+          }
+        }
+      },
+      "measure_salt": {
+        "name": "Mesure sel",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "measured": "Mesuré"
+            }
+          }
+        }
+      },
       "measure_tac": {
         "name": "Mesure TAC",
         "state_attributes": {
@@ -622,6 +689,9 @@
       "options": {
         "ph": "pH",
         "orp": "ORP",
+        "free_chlorine": "Chlore libre",
+        "ec": "Conductivité électrique (EC)",
+        "salt": "Sel",
         "tac": "Alcalinit\u00e9 totale (TAC)",
         "cya": "Acide cyanurique (CYA)",
         "hardness": "Duret\u00e9 calcique",

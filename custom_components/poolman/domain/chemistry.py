@@ -42,6 +42,14 @@ HARDNESS_MIN: float = 150.0
 HARDNESS_TARGET: float = 250.0
 HARDNESS_MAX: float = 400.0
 
+FREE_CHLORINE_MIN: float = 1.0
+FREE_CHLORINE_TARGET: float = 2.0
+FREE_CHLORINE_MAX: float = 3.0
+
+SALT_MIN: float = 2700.0
+SALT_TARGET: float = 3200.0
+SALT_MAX: float = 3400.0
+
 # Dosage constants (grams per 10m3 for 0.2 pH change)
 PH_DOSAGE_PER_10M3: float = 150.0
 PH_DOSAGE_STEP: float = 0.2
@@ -157,6 +165,9 @@ CYA_DOSAGE_PER_M3_PER_PPM: float = 1.0
 # Hardness dosage: ~1.5g of CaCl2 per 1 m3 raises hardness by 1 ppm
 HARDNESS_DOSAGE_PER_M3_PER_PPM: float = 1.5
 
+# Salt dosage: ~3 kg of salt per 1 m3 raises salt by 1000 ppm
+SALT_DOSAGE_PER_M3_PER_1000PPM: float = 3000.0
+
 
 def compute_cya_adjustment(pool: Pool, reading: PoolReading) -> DosageAdjustment | None:
     """Compute cyanuric acid (stabilizer) adjustment recommendation.
@@ -215,6 +226,60 @@ def compute_hardness_adjustment(pool: Pool, reading: PoolReading) -> DosageAdjus
     return None
 
 
+def compute_free_chlorine_adjustment(reading: PoolReading) -> DosageAdjustment | None:
+    """Evaluate free chlorine level and return a dosage adjustment if out of range.
+
+    Unlike other chemistry adjustments, no precise dosage can be calculated for
+    free chlorine because the effect depends on many factors (CYA level, UV
+    exposure, bather load). The recommendation points to the appropriate product
+    without a specific gram amount.
+
+    Args:
+        reading: Current sensor readings.
+
+    Returns:
+        DosageAdjustment with product (no quantity), or None if free chlorine
+        is within range.
+    """
+    if reading.free_chlorine is None:
+        return None
+
+    if reading.free_chlorine < FREE_CHLORINE_MIN:
+        return DosageAdjustment(product=ChemicalProduct.CHLORE_CHOC)
+
+    if reading.free_chlorine > FREE_CHLORINE_MAX:
+        return DosageAdjustment(product=ChemicalProduct.NEUTRALIZER)
+
+    return None
+
+
+def compute_salt_adjustment(pool: Pool, reading: PoolReading) -> DosageAdjustment | None:
+    """Compute salt level adjustment recommendation.
+
+    Uses ~3 kg of salt per m3 to raise salt by 1000 ppm.
+    Returns None when salt is within range or above maximum (no chemical
+    fix for excess salt -- partial drain is the only option).
+
+    Args:
+        pool: Pool physical characteristics.
+        reading: Current sensor readings.
+
+    Returns:
+        DosageAdjustment with product and quantity, or None if salt is in
+        range or no chemical fix is available.
+    """
+    if reading.salt is None:
+        return None
+
+    if reading.salt < SALT_MIN:
+        delta_ppm = SALT_TARGET - reading.salt
+        quantity = (delta_ppm / 1000) * SALT_DOSAGE_PER_M3_PER_1000PPM * pool.volume_m3
+        return DosageAdjustment(product=ChemicalProduct.SALT, quantity_g=round(quantity, 0))
+
+    # Salt above max: no chemical product can lower it
+    return None
+
+
 def compute_water_quality_score(reading: PoolReading) -> int | None:
     """Compute an overall water quality score from 0 to 100.
 
@@ -235,6 +300,13 @@ def compute_water_quality_score(reading: PoolReading) -> int | None:
     if reading.orp is not None:
         scores.append(_score_range(reading.orp, ORP_MIN_CRITICAL, ORP_TARGET, ORP_MAX))
 
+    if reading.free_chlorine is not None:
+        scores.append(
+            _score_range(
+                reading.free_chlorine, FREE_CHLORINE_MIN, FREE_CHLORINE_TARGET, FREE_CHLORINE_MAX
+            )
+        )
+
     if reading.tac is not None:
         scores.append(_score_range(reading.tac, TAC_MIN, TAC_TARGET, TAC_MAX))
 
@@ -243,6 +315,9 @@ def compute_water_quality_score(reading: PoolReading) -> int | None:
 
     if reading.hardness is not None:
         scores.append(_score_range(reading.hardness, HARDNESS_MIN, HARDNESS_TARGET, HARDNESS_MAX))
+
+    if reading.salt is not None:
+        scores.append(_score_range(reading.salt, SALT_MIN, SALT_TARGET, SALT_MAX))
 
     if not scores:
         return None
@@ -337,6 +412,21 @@ def compute_chemistry_report(reading: PoolReading) -> ChemistryReport:
         orp=(
             compute_parameter_status(reading.orp, ORP_MIN_CRITICAL, ORP_TARGET, ORP_MAX)
             if reading.orp is not None
+            else None
+        ),
+        free_chlorine=(
+            compute_parameter_status(
+                reading.free_chlorine,
+                FREE_CHLORINE_MIN,
+                FREE_CHLORINE_TARGET,
+                FREE_CHLORINE_MAX,
+            )
+            if reading.free_chlorine is not None
+            else None
+        ),
+        salt=(
+            compute_parameter_status(reading.salt, SALT_MIN, SALT_TARGET, SALT_MAX)
+            if reading.salt is not None
             else None
         ),
         tac=(

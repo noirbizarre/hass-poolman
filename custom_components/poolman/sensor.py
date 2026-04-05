@@ -123,6 +123,36 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         extra_attrs_fn=lambda state: _source_attr(state, "orp"),
     ),
     PoolmanSensorEntityDescription(
+        key="free_chlorine",
+        translation_key="free_chlorine",
+        native_unit_of_measurement="ppm",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        icon="mdi:flask-outline",
+        value_fn=lambda state: state.reading.free_chlorine,
+        extra_attrs_fn=lambda state: _source_attr(state, "free_chlorine"),
+    ),
+    PoolmanSensorEntityDescription(
+        key="ec",
+        translation_key="ec",
+        native_unit_of_measurement="µS/cm",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        icon="mdi:flash-outline",
+        value_fn=lambda state: state.reading.ec,
+        extra_attrs_fn=lambda state: _source_attr(state, "ec"),
+    ),
+    PoolmanSensorEntityDescription(
+        key="salt",
+        translation_key="salt_level",
+        native_unit_of_measurement="ppm",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        icon="mdi:shaker-outline",
+        value_fn=lambda state: state.reading.salt,
+        extra_attrs_fn=lambda state: _source_attr(state, "salt"),
+    ),
+    PoolmanSensorEntityDescription(
         key="filtration_duration",
         translation_key="filtration_duration",
         native_unit_of_measurement=UnitOfTime.HOURS,
@@ -196,6 +226,21 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         extra_attrs_fn=lambda state: _status_with_source(state, state.chemistry_report.orp, "orp"),
     ),
     PoolmanSensorEntityDescription(
+        key="free_chlorine_status",
+        translation_key="free_chlorine_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=_CHEMISTRY_STATUS_OPTIONS,
+        icon="mdi:flask-outline",
+        value_fn=lambda state: (
+            state.chemistry_report.free_chlorine.status
+            if state.chemistry_report.free_chlorine
+            else None
+        ),
+        extra_attrs_fn=lambda state: _status_with_source(
+            state, state.chemistry_report.free_chlorine, "free_chlorine"
+        ),
+    ),
+    PoolmanSensorEntityDescription(
         key="tac_status",
         translation_key="tac_status",
         device_class=SensorDeviceClass.ENUM,
@@ -228,6 +273,19 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         ),
         extra_attrs_fn=lambda state: _status_with_source(
             state, state.chemistry_report.hardness, "hardness"
+        ),
+    ),
+    PoolmanSensorEntityDescription(
+        key="salt_status",
+        translation_key="salt_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=_CHEMISTRY_STATUS_OPTIONS,
+        icon="mdi:shaker-outline",
+        value_fn=lambda state: (
+            state.chemistry_report.salt.status if state.chemistry_report.salt else None
+        ),
+        extra_attrs_fn=lambda state: _status_with_source(
+            state, state.chemistry_report.salt, "salt"
         ),
     ),
     PoolmanSensorEntityDescription(

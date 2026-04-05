@@ -17,13 +17,16 @@ from homeassistant.util.dt import utcnow
 from .const import (
     CONF_COMPLETED_AT,
     CONF_CYA_ENTITY,
+    CONF_EC_ENTITY,
     CONF_FILTRATION_KIND,
+    CONF_FREE_CHLORINE_ENTITY,
     CONF_HARDNESS_ENTITY,
     CONF_ORP_ENTITY,
     CONF_OUTDOOR_TEMPERATURE_ENTITY,
     CONF_PH_ENTITY,
     CONF_PUMP_ENTITY,
     CONF_PUMP_FLOW_M3H,
+    CONF_SALT_ENTITY,
     CONF_SHAPE,
     CONF_STEPS,
     CONF_TAC_ENTITY,
@@ -77,6 +80,9 @@ type PoolmanConfigEntry = ConfigEntry[PoolmanCoordinator]
 _MEASURE_SENSOR_KEY: dict[MeasureParameter, str] = {
     MeasureParameter.PH: CONF_PH_ENTITY,
     MeasureParameter.ORP: CONF_ORP_ENTITY,
+    MeasureParameter.FREE_CHLORINE: CONF_FREE_CHLORINE_ENTITY,
+    MeasureParameter.EC: CONF_EC_ENTITY,
+    MeasureParameter.SALT: CONF_SALT_ENTITY,
     MeasureParameter.TAC: CONF_TAC_ENTITY,
     MeasureParameter.CYA: CONF_CYA_ENTITY,
     MeasureParameter.HARDNESS: CONF_HARDNESS_ENTITY,
@@ -653,6 +659,22 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         if orp_src:
             reading_sources["orp"] = orp_src
 
+        free_chlorine, free_chlorine_src = self._read_with_fallback(
+            CONF_FREE_CHLORINE_ENTITY, MeasureParameter.FREE_CHLORINE, manual_measures
+        )
+        if free_chlorine_src:
+            reading_sources["free_chlorine"] = free_chlorine_src
+
+        ec, ec_src = self._read_with_fallback(CONF_EC_ENTITY, MeasureParameter.EC, manual_measures)
+        if ec_src:
+            reading_sources["ec"] = ec_src
+
+        salt, salt_src = self._read_with_fallback(
+            CONF_SALT_ENTITY, MeasureParameter.SALT, manual_measures
+        )
+        if salt_src:
+            reading_sources["salt"] = salt_src
+
         temp_c, temp_src = self._read_with_fallback(
             CONF_TEMPERATURE_ENTITY, MeasureParameter.TEMPERATURE, manual_measures
         )
@@ -684,6 +706,9 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         reading = PoolReading(
             ph=ph,
             orp=orp,
+            free_chlorine=free_chlorine,
+            ec=ec,
+            salt=salt,
             temp_c=temp_c,
             outdoor_temp_c=outdoor_temp_c,
             tac=tac,
@@ -698,6 +723,9 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         sensor_reading = PoolReading(
             ph=self._read_sensor(CONF_PH_ENTITY),
             orp=self._read_sensor(CONF_ORP_ENTITY),
+            free_chlorine=self._read_sensor(CONF_FREE_CHLORINE_ENTITY),
+            ec=self._read_sensor(CONF_EC_ENTITY),
+            salt=self._read_sensor(CONF_SALT_ENTITY),
             temp_c=self._read_sensor(CONF_TEMPERATURE_ENTITY),
             outdoor_temp_c=outdoor_temp_c,
             tac=self._read_sensor(CONF_TAC_ENTITY),

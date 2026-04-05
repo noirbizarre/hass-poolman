@@ -51,7 +51,7 @@ def mock_config_entry() -> MockConfigEntry:
         title="Test Pool",
         data=MOCK_CONFIG_DATA.copy(),
         version=1,
-        minor_version=3,
+        minor_version=4,
     )
 
 
@@ -65,7 +65,7 @@ def mock_config_entry_no_pump() -> MockConfigEntry:
         title="Test Pool",
         data=data,
         version=1,
-        minor_version=3,
+        minor_version=4,
     )
 
 
@@ -95,6 +95,9 @@ def good_reading() -> PoolReading:
         orp=750.0,
         temp_c=26.0,
         outdoor_temp_c=25.0,
+        free_chlorine=2.0,
+        ec=500.0,
+        salt=3200.0,
         tac=120.0,
         cya=40.0,
         hardness=250.0,
@@ -109,6 +112,9 @@ def bad_reading() -> PoolReading:
         orp=600.0,
         temp_c=30.0,
         outdoor_temp_c=35.0,
+        free_chlorine=0.5,
+        ec=1500.0,
+        salt=2000.0,
         tac=60.0,
         cya=10.0,
         hardness=500.0,

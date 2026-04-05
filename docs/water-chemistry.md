@@ -4,7 +4,7 @@ icon: lucide/flask-conical
 
 # Water Chemistry
 
-Pool Manager monitors up to five water chemistry parameters. Each parameter
+Pool Manager monitors up to seven water chemistry parameters. Each parameter
 has a defined acceptable range and an ideal target value used for scoring
 and dosage calculations.
 
@@ -14,6 +14,8 @@ and dosage calculations.
 | --- | --- | --- | --- | --- |
 | pH | -- | 6.8 | 7.2 | 7.8 |
 | ORP | mV | 650 | 750 | 900 |
+| Free Chlorine | ppm | 1.0 | 2.0 | 3.0 |
+| Salt | ppm | 2700 | 3200 | 3400 |
 | TAC (Total Alkalinity) | ppm | 80 | 120 | 150 |
 | CYA (Cyanuric Acid) | ppm | 20 | 40 | 75 |
 | Calcium Hardness | ppm | 150 | 250 | 400 |
@@ -91,8 +93,8 @@ The overall water quality score is the **average** of all individual parameter s
 
 Only parameters for which a sensor is configured and currently reporting a
 valid value are included in the score. If you only have pH and ORP sensors,
-the score is computed from those two. Adding TAC, CYA, or hardness sensors
-increases the accuracy of the score.
+the score is computed from those two. Adding free chlorine, salt, TAC, CYA, or
+hardness sensors increases the accuracy of the score.
 
 If no parameter has a valid reading, the score is unavailable.
 
@@ -197,3 +199,74 @@ The integration recommends a partial water drain instead.
 
     - Delta: 250 - 100 = 150
     - Quantity: 150 x 1.5 x 50 = **11250 g of calcium hardness increaser**
+
+## Free Chlorine
+
+Free chlorine measures the amount of active, available chlorine in the water.
+Unlike ORP (which provides an indirect measure of sanitizer effectiveness),
+free chlorine is a direct measurement that supplements the ORP-based
+sanitizer evaluation.
+
+When free chlorine is out of range, Pool Manager recommends the appropriate
+product but does **not** calculate a specific dosage, because the required
+amount depends on many factors (CYA level, UV exposure, bather load, etc.):
+
+| Condition | Recommended product |
+| --- | --- |
+| Free chlorine < 1.0 ppm | Shock chlorine |
+| Free chlorine > 3.0 ppm | Neutralizer |
+
+## Electrical Conductivity (EC)
+
+Electrical conductivity (EC) measures the water's ability to conduct an
+electrical current, which correlates with total dissolved solids (TDS).
+It is a useful diagnostic indicator for tracking mineral buildup, salt
+levels, or general water freshness over time.
+
+EC is exposed as a **read-only sensor** with no status, no scoring, and
+no rules. There is no universal ideal range because acceptable EC values
+vary widely depending on treatment type (salt electrolysis pools run at
+3000--6000 µS/cm, while chlorine-treated pools are typically 500--1500
+µS/cm), water source, and local conditions.
+
+Use the `sensor.{pool}_ec` entity for trending and diagnostics in your
+dashboards.
+
+## Salt
+
+Salt level monitoring is relevant for pools using **salt electrolysis**
+treatment. The salt sensor tracks the concentration of dissolved salt
+in the water, which is critical for the electrolysis cell to function
+properly.
+
+When salt level is out of range, Pool Manager recommends the appropriate
+action:
+
+| Condition | Recommended action |
+| --- | --- |
+| Salt < 2700 ppm | Add salt with calculated dosage |
+| Salt > 3400 ppm | Partial water drain (no chemical fix) |
+
+### Salt Dosage Calculation
+
+When salt falls below the minimum (2700 ppm), the integration calculates
+the salt dosage needed to reach the target (3200 ppm):
+
+$$
+\text{quantity (g)} = \frac{\text{target} - \text{salt}}{1000} \times 3000 \times \text{volume\_m3}
+$$
+
+Where **3 kg of salt per m³** raises salt level by **1000 ppm**.
+
+??? example "Salt dosage example"
+
+    For a 50 m³ pool with salt at 2000 ppm:
+
+    - Delta: 3200 - 2000 = 1200
+    - Quantity: (1200 / 1000) x 3000 x 50 = **180000 g (180 kg) of salt**
+
+!!! note
+
+    The salt rule only activates when the pool treatment type is set to
+    **Salt electrolysis**. For other treatment types, salt level is still
+    tracked if a sensor is configured, but no recommendations are generated.

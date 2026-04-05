@@ -33,7 +33,9 @@ from .const import (
     ACTIVATION_SOURCE_MODES,
     CONF_COMPLETED_AT,
     CONF_CYA_ENTITY,
+    CONF_EC_ENTITY,
     CONF_FILTRATION_KIND,
+    CONF_FREE_CHLORINE_ENTITY,
     CONF_HARDNESS_ENTITY,
     CONF_ORP_ENTITY,
     CONF_OUTDOOR_TEMPERATURE_ENTITY,
@@ -41,6 +43,7 @@ from .const import (
     CONF_POOL_NAME,
     CONF_PUMP_ENTITY,
     CONF_PUMP_FLOW_M3H,
+    CONF_SALT_ENTITY,
     CONF_SHAPE,
     CONF_STARTED_AT,
     CONF_STEPS,
@@ -134,6 +137,18 @@ def _chemistry_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 default=defaults.get(CONF_ORP_ENTITY, vol.UNDEFINED),
             ): EntitySelector(EntitySelectorConfig(domain="sensor")),
             vol.Optional(
+                CONF_FREE_CHLORINE_ENTITY,
+                default=defaults.get(CONF_FREE_CHLORINE_ENTITY, vol.UNDEFINED),
+            ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+            vol.Optional(
+                CONF_EC_ENTITY,
+                default=defaults.get(CONF_EC_ENTITY, vol.UNDEFINED),
+            ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+            vol.Optional(
+                CONF_SALT_ENTITY,
+                default=defaults.get(CONF_SALT_ENTITY, vol.UNDEFINED),
+            ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+            vol.Optional(
                 CONF_TAC_ENTITY,
                 default=defaults.get(CONF_TAC_ENTITY, vol.UNDEFINED),
             ): EntitySelector(EntitySelectorConfig(domain="sensor")),
@@ -207,7 +222,7 @@ class PoolmanConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Pool Manager."""
 
     VERSION = 1
-    MINOR_VERSION = 3
+    MINOR_VERSION = 4
 
     def __init__(self) -> None:
         """Initialize the config flow."""

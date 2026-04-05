@@ -12,6 +12,8 @@ from abc import ABC, abstractmethod
 from .chemistry import (
     CYA_MAX,
     CYA_MIN,
+    FREE_CHLORINE_MAX,
+    FREE_CHLORINE_MIN,
     HARDNESS_MAX,
     HARDNESS_MIN,
     ORP_MAX,
@@ -20,11 +22,15 @@ from .chemistry import (
     PH_MIN,
     PH_TARGET,
     PH_TOLERANCE,
+    SALT_MAX,
+    SALT_MIN,
     TAC_MAX,
     TAC_MIN,
     compute_cya_adjustment,
+    compute_free_chlorine_adjustment,
     compute_hardness_adjustment,
     compute_ph_adjustment,
+    compute_salt_adjustment,
     compute_sanitizer_status,
     compute_tac_adjustment,
 )
@@ -290,6 +296,57 @@ class AlgaeRiskRule(Rule):
         return []
 
 
+class FreeChlorineRule(Rule):
+    """Rule for free chlorine level evaluation.
+
+    Supplements the ORP-based SanitizerRule with a direct chlorine reading.
+    Low free chlorine (< 1 ppm) requires immediate action; high free chlorine
+    (> 3 ppm) suggests reducing dosage.
+    """
+
+    def evaluate(
+        self,
+        pool: Pool,
+        reading: PoolReading,
+        mode: PoolMode,
+        manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
+    ) -> list[Recommendation]:
+        """Evaluate free chlorine and recommend adjustments."""
+        if (
+            mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE)
+            or reading.free_chlorine is None
+        ):
+            return []
+
+        result = compute_free_chlorine_adjustment(reading)
+        if result is None:
+            return []
+
+        if reading.free_chlorine < FREE_CHLORINE_MIN:
+            return [
+                Recommendation(
+                    type=RecommendationType.CHEMICAL,
+                    priority=RecommendationPriority.HIGH,
+                    kind=ActionKind.REQUIREMENT,
+                    message="Free chlorine too low, add chlorine",
+                    product=result.product,
+                )
+            ]
+
+        if reading.free_chlorine > FREE_CHLORINE_MAX:
+            return [
+                Recommendation(
+                    type=RecommendationType.ALERT,
+                    priority=RecommendationPriority.LOW,
+                    kind=ActionKind.SUGGESTION,
+                    message="Free chlorine too high, reduce chlorine dosage",
+                    product=result.product,
+                )
+            ]
+
+        return []
+
+
 class CyaRule(Rule):
     """Rule for cyanuric acid (stabilizer) level adjustment.
 
@@ -386,12 +443,67 @@ class HardnessRule(Rule):
         return []
 
 
+class SaltRule(Rule):
+    """Rule for salt level adjustment in salt electrolysis pools.
+
+    Only evaluates when the pool treatment is salt electrolysis.
+    Salt below minimum requires adding salt (with dosage).
+    Salt above maximum has no chemical fix -- recommends partial drain.
+    Disabled in winter modes (passive and active).
+    """
+
+    def evaluate(
+        self,
+        pool: Pool,
+        reading: PoolReading,
+        mode: PoolMode,
+        manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
+    ) -> list[Recommendation]:
+        """Evaluate salt level and recommend adjustments."""
+        if pool.treatment != TreatmentType.SALT_ELECTROLYSIS:
+            return []
+
+        if mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE) or reading.salt is None:
+            return []
+
+        result = compute_salt_adjustment(pool, reading)
+
+        if reading.salt < SALT_MIN:
+            if result is None:
+                return []
+            return [
+                Recommendation(
+                    type=RecommendationType.CHEMICAL,
+                    priority=RecommendationPriority.MEDIUM,
+                    kind=ActionKind.REQUIREMENT,
+                    message=f"Add {result.quantity_g:.0f}g of salt (salt level too low)",
+                    product=result.product,
+                    quantity_g=result.quantity_g,
+                )
+            ]
+
+        if reading.salt > SALT_MAX:
+            return [
+                Recommendation(
+                    type=RecommendationType.ALERT,
+                    priority=RecommendationPriority.LOW,
+                    kind=ActionKind.REQUIREMENT,
+                    message="Salt level too high, consider partial water drain",
+                )
+            ]
+
+        return []
+
+
 # Deviation thresholds per parameter for calibration checks.
 # When the absolute difference between a sensor reading and the last manual
 # measurement exceeds these values, a calibration recommendation is generated.
 _CALIBRATION_THRESHOLDS: dict[MeasureParameter, float] = {
     MeasureParameter.PH: 0.3,
     MeasureParameter.ORP: 50.0,
+    MeasureParameter.FREE_CHLORINE: 0.5,
+    MeasureParameter.EC: 100.0,
+    MeasureParameter.SALT: 100.0,
     MeasureParameter.TAC: 20.0,
     MeasureParameter.CYA: 10.0,
     MeasureParameter.HARDNESS: 50.0,
@@ -402,6 +514,9 @@ _CALIBRATION_THRESHOLDS: dict[MeasureParameter, float] = {
 _MEASURE_TO_READING_FIELD: dict[MeasureParameter, str] = {
     MeasureParameter.PH: "ph",
     MeasureParameter.ORP: "orp",
+    MeasureParameter.FREE_CHLORINE: "free_chlorine",
+    MeasureParameter.EC: "ec",
+    MeasureParameter.SALT: "salt",
     MeasureParameter.TAC: "tac",
     MeasureParameter.CYA: "cya",
     MeasureParameter.HARDNESS: "hardness",
@@ -412,6 +527,9 @@ _MEASURE_TO_READING_FIELD: dict[MeasureParameter, str] = {
 _MEASURE_LABELS: dict[MeasureParameter, str] = {
     MeasureParameter.PH: "pH",
     MeasureParameter.ORP: "ORP",
+    MeasureParameter.FREE_CHLORINE: "free chlorine",
+    MeasureParameter.EC: "EC",
+    MeasureParameter.SALT: "salt",
     MeasureParameter.TAC: "TAC",
     MeasureParameter.CYA: "CYA",
     MeasureParameter.HARDNESS: "hardness",
@@ -492,11 +610,13 @@ class RuleEngine:
         return [
             PhRule(),
             SanitizerRule(),
+            FreeChlorineRule(),
             FiltrationRule(),
             TacRule(),
             AlgaeRiskRule(),
             CyaRule(),
             HardnessRule(),
+            SaltRule(),
             CalibrationRule(),
         ]
 
