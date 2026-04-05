@@ -91,7 +91,8 @@ readings. The recommended products depend on the configured
 
 !!! note
 
-    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering) mode.
+    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering)
+    and [Active Wintering](pool-modes.md#active-wintering) modes.
 
 ### Free Chlorine Rule
 
@@ -136,7 +137,8 @@ See [TAC Dosage Calculation](water-chemistry.md#tac-dosage-calculation) for dosa
 
 !!! note
 
-    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering) mode.
+    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering)
+    and [Active Wintering](pool-modes.md#active-wintering) modes.
 
 ### Algae Risk Rule
 
@@ -147,7 +149,8 @@ Detects conditions favorable to algae growth by combining temperature and ORP re
 | Water temperature > 28°C **and** ORP < 720 mV | High | Requirement | High algae risk alert |
 
 Both conditions must be met simultaneously. This rule is disabled in
-[Passive Wintering](pool-modes.md#passive-wintering) mode.
+[Passive Wintering](pool-modes.md#passive-wintering) and
+[Active Wintering](pool-modes.md#active-wintering) modes.
 
 ### CYA Rule (Cyanuric Acid)
 
@@ -162,7 +165,8 @@ See [CYA Dosage Calculation](water-chemistry.md#cya-dosage-calculation) for dosa
 
 !!! note
 
-    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering) mode.
+    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering)
+    and [Active Wintering](pool-modes.md#active-wintering) modes.
 
 ### Hardness Rule (Calcium Hardness)
 
@@ -177,7 +181,8 @@ See [Hardness Dosage Calculation](water-chemistry.md#hardness-dosage-calculation
 
 !!! note
 
-    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering) mode.
+    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering)
+    and [Active Wintering](pool-modes.md#active-wintering) modes.
 
 ### Salt Rule
 
