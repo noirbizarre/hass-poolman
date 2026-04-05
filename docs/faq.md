@@ -33,7 +33,7 @@ and filtration duration calculation.
 
 Additional sensors (free chlorine, TAC, CYA, hardness, salt, EC) improve
 accuracy and unlock more rules and recommendations. See
-[Getting Started](getting-started.md#sensor-requirements) for the full list.
+[Getting Started](getting-started.md#required-sensors) for the full list.
 
 ### Does this work with my Flipr / iopool / Sutro / ESPHome sensors?
 
@@ -88,7 +88,7 @@ readings at the boundary score 50%; readings outside the acceptable range
 score 0%. The overall water quality score is the **average** of all
 individual parameter scores.
 
-See [Water Chemistry -- Scoring](water-chemistry.md#scoring-algorithm) for
+See [Water Chemistry -- Scoring](water-chemistry.md#water-quality-score) for
 the full algorithm.
 
 ### Why doesn't free chlorine show a calculated dosage?
