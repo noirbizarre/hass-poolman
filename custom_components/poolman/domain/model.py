@@ -164,6 +164,7 @@ class ChemistryStatus(StrEnum):
 class Severity(StrEnum):
     """Severity levels for chemistry status."""
 
+    LOW = "low"
     MEDIUM = "medium"
     CRITICAL = "critical"
 
