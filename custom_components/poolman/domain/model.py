@@ -233,10 +233,13 @@ class SanitizerStatus(BaseModel, frozen=True):
 class ParameterReport(BaseModel, frozen=True):
     """Status report for a single chemistry parameter.
 
-    Bundles the evaluated status with the reading value, target range,
-    and individual quality score for rich dashboard display.
+    Bundles the metric identity with the evaluated status, the reading value,
+    target range, and individual quality score for rich dashboard display.
+    The :attr:`metric` field makes each report self-describing so callers
+    never need an external mapping from field name to metric name.
     """
 
+    metric: MetricName
     status: ChemistryStatus
     value: float
     target: float

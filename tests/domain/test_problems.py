@@ -44,11 +44,13 @@ def _make_report(
     value: float,
     minimum: float,
     maximum: float,
+    metric: MetricName = MetricName.PH,
     target: float | None = None,
     score: int = 50,
 ) -> ParameterReport:
     """Return a ParameterReport with the given attributes."""
     return ParameterReport(
+        metric=metric,
         status=status,
         value=value,
         target=target if target is not None else (minimum + maximum) / 2,
@@ -89,8 +91,17 @@ class TestDetectProblemsNominal:
     def test_all_good_statuses_yield_no_problems(self) -> None:
         """Explicit GOOD status on every parameter → empty list."""
         report = ChemistryReport(
-            ph=_make_report(ChemistryStatus.GOOD, 7.2, PH_MIN, PH_MAX, score=100),
-            orp=_make_report(ChemistryStatus.GOOD, 750.0, ORP_MIN_CRITICAL, ORP_MAX, score=100),
+            ph=_make_report(
+                ChemistryStatus.GOOD, 7.2, PH_MIN, PH_MAX, metric=MetricName.PH, score=100
+            ),
+            orp=_make_report(
+                ChemistryStatus.GOOD,
+                750.0,
+                ORP_MIN_CRITICAL,
+                ORP_MAX,
+                metric=MetricName.ORP,
+                score=100,
+            ),
         )
         assert detect_problems(_state_with_report(report)) == []
 
@@ -106,7 +117,9 @@ class TestProblemSeverity:
     def test_warning_status_gives_low_severity(self) -> None:
         """A WARNING parameter maps to Severity.LOW."""
         report = ChemistryReport(
-            ph=_make_report(ChemistryStatus.WARNING, 7.75, PH_MIN, PH_MAX, score=25),
+            ph=_make_report(
+                ChemistryStatus.WARNING, 7.75, PH_MIN, PH_MAX, metric=MetricName.PH, score=25
+            ),
         )
         problems = detect_problems(_state_with_report(report))
         assert len(problems) == 1
@@ -115,7 +128,9 @@ class TestProblemSeverity:
     def test_bad_status_with_positive_score_gives_medium_severity(self) -> None:
         """A BAD parameter with score > 0 maps to Severity.MEDIUM."""
         report = ChemistryReport(
-            ph=_make_report(ChemistryStatus.BAD, 7.9, PH_MIN, PH_MAX, score=10),
+            ph=_make_report(
+                ChemistryStatus.BAD, 7.9, PH_MIN, PH_MAX, metric=MetricName.PH, score=10
+            ),
         )
         problems = detect_problems(_state_with_report(report))
         assert len(problems) == 1
@@ -124,7 +139,9 @@ class TestProblemSeverity:
     def test_bad_status_with_zero_score_gives_critical_severity(self) -> None:
         """A BAD parameter with score == 0 maps to Severity.CRITICAL."""
         report = ChemistryReport(
-            ph=_make_report(ChemistryStatus.BAD, 9.5, PH_MIN, PH_MAX, score=0),
+            ph=_make_report(
+                ChemistryStatus.BAD, 9.5, PH_MIN, PH_MAX, metric=MetricName.PH, score=0
+            ),
         )
         problems = detect_problems(_state_with_report(report))
         assert len(problems) == 1
@@ -142,7 +159,9 @@ class TestProblemFields:
     def test_metric_is_metric_name_enum(self) -> None:
         """metric field uses MetricName enum, not a raw string."""
         report = ChemistryReport(
-            ph=_make_report(ChemistryStatus.BAD, 9.0, PH_MIN, PH_MAX, score=0),
+            ph=_make_report(
+                ChemistryStatus.BAD, 9.0, PH_MIN, PH_MAX, metric=MetricName.PH, score=0
+            ),
         )
         problems = detect_problems(_state_with_report(report))
         assert problems[0].metric is MetricName.PH
@@ -152,7 +171,12 @@ class TestProblemFields:
         """ChemistryReport 'free_chlorine' field maps to MetricName.CHLORINE."""
         report = ChemistryReport(
             free_chlorine=_make_report(
-                ChemistryStatus.BAD, 0.1, FREE_CHLORINE_MIN, FREE_CHLORINE_MAX, score=0
+                ChemistryStatus.BAD,
+                0.1,
+                FREE_CHLORINE_MIN,
+                FREE_CHLORINE_MAX,
+                metric=MetricName.CHLORINE,
+                score=0,
             ),
         )
         problems = detect_problems(_state_with_report(report))
@@ -161,42 +185,59 @@ class TestProblemFields:
     def test_tac_maps_to_alkalinity_metric(self) -> None:
         """ChemistryReport 'tac' field maps to MetricName.ALKALINITY."""
         report = ChemistryReport(
-            tac=_make_report(ChemistryStatus.BAD, 50.0, TAC_MIN, TAC_MAX, score=0),
+            tac=_make_report(
+                ChemistryStatus.BAD, 50.0, TAC_MIN, TAC_MAX, metric=MetricName.ALKALINITY, score=0
+            ),
         )
         problems = detect_problems(_state_with_report(report))
         assert problems[0].metric is MetricName.ALKALINITY
 
     def test_value_matches_reading(self) -> None:
         report = ChemistryReport(
-            tac=_make_report(ChemistryStatus.BAD, 50.0, TAC_MIN, TAC_MAX, score=0),
+            tac=_make_report(
+                ChemistryStatus.BAD, 50.0, TAC_MIN, TAC_MAX, metric=MetricName.ALKALINITY, score=0
+            ),
         )
         problems = detect_problems(_state_with_report(report))
         assert problems[0].value == 50.0
 
     def test_expected_range_matches_min_max(self) -> None:
         report = ChemistryReport(
-            cya=_make_report(ChemistryStatus.BAD, 90.0, CYA_MIN, CYA_MAX, score=0),
+            cya=_make_report(
+                ChemistryStatus.BAD, 90.0, CYA_MIN, CYA_MAX, metric=MetricName.CYA, score=0
+            ),
         )
         problems = detect_problems(_state_with_report(report))
         assert problems[0].expected_range == (CYA_MIN, CYA_MAX)
 
     def test_code_contains_field_and_direction_too_high(self) -> None:
         report = ChemistryReport(
-            ph=_make_report(ChemistryStatus.BAD, 8.5, PH_MIN, PH_MAX, score=0),
+            ph=_make_report(
+                ChemistryStatus.BAD, 8.5, PH_MIN, PH_MAX, metric=MetricName.PH, score=0
+            ),
         )
         problems = detect_problems(_state_with_report(report))
         assert problems[0].code == "ph_too_high"
 
     def test_code_contains_field_and_direction_too_low(self) -> None:
         report = ChemistryReport(
-            orp=_make_report(ChemistryStatus.BAD, 600.0, ORP_MIN_CRITICAL, ORP_MAX, score=0),
+            orp=_make_report(
+                ChemistryStatus.BAD,
+                600.0,
+                ORP_MIN_CRITICAL,
+                ORP_MAX,
+                metric=MetricName.ORP,
+                score=0,
+            ),
         )
         problems = detect_problems(_state_with_report(report))
         assert problems[0].code == "orp_too_low"
 
     def test_message_is_human_readable_string(self) -> None:
         report = ChemistryReport(
-            ph=_make_report(ChemistryStatus.BAD, 8.5, PH_MIN, PH_MAX, score=0),
+            ph=_make_report(
+                ChemistryStatus.BAD, 8.5, PH_MIN, PH_MAX, metric=MetricName.PH, score=0
+            ),
         )
         problems = detect_problems(_state_with_report(report))
         msg = problems[0].message
@@ -207,7 +248,9 @@ class TestProblemFields:
     def test_problem_is_frozen_dataclass(self) -> None:
         """Problem instances must be immutable."""
         report = ChemistryReport(
-            ph=_make_report(ChemistryStatus.BAD, 8.5, PH_MIN, PH_MAX, score=0),
+            ph=_make_report(
+                ChemistryStatus.BAD, 8.5, PH_MIN, PH_MAX, metric=MetricName.PH, score=0
+            ),
         )
         problems = detect_problems(_state_with_report(report))
         problem = problems[0]
@@ -249,7 +292,9 @@ class TestPartialDataResilience:
     def test_detect_problems_does_not_crash_on_partial_report(self) -> None:
         """ChemistryReport with some fields None returns only non-None problems."""
         report = ChemistryReport(
-            ph=_make_report(ChemistryStatus.BAD, 9.0, PH_MIN, PH_MAX, score=0),
+            ph=_make_report(
+                ChemistryStatus.BAD, 9.0, PH_MIN, PH_MAX, metric=MetricName.PH, score=0
+            ),
             orp=None,
             tac=None,
         )
@@ -275,9 +320,15 @@ class TestProblemOrdering:
 
     def test_critical_before_medium_before_low(self) -> None:
         report = ChemistryReport(
-            ph=_make_report(ChemistryStatus.WARNING, 7.75, PH_MIN, PH_MAX, score=25),  # low
-            tac=_make_report(ChemistryStatus.BAD, 200.0, TAC_MIN, TAC_MAX, score=5),  # medium
-            cya=_make_report(ChemistryStatus.BAD, 100.0, CYA_MIN, CYA_MAX, score=0),  # critical
+            ph=_make_report(
+                ChemistryStatus.WARNING, 7.75, PH_MIN, PH_MAX, metric=MetricName.PH, score=25
+            ),  # low
+            tac=_make_report(
+                ChemistryStatus.BAD, 200.0, TAC_MIN, TAC_MAX, metric=MetricName.ALKALINITY, score=5
+            ),  # medium
+            cya=_make_report(
+                ChemistryStatus.BAD, 100.0, CYA_MIN, CYA_MAX, metric=MetricName.CYA, score=0
+            ),  # critical
         )
         problems = detect_problems(_state_with_report(report))
         severities = [p.severity for p in problems]
@@ -324,7 +375,9 @@ class TestAllParameters:
         minimum: float,
         maximum: float,
     ) -> None:
-        param_report = _make_report(ChemistryStatus.BAD, value, minimum, maximum, score=0)
+        param_report = _make_report(
+            ChemistryStatus.BAD, value, minimum, maximum, metric=metric_name, score=0
+        )
         report = ChemistryReport(**{field: param_report})
         problems = detect_problems(_state_with_report(report))
         assert len(problems) == 1
@@ -354,7 +407,9 @@ class TestAllParameters:
         minimum: float,
         maximum: float,
     ) -> None:
-        param_report = _make_report(ChemistryStatus.WARNING, value, minimum, maximum, score=25)
+        param_report = _make_report(
+            ChemistryStatus.WARNING, value, minimum, maximum, metric=metric_name, score=25
+        )
         report = ChemistryReport(**{field: param_report})
         problems = detect_problems(_state_with_report(report))
         assert len(problems) == 1

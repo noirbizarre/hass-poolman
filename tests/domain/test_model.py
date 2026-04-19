@@ -15,6 +15,7 @@ from custom_components.poolman.domain.model import (
     ChemistryStatus,
     ManualMeasure,
     MeasureParameter,
+    MetricName,
     ParameterReport,
     Pool,
     PoolState,
@@ -36,9 +37,11 @@ def _make_report(
     minimum: float = 6.8,
     maximum: float = 7.8,
     score: int = 100,
+    metric: MetricName = MetricName.PH,
 ) -> ParameterReport:
     """Build a ParameterReport with the given status and sensible defaults."""
     return ParameterReport(
+        metric=metric,
         status=status,
         value=value,
         target=target,

@@ -11,6 +11,7 @@ from .model import (
     ChemistryReport,
     ChemistryStatus,
     DosageAdjustment,
+    MetricName,
     ParameterReport,
     Pool,
     PoolReading,
@@ -386,7 +387,7 @@ _STATUS_GOOD_THRESHOLD: float = 50.0
 
 
 def compute_parameter_status(
-    value: float, minimum: float, target: float, maximum: float
+    metric: MetricName, value: float, minimum: float, target: float, maximum: float
 ) -> ParameterReport:
     """Compute chemistry status for a single parameter value.
 
@@ -396,13 +397,14 @@ def compute_parameter_status(
         - **bad**: value outside the acceptable min--max range
 
     Args:
+        metric: The canonical metric name for this parameter.
         value: The measured value.
         minimum: Lower bound of acceptable range.
         target: Ideal value.
         maximum: Upper bound of acceptable range.
 
     Returns:
-        ParameterReport with status, value, range, and score.
+        ParameterReport with metric, status, value, range, and score.
     """
     score = _score_range(value, minimum, target, maximum)
 
@@ -414,6 +416,7 @@ def compute_parameter_status(
         status = ChemistryStatus.WARNING
 
     return ParameterReport(
+        metric=metric,
         status=status,
         value=value,
         target=target,
@@ -437,17 +440,20 @@ def compute_chemistry_report(reading: PoolReading) -> ChemistryReport:
     """
     return ChemistryReport(
         ph=(
-            compute_parameter_status(reading.ph, PH_MIN, PH_TARGET, PH_MAX)
+            compute_parameter_status(MetricName.PH, reading.ph, PH_MIN, PH_TARGET, PH_MAX)
             if reading.ph is not None
             else None
         ),
         orp=(
-            compute_parameter_status(reading.orp, ORP_MIN_CRITICAL, ORP_TARGET, ORP_MAX)
+            compute_parameter_status(
+                MetricName.ORP, reading.orp, ORP_MIN_CRITICAL, ORP_TARGET, ORP_MAX
+            )
             if reading.orp is not None
             else None
         ),
         free_chlorine=(
             compute_parameter_status(
+                MetricName.CHLORINE,
                 reading.free_chlorine,
                 FREE_CHLORINE_MIN,
                 FREE_CHLORINE_TARGET,
@@ -457,27 +463,31 @@ def compute_chemistry_report(reading: PoolReading) -> ChemistryReport:
             else None
         ),
         tds=(
-            compute_parameter_status(reading.tds, TDS_MIN, TDS_TARGET, TDS_MAX)
+            compute_parameter_status(MetricName.TDS, reading.tds, TDS_MIN, TDS_TARGET, TDS_MAX)
             if reading.tds is not None
             else None
         ),
         salt=(
-            compute_parameter_status(reading.salt, SALT_MIN, SALT_TARGET, SALT_MAX)
+            compute_parameter_status(MetricName.SALT, reading.salt, SALT_MIN, SALT_TARGET, SALT_MAX)
             if reading.salt is not None
             else None
         ),
         tac=(
-            compute_parameter_status(reading.tac, TAC_MIN, TAC_TARGET, TAC_MAX)
+            compute_parameter_status(
+                MetricName.ALKALINITY, reading.tac, TAC_MIN, TAC_TARGET, TAC_MAX
+            )
             if reading.tac is not None
             else None
         ),
         cya=(
-            compute_parameter_status(reading.cya, CYA_MIN, CYA_TARGET, CYA_MAX)
+            compute_parameter_status(MetricName.CYA, reading.cya, CYA_MIN, CYA_TARGET, CYA_MAX)
             if reading.cya is not None
             else None
         ),
         hardness=(
-            compute_parameter_status(reading.hardness, HARDNESS_MIN, HARDNESS_TARGET, HARDNESS_MAX)
+            compute_parameter_status(
+                MetricName.HARDNESS, reading.hardness, HARDNESS_MIN, HARDNESS_TARGET, HARDNESS_MAX
+            )
             if reading.hardness is not None
             else None
         ),

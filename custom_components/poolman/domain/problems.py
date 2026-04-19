@@ -18,21 +18,6 @@ from .model import ChemistryStatus, MetricName, ParameterReport, PoolState, Seve
 
 _LOGGER = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Mapping from ChemistryReport field names to MetricName enum values
-# ---------------------------------------------------------------------------
-
-_FIELD_TO_METRIC: dict[str, MetricName] = {
-    "ph": MetricName.PH,
-    "orp": MetricName.ORP,
-    "free_chlorine": MetricName.CHLORINE,
-    "tds": MetricName.TDS,
-    "salt": MetricName.SALT,
-    "tac": MetricName.ALKALINITY,
-    "cya": MetricName.CYA,
-    "hardness": MetricName.HARDNESS,
-}
-
 _METRIC_LABELS: dict[MetricName, str] = {
     MetricName.PH: "pH",
     MetricName.ORP: "ORP",
@@ -103,45 +88,36 @@ def _severity_for(report: ParameterReport) -> Severity:
     return Severity.CRITICAL
 
 
-def _make_problem(field: str, report: ParameterReport) -> Problem:
-    """Build a :class:`Problem` from a ChemistryReport field name and its report.
+def _make_problem(report: ParameterReport) -> Problem:
+    """Build a :class:`Problem` from a self-describing :class:`ParameterReport`.
 
-    The ``metric`` field is populated from the :data:`_FIELD_TO_METRIC` mapping
-    when available, and ``None`` otherwise. Likewise, ``value`` and
-    ``expected_range`` are taken from the report when present.
+    The metric name, value, and expected range are read directly from the
+    report — no external field-to-metric mapping is required.
 
     Args:
-        field: The ``ChemistryReport`` attribute name (e.g. ``"ph"``).
-        report: The evaluated :class:`ParameterReport` for that parameter.
+        report: The evaluated :class:`ParameterReport` for an abnormal parameter.
 
     Returns:
         A fully populated :class:`Problem` instance.
     """
-    metric = _FIELD_TO_METRIC.get(field)
+    metric = report.metric
     severity = _severity_for(report)
+    label = _METRIC_LABELS.get(metric, str(metric))
+    dir_str = _direction(report.value, report.minimum, report.maximum)
 
-    value: float | None = report.value
-    expected_range: tuple[float, float] | None = (report.minimum, report.maximum)
-
-    if metric is not None and value is not None:
-        label = _METRIC_LABELS.get(metric, field)
-        dir_str = _direction(value, report.minimum, report.maximum)
-        code = f"{field}_{dir_str}"
-        message = (
-            f"{label} is {dir_str.replace('_', ' ')}: "
-            f"{value} (expected {report.minimum}-{report.maximum})"
-        )
-    else:
-        code = f"{field}_out_of_range"
-        message = f"{field} is out of range"
+    code = f"{metric}_{dir_str}"
+    message = (
+        f"{label} is {dir_str.replace('_', ' ')}: "
+        f"{report.value} (expected {report.minimum}-{report.maximum})"
+    )
 
     return Problem(
         code=code,
         message=message,
         severity=severity,
         metric=metric,
-        value=value,
-        expected_range=expected_range,
+        value=report.value,
+        expected_range=(report.minimum, report.maximum),
     )
 
 
@@ -227,7 +203,7 @@ def detect_problems(pool_state: PoolState) -> list[Problem]:
         if param_report.status == ChemistryStatus.GOOD:
             continue
         try:
-            problems.append(_make_problem(field, param_report))
+            problems.append(_make_problem(param_report))
         except Exception:
             _LOGGER.exception("Unexpected error while building Problem for field %r", field)
 
