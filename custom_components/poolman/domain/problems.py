@@ -10,24 +10,50 @@ not *how* to fix it.
 
 from __future__ import annotations
 
+import logging
+
 from dataclasses import dataclass
 
-from .model import ChemistryStatus, ParameterReport, PoolState, Severity
+from .model import ChemistryStatus, MetricName, ParameterReport, PoolState, Severity
+
+_LOGGER = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Mapping from ChemistryReport field names to MetricName enum values
+# ---------------------------------------------------------------------------
+
+_FIELD_TO_METRIC: dict[str, MetricName] = {
+    "ph": MetricName.PH,
+    "orp": MetricName.ORP,
+    "free_chlorine": MetricName.CHLORINE,
+    "tds": MetricName.TDS,
+    "salt": MetricName.SALT,
+    "tac": MetricName.ALKALINITY,
+    "cya": MetricName.CYA,
+    "hardness": MetricName.HARDNESS,
+}
+
+_METRIC_LABELS: dict[MetricName, str] = {
+    MetricName.PH: "pH",
+    MetricName.ORP: "ORP",
+    MetricName.CHLORINE: "free chlorine",
+    MetricName.TDS: "TDS",
+    MetricName.SALT: "salt",
+    MetricName.ALKALINITY: "TAC",
+    MetricName.CYA: "CYA",
+    MetricName.HARDNESS: "hardness",
+    MetricName.TEMPERATURE: "temperature",
+}
+
+_SEVERITY_ORDER: dict[Severity, int] = {
+    Severity.CRITICAL: 0,
+    Severity.MEDIUM: 1,
+    Severity.LOW: 2,
+}
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-_PARAMETER_LABELS: dict[str, str] = {
-    "ph": "pH",
-    "orp": "ORP",
-    "free_chlorine": "free chlorine",
-    "tds": "TDS",
-    "salt": "salt",
-    "tac": "TAC",
-    "cya": "CYA",
-    "hardness": "hardness",
-}
 
 
 def _direction(value: float, minimum: float, maximum: float) -> str:
@@ -77,33 +103,45 @@ def _severity_for(report: ParameterReport) -> Severity:
     return Severity.CRITICAL
 
 
-def _make_problem(metric: str, report: ParameterReport) -> Problem:
-    """Build a :class:`Problem` from a parameter name and its report.
+def _make_problem(field: str, report: ParameterReport) -> Problem:
+    """Build a :class:`Problem` from a ChemistryReport field name and its report.
+
+    The ``metric`` field is populated from the :data:`_FIELD_TO_METRIC` mapping
+    when available, and ``None`` otherwise. Likewise, ``value`` and
+    ``expected_range`` are taken from the report when present.
 
     Args:
-        metric: The parameter name (e.g. ``"ph"``, ``"orp"``).
+        field: The ``ChemistryReport`` attribute name (e.g. ``"ph"``).
         report: The evaluated :class:`ParameterReport` for that parameter.
 
     Returns:
         A fully populated :class:`Problem` instance.
     """
-    label = _PARAMETER_LABELS.get(metric, metric)
-    dir_str = _direction(report.value, report.minimum, report.maximum)
+    metric = _FIELD_TO_METRIC.get(field)
     severity = _severity_for(report)
 
-    code = f"{metric}_{dir_str}"
-    message = (
-        f"{label} is {dir_str.replace('_', ' ')}: "
-        f"{report.value} (expected {report.minimum}-{report.maximum})"
-    )
+    value: float | None = report.value
+    expected_range: tuple[float, float] | None = (report.minimum, report.maximum)
+
+    if metric is not None and value is not None:
+        label = _METRIC_LABELS.get(metric, field)
+        dir_str = _direction(value, report.minimum, report.maximum)
+        code = f"{field}_{dir_str}"
+        message = (
+            f"{label} is {dir_str.replace('_', ' ')}: "
+            f"{value} (expected {report.minimum}-{report.maximum})"
+        )
+    else:
+        code = f"{field}_out_of_range"
+        message = f"{field} is out of range"
 
     return Problem(
         code=code,
         message=message,
         severity=severity,
         metric=metric,
-        value=report.value,
-        expected_range=(report.minimum, report.maximum),
+        value=value,
+        expected_range=expected_range,
     )
 
 
@@ -121,6 +159,9 @@ class Problem:
     logs, and downstream services to understand the nature and urgency of the
     issue without containing any treatment advice.
 
+    All fields except :attr:`code`, :attr:`message`, and :attr:`severity` are
+    optional to support partial or missing sensor data gracefully.
+
     Attributes:
         code: Machine-readable identifier, e.g. ``"ph_too_high"`` or
             ``"orp_too_low"``.
@@ -128,18 +169,21 @@ class Problem:
         severity: How serious the deviation is
             (:attr:`Severity.LOW`, :attr:`Severity.MEDIUM`, or
             :attr:`Severity.CRITICAL`).
-        metric: The chemistry parameter name, e.g. ``"ph"`` or ``"orp"``.
-        value: The actual measured value that triggered the problem.
+        metric: The canonical :class:`MetricName` for the affected parameter,
+            or ``None`` when the parameter has no known mapping.
+        value: The actual measured value that triggered the problem, or
+            ``None`` when the value is unavailable.
         expected_range: ``(minimum, maximum)`` tuple representing the
-            acceptable range for this parameter.
+            acceptable range for this parameter, or ``None`` when the range
+            is unknown.
     """
 
     code: str
     message: str
     severity: Severity
-    metric: str
-    value: float
-    expected_range: tuple[float, float]
+    metric: MetricName | None
+    value: float | None
+    expected_range: tuple[float, float] | None
 
 
 def detect_problems(pool_state: PoolState) -> list[Problem]:
@@ -148,6 +192,10 @@ def detect_problems(pool_state: PoolState) -> list[Problem]:
     Iterates over every parameter in :attr:`~.model.PoolState.chemistry_report`
     and returns a :class:`Problem` for each one whose status is not
     :attr:`~.model.ChemistryStatus.GOOD`.
+
+    The function is resilient to missing data: ``None`` readings are skipped,
+    and any unexpected error while evaluating a single parameter is logged and
+    skipped rather than propagated.
 
     The result is ordered from most to least severe
     (:attr:`Severity.CRITICAL` first, then :attr:`Severity.MEDIUM`, then
@@ -171,16 +219,17 @@ def detect_problems(pool_state: PoolState) -> list[Problem]:
     if report is None:
         return []
 
-    _severity_order = {Severity.CRITICAL: 0, Severity.MEDIUM: 1, Severity.LOW: 2}
-
     problems: list[Problem] = []
-    for metric in report.model_fields:
-        param_report: ParameterReport | None = getattr(report, metric)
+    for field in report.model_fields:
+        param_report: ParameterReport | None = getattr(report, field, None)
         if param_report is None:
             continue
         if param_report.status == ChemistryStatus.GOOD:
             continue
-        problems.append(_make_problem(metric, param_report))
+        try:
+            problems.append(_make_problem(field, param_report))
+        except Exception:
+            _LOGGER.exception("Unexpected error while building Problem for field %r", field)
 
-    problems.sort(key=lambda p: _severity_order[p.severity])
+    problems.sort(key=lambda p: _SEVERITY_ORDER[p.severity])
     return problems
