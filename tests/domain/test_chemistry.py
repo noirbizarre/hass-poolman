@@ -44,6 +44,7 @@ from custom_components.poolman.domain.chemistry import (
 from custom_components.poolman.domain.model import (
     ChemicalProduct,
     ChemistryStatus,
+    MetricName,
     Pool,
     PoolReading,
     Severity,
@@ -270,46 +271,46 @@ class TestParameterStatus:
     """Tests for individual parameter status computation."""
 
     def test_at_target_returns_good(self) -> None:
-        report = compute_parameter_status(PH_TARGET, PH_MIN, PH_TARGET, PH_MAX)
+        report = compute_parameter_status(MetricName.PH, PH_TARGET, PH_MIN, PH_TARGET, PH_MAX)
         assert report.status == ChemistryStatus.GOOD
         assert report.score == 100
 
     def test_inner_half_returns_good(self) -> None:
         # pH 7.0 is midpoint between min (6.8) and target (7.2) -> score = 50
-        report = compute_parameter_status(7.0, PH_MIN, PH_TARGET, PH_MAX)
+        report = compute_parameter_status(MetricName.PH, 7.0, PH_MIN, PH_TARGET, PH_MAX)
         assert report.status == ChemistryStatus.GOOD
         assert report.score >= 50
 
     def test_outer_half_returns_warning(self) -> None:
         # pH 6.9 is in range but closer to boundary than target
-        report = compute_parameter_status(6.9, PH_MIN, PH_TARGET, PH_MAX)
+        report = compute_parameter_status(MetricName.PH, 6.9, PH_MIN, PH_TARGET, PH_MAX)
         assert report.status == ChemistryStatus.WARNING
         assert 0 < report.score < 50
 
     def test_at_min_boundary_returns_warning(self) -> None:
         # At exact minimum, score is 0 but still within range
-        report = compute_parameter_status(PH_MIN, PH_MIN, PH_TARGET, PH_MAX)
+        report = compute_parameter_status(MetricName.PH, PH_MIN, PH_MIN, PH_TARGET, PH_MAX)
         assert report.status == ChemistryStatus.WARNING
         assert report.score == 0
 
     def test_at_max_boundary_returns_warning(self) -> None:
         # At exact maximum, score is 0 but still within range
-        report = compute_parameter_status(PH_MAX, PH_MIN, PH_TARGET, PH_MAX)
+        report = compute_parameter_status(MetricName.PH, PH_MAX, PH_MIN, PH_TARGET, PH_MAX)
         assert report.status == ChemistryStatus.WARNING
         assert report.score == 0
 
     def test_below_min_returns_bad(self) -> None:
-        report = compute_parameter_status(6.5, PH_MIN, PH_TARGET, PH_MAX)
+        report = compute_parameter_status(MetricName.PH, 6.5, PH_MIN, PH_TARGET, PH_MAX)
         assert report.status == ChemistryStatus.BAD
         assert report.score == 0
 
     def test_above_max_returns_bad(self) -> None:
-        report = compute_parameter_status(8.5, PH_MIN, PH_TARGET, PH_MAX)
+        report = compute_parameter_status(MetricName.PH, 8.5, PH_MIN, PH_TARGET, PH_MAX)
         assert report.status == ChemistryStatus.BAD
         assert report.score == 0
 
     def test_report_contains_range_info(self) -> None:
-        report = compute_parameter_status(7.2, PH_MIN, PH_TARGET, PH_MAX)
+        report = compute_parameter_status(MetricName.PH, 7.2, PH_MIN, PH_TARGET, PH_MAX)
         assert report.value == 7.2
         assert report.target == PH_TARGET
         assert report.minimum == PH_MIN
@@ -357,7 +358,7 @@ class TestParameterStatus:
         maximum: float,
         expected_status: ChemistryStatus,
     ) -> None:
-        report = compute_parameter_status(value, minimum, target, maximum)
+        report = compute_parameter_status(MetricName.PH, value, minimum, target, maximum)
         assert report.status == expected_status
 
 

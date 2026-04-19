@@ -164,8 +164,27 @@ class ChemistryStatus(StrEnum):
 class Severity(StrEnum):
     """Severity levels for chemistry status."""
 
+    LOW = "low"
     MEDIUM = "medium"
     CRITICAL = "critical"
+
+
+class MetricName(StrEnum):
+    """Canonical names for pool chemistry metrics.
+
+    Used to identify the parameter a :class:`~problems.Problem` relates to in
+    a strongly-typed, serialisation-friendly way.
+    """
+
+    PH = "ph"
+    ORP = "orp"
+    CHLORINE = "chlorine"
+    TEMPERATURE = "temperature"
+    CYA = "cya"
+    ALKALINITY = "alkalinity"
+    HARDNESS = "hardness"
+    TDS = "tds"
+    SALT = "salt"
 
 
 class RecommendationType(StrEnum):
@@ -214,10 +233,13 @@ class SanitizerStatus(BaseModel, frozen=True):
 class ParameterReport(BaseModel, frozen=True):
     """Status report for a single chemistry parameter.
 
-    Bundles the evaluated status with the reading value, target range,
-    and individual quality score for rich dashboard display.
+    Bundles the metric identity with the evaluated status, the reading value,
+    target range, and individual quality score for rich dashboard display.
+    The :attr:`metric` field makes each report self-describing so callers
+    never need an external mapping from field name to metric name.
     """
 
+    metric: MetricName
     status: ChemistryStatus
     value: float
     target: float
