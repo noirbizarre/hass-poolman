@@ -1,4 +1,10 @@
-"""Tests for Problem detection in pool chemistry."""
+"""Tests for Problem detection in pool chemistry.
+
+Covers :class:`~custom_components.poolman.domain.problem.Problem`,
+:class:`~custom_components.poolman.domain.problem.Severity`,
+:class:`~custom_components.poolman.domain.problem.MetricName`, and
+:func:`~custom_components.poolman.domain.problem.detect_problems`.
+"""
 
 from __future__ import annotations
 
@@ -25,14 +31,17 @@ from custom_components.poolman.domain.chemistry import (
 )
 from custom_components.poolman.domain.model import (
     ChemistryReport,
+    PoolReading,
+    PoolState,
+)
+from custom_components.poolman.domain.problem import (
     ChemistryStatus,
     MetricName,
     ParameterReport,
-    PoolReading,
-    PoolState,
+    Problem,
     Severity,
+    detect_problems,
 )
-from custom_components.poolman.domain.problems import Problem, detect_problems
 
 # ---------------------------------------------------------------------------
 # Shared helpers

@@ -1,6 +1,10 @@
 """Domain models for pool management.
 
 Pure Python models with no Home Assistant dependency.
+
+:class:`Severity` and :class:`MetricName` are the canonical definitions
+imported from :mod:`.problem`.  All other shared enums live here alongside
+their primary model.
 """
 
 from __future__ import annotations
@@ -11,6 +15,12 @@ from enum import StrEnum
 from pydantic import BaseModel, Field
 
 from .activation import ActivationChecklist
+from .problem import (  # noqa: F401 - re-exported for back-compat
+    ChemistryStatus,
+    MetricName,
+    ParameterReport,
+    Severity,
+)
 
 
 class PoolShape(StrEnum):
@@ -153,42 +163,13 @@ PRODUCT_DENSITY_G_PER_ML: dict[ChemicalProduct, float] = {
 }
 
 
-class ChemistryStatus(StrEnum):
-    """Status levels for individual chemistry parameters."""
-
-    GOOD = "good"
-    WARNING = "warning"
-    BAD = "bad"
-
-
-class Severity(StrEnum):
-    """Severity levels for chemistry status."""
-
-    LOW = "low"
-    MEDIUM = "medium"
-    CRITICAL = "critical"
-
-
-class MetricName(StrEnum):
-    """Canonical names for pool chemistry metrics.
-
-    Used to identify the parameter a :class:`~problems.Problem` relates to in
-    a strongly-typed, serialisation-friendly way.
-    """
-
-    PH = "ph"
-    ORP = "orp"
-    CHLORINE = "chlorine"
-    TEMPERATURE = "temperature"
-    CYA = "cya"
-    ALKALINITY = "alkalinity"
-    HARDNESS = "hardness"
-    TDS = "tds"
-    SALT = "salt"
-
-
 class RecommendationType(StrEnum):
-    """Types of pool recommendations."""
+    """Types of pool recommendations.
+
+    .. deprecated::
+        Import from :mod:`.recommendation` instead.  This alias is kept for
+        backward compatibility with existing HA-layer code.
+    """
 
     CHEMICAL = "chemical"
     FILTRATION = "filtration"
@@ -201,6 +182,10 @@ class ActionKind(StrEnum):
 
     Suggestions are optional improvements; requirements indicate
     that the pool needs attention to remain safe or functional.
+
+    .. deprecated::
+        Import from :mod:`.recommendation` instead.  This alias is kept for
+        backward compatibility with existing HA-layer code.
     """
 
     SUGGESTION = "suggestion"
@@ -208,7 +193,12 @@ class ActionKind(StrEnum):
 
 
 class RecommendationPriority(StrEnum):
-    """Priority levels for recommendations."""
+    """Priority levels for recommendations.
+
+    .. deprecated::
+        Import from :mod:`.recommendation` instead.  This alias is kept for
+        backward compatibility with existing HA-layer code.
+    """
 
     LOW = "low"
     MEDIUM = "medium"
@@ -228,24 +218,6 @@ class SanitizerStatus(BaseModel, frozen=True):
 
     product: ChemicalProduct
     severity: Severity
-
-
-class ParameterReport(BaseModel, frozen=True):
-    """Status report for a single chemistry parameter.
-
-    Bundles the metric identity with the evaluated status, the reading value,
-    target range, and individual quality score for rich dashboard display.
-    The :attr:`metric` field makes each report self-describing so callers
-    never need an external mapping from field name to metric name.
-    """
-
-    metric: MetricName
-    status: ChemistryStatus
-    value: float
-    target: float
-    minimum: float
-    maximum: float
-    score: int = Field(ge=0, le=100, description="Quality score from 0 to 100")
 
 
 class ChemistryReport(BaseModel, frozen=True):
@@ -386,7 +358,14 @@ class PoolReading(BaseModel):
 
 
 class Recommendation(BaseModel):
-    """A pool treatment or maintenance recommendation."""
+    """A pool treatment or maintenance recommendation.
+
+    .. deprecated::
+        This legacy Pydantic model is kept for backward compatibility with the
+        HA coordinator and sensor layers.  New code should use
+        :class:`~.recommendation.Recommendation` from :mod:`.recommendation`
+        instead, which is a frozen dataclass with richer structure.
+    """
 
     type: RecommendationType
     priority: RecommendationPriority

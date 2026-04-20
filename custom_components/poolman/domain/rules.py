@@ -1,8 +1,30 @@
 """Extensible rule engine for pool management.
 
-Provides a base Rule class and built-in rules for pH, sanitizer, and filtration.
-New rules can be added by subclassing Rule and registering in the engine.
-No Home Assistant dependencies.
+Provides a base :class:`Rule` class and built-in rules for pH, sanitizer,
+filtration, and more.  Each rule evaluates the current pool state and returns
+zero or more :class:`~.problem.Problem` objects describing detected issues.
+
+The :class:`RuleEngine` collects results from all registered rules and sorts
+them by severity (critical first).
+
+Design constraints
+------------------
+- Rules are pure functions: stateless, deterministic, no side effects.
+- Rules return :class:`~.problem.Problem` objects — never raw strings or
+  booleans.
+- No Home Assistant dependency.
+
+To generate actionable :class:`~.recommendation.Recommendation` objects from
+the detected problems, pass the rule engine output through
+:func:`~.analysis.generate_recommendations` or use
+:func:`~.analysis.analyze_pool` for the full pipeline.
+
+Example::
+
+    engine = RuleEngine()
+    problems = engine.evaluate(pool, reading, mode, manual_measures)
+    for p in problems:
+        print(f"[{p.severity}] {p.code}: {p.message}")
 """
 
 from __future__ import annotations
@@ -28,59 +50,26 @@ from .chemistry import (
     TAC_MIN,
     TDS_MAX,
     TDS_MIN,
-    compute_cya_adjustment,
-    compute_free_chlorine_adjustment,
-    compute_hardness_adjustment,
-    compute_ph_adjustment,
-    compute_salt_adjustment,
     compute_sanitizer_status,
-    compute_tac_adjustment,
 )
 from .filtration import compute_filtration_duration
 from .model import (
-    ActionKind,
     ManualMeasure,
     MeasureParameter,
     Pool,
     PoolMode,
     PoolReading,
-    Recommendation,
-    RecommendationPriority,
-    RecommendationType,
-    Severity,
     TreatmentType,
 )
-
-# Human-readable labels for sanitizer products by treatment type and action
-_SANITIZER_MESSAGES: dict[TreatmentType, dict[str, str]] = {
-    TreatmentType.CHLORINE: {
-        "shock": "Shock chlorination required (ORP critically low)",
-        "regular": "Add chlorine tablets (ORP below {orp_min} mV)",
-        "excess": "ORP too high, reduce chlorine dosage",
-    },
-    TreatmentType.SALT_ELECTROLYSIS: {
-        "shock": "Shock chlorination required (ORP critically low)",
-        "regular": "Check salt level and electrolysis cell (ORP below {orp_min} mV)",
-        "excess": "ORP too high, reduce electrolysis output",
-    },
-    TreatmentType.BROMINE: {
-        "shock": "Bromine shock required (ORP critically low)",
-        "regular": "Add bromine tablets (ORP below {orp_min} mV)",
-        "excess": "ORP too high, reduce bromine dosage",
-    },
-    TreatmentType.ACTIVE_OXYGEN: {
-        "shock": "Active oxygen shock required (ORP critically low)",
-        "regular": "Add active oxygen tablets (ORP below {orp_min} mV)",
-        "excess": "ORP too high, reduce active oxygen dosage",
-    },
-}
+from .problem import MetricName, Problem, Severity
 
 
 class Rule(ABC):
     """Base class for pool management rules.
 
     Each rule evaluates the current pool state and returns zero or more
-    recommendations. Rules should be stateless and side-effect free.
+    :class:`~.problem.Problem` objects describing detected issues.  Rules
+    must be stateless and side-effect free.
     """
 
     @abstractmethod
@@ -90,24 +79,36 @@ class Rule(ABC):
         reading: PoolReading,
         mode: PoolMode,
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
-    ) -> list[Recommendation]:
-        """Evaluate the rule and return recommendations.
+    ) -> list[Problem]:
+        """Evaluate the rule and return detected problems.
 
         Args:
             pool: Pool physical characteristics.
             reading: Current sensor readings.
             mode: Current operational mode.
             manual_measures: Manual measurements recorded by the user,
-                keyed by parameter. Used by rules that compare sensor
+                keyed by parameter.  Used by rules that compare sensor
                 readings against manual measurements.
 
         Returns:
-            List of recommendations (empty if the rule doesn't apply).
+            List of :class:`~.problem.Problem` objects (empty if no issue
+            detected).
         """
 
 
 class PhRule(Rule):
-    """Rule for pH level adjustments."""
+    """Rule for pH level monitoring.
+
+    Generates a :class:`~.problem.Problem` when the pH deviates from the
+    target (7.2) beyond the configured tolerance.  Severity is determined by
+    how far the reading is from the acceptable range:
+
+    - Outside the min-max range (< 6.8 or > 7.8) → :attr:`~.problem.Severity.CRITICAL`
+    - Delta > 3x tolerance → :attr:`~.problem.Severity.MEDIUM`
+    - Delta > tolerance → :attr:`~.problem.Severity.LOW`
+
+    Disabled in :attr:`~.model.PoolMode.WINTER_PASSIVE` mode.
+    """
 
     def evaluate(
         self,
@@ -115,41 +116,53 @@ class PhRule(Rule):
         reading: PoolReading,
         mode: PoolMode,
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
-    ) -> list[Recommendation]:
-        """Evaluate pH level and recommend adjustments."""
+    ) -> list[Problem]:
+        """Evaluate pH level and return problems if out of range."""
         if mode == PoolMode.WINTER_PASSIVE or reading.ph is None:
             return []
 
-        result = compute_ph_adjustment(pool, reading)
-        if result is None:
+        ph = reading.ph
+        delta = abs(ph - PH_TARGET)
+
+        if delta <= PH_TOLERANCE:
             return []
 
-        # Determine priority and kind based on how far from target
-        delta = abs(reading.ph - PH_TARGET)
-        if reading.ph < PH_MIN or reading.ph > PH_MAX:
-            priority = RecommendationPriority.HIGH
-            kind = ActionKind.REQUIREMENT
-        elif delta > PH_TOLERANCE * 3:
-            priority = RecommendationPriority.MEDIUM
-            kind = ActionKind.SUGGESTION
-        else:
-            priority = RecommendationPriority.LOW
-            kind = ActionKind.SUGGESTION
+        direction = "too_high" if ph > PH_TARGET else "too_low"
+        code = f"ph_{direction}"
 
+        if ph < PH_MIN or ph > PH_MAX:
+            severity = Severity.CRITICAL
+        elif delta > PH_TOLERANCE * 3:
+            severity = Severity.MEDIUM
+        else:
+            severity = Severity.LOW
+
+        message = (
+            f"pH is {direction.replace('_', ' ')}: {ph:.2f}"
+            f" (expected {PH_MIN}-{PH_MAX}, target {PH_TARGET})"
+        )
         return [
-            Recommendation(
-                type=RecommendationType.CHEMICAL,
-                priority=priority,
-                kind=kind,
-                message=f"Add {result.quantity_g:.0f}g of {result.product}",
-                product=result.product,
-                quantity_g=result.quantity_g,
+            Problem(
+                code=code,
+                message=message,
+                severity=severity,
+                metric=MetricName.PH,
+                value=ph,
+                expected_range=(PH_MIN, PH_MAX),
             )
         ]
 
 
 class SanitizerRule(Rule):
-    """Rule for sanitizer level evaluation based on ORP and treatment type."""
+    """Rule for sanitizer level evaluation based on ORP.
+
+    Evaluates ORP (Oxidation-Reduction Potential) as an indirect measure of
+    sanitizer effectiveness.  Generates a :class:`~.problem.Problem` when ORP
+    is outside the acceptable range.
+
+    Disabled in :attr:`~.model.PoolMode.WINTER_PASSIVE` and
+    :attr:`~.model.PoolMode.WINTER_ACTIVE` modes.
+    """
 
     def evaluate(
         self,
@@ -157,8 +170,8 @@ class SanitizerRule(Rule):
         reading: PoolReading,
         mode: PoolMode,
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
-    ) -> list[Recommendation]:
-        """Evaluate sanitizer via ORP and recommend treatment adapted to treatment type."""
+    ) -> list[Problem]:
+        """Evaluate sanitizer via ORP and return problems if out of range."""
         if mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE) or reading.orp is None:
             return []
 
@@ -166,34 +179,45 @@ class SanitizerRule(Rule):
         if result is None:
             return []
 
-        messages = _SANITIZER_MESSAGES[pool.treatment]
+        orp = reading.orp
 
-        if result.severity == Severity.CRITICAL:
-            priority = RecommendationPriority.CRITICAL
-            kind = ActionKind.REQUIREMENT
-            message = messages["shock"]
-        elif reading.orp > ORP_MAX:
-            priority = RecommendationPriority.MEDIUM
-            kind = ActionKind.REQUIREMENT
-            message = messages["excess"]
-        else:
-            priority = RecommendationPriority.MEDIUM
-            kind = ActionKind.SUGGESTION
-            message = messages["regular"].format(orp_min=ORP_MIN_ACCEPTABLE)
+        if orp > ORP_MAX:
+            return [
+                Problem(
+                    code="orp_too_high",
+                    message=f"ORP is too high: {orp:.0f} mV (maximum {ORP_MAX} mV)",
+                    severity=Severity.MEDIUM,
+                    metric=MetricName.ORP,
+                    value=orp,
+                    expected_range=(ORP_MIN_ACCEPTABLE, ORP_MAX),
+                )
+            ]
 
+        severity = Severity.CRITICAL if result.severity == Severity.CRITICAL else Severity.MEDIUM
         return [
-            Recommendation(
-                type=RecommendationType.CHEMICAL,
-                priority=priority,
-                kind=kind,
-                message=message,
-                product=result.product,
+            Problem(
+                code="orp_too_low",
+                message=(
+                    f"ORP is too low: {orp:.0f} mV (minimum acceptable {ORP_MIN_ACCEPTABLE} mV)"
+                ),
+                severity=severity,
+                metric=MetricName.ORP,
+                value=orp,
+                expected_range=(ORP_MIN_ACCEPTABLE, ORP_MAX),
             )
         ]
 
 
-class FiltrationRule(Rule):
-    """Rule for filtration duration recommendation."""
+class FreeChlorineRule(Rule):
+    """Rule for free chlorine level evaluation.
+
+    Supplements the ORP-based :class:`SanitizerRule` with a direct chlorine
+    reading.  Low free chlorine (< 1 ppm) is critical; high free chlorine
+    (> 3 ppm) is a low-severity alert.
+
+    Disabled in :attr:`~.model.PoolMode.WINTER_PASSIVE` and
+    :attr:`~.model.PoolMode.WINTER_ACTIVE` modes.
+    """
 
     def evaluate(
         self,
@@ -201,8 +225,65 @@ class FiltrationRule(Rule):
         reading: PoolReading,
         mode: PoolMode,
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
-    ) -> list[Recommendation]:
-        """Recommend filtration duration."""
+    ) -> list[Problem]:
+        """Evaluate free chlorine level and return problems if out of range."""
+        if (
+            mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE)
+            or reading.free_chlorine is None
+        ):
+            return []
+
+        fc = reading.free_chlorine
+
+        if fc < FREE_CHLORINE_MIN:
+            return [
+                Problem(
+                    code="chlorine_too_low",
+                    message=(
+                        f"Free chlorine is too low: {fc:.1f} ppm (minimum {FREE_CHLORINE_MIN} ppm)"
+                    ),
+                    severity=Severity.CRITICAL,
+                    metric=MetricName.CHLORINE,
+                    value=fc,
+                    expected_range=(FREE_CHLORINE_MIN, FREE_CHLORINE_MAX),
+                )
+            ]
+
+        if fc > FREE_CHLORINE_MAX:
+            return [
+                Problem(
+                    code="chlorine_too_high",
+                    message=(
+                        f"Free chlorine is too high: {fc:.1f} ppm (maximum {FREE_CHLORINE_MAX} ppm)"
+                    ),
+                    severity=Severity.LOW,
+                    metric=MetricName.CHLORINE,
+                    value=fc,
+                    expected_range=(FREE_CHLORINE_MIN, FREE_CHLORINE_MAX),
+                )
+            ]
+
+        return []
+
+
+class FiltrationRule(Rule):
+    """Rule for filtration duration monitoring.
+
+    Generates a :class:`~.problem.Problem` when a filtration duration can be
+    computed, serving as a signal for the analysis layer to produce a
+    filtration recommendation.
+
+    Disabled in :attr:`~.model.PoolMode.WINTER_PASSIVE` mode.
+    """
+
+    def evaluate(
+        self,
+        pool: Pool,
+        reading: PoolReading,
+        mode: PoolMode,
+        manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
+    ) -> list[Problem]:
+        """Evaluate filtration needs and return a problem when action is due."""
         if mode == PoolMode.WINTER_PASSIVE:
             return []
 
@@ -210,25 +291,28 @@ class FiltrationRule(Rule):
         if hours is None:
             return []
 
-        if mode in (PoolMode.WINTER_ACTIVE, PoolMode.HIBERNATING):
-            priority = RecommendationPriority.LOW
-        elif hours >= 12:
-            priority = RecommendationPriority.MEDIUM
-        else:
-            priority = RecommendationPriority.LOW
-
+        severity = Severity.MEDIUM if hours >= 12 else Severity.LOW
         return [
-            Recommendation(
-                type=RecommendationType.FILTRATION,
-                priority=priority,
-                kind=ActionKind.SUGGESTION,
+            Problem(
+                code="filtration_required",
                 message=f"Run filtration for {hours:.1f} hours today",
+                severity=severity,
+                metric=None,
+                value=hours,
+                expected_range=None,
             )
         ]
 
 
 class TacRule(Rule):
-    """Rule for total alkalinity (TAC) adjustment."""
+    """Rule for total alkalinity (TAC) adjustment.
+
+    Generates a :class:`~.problem.Problem` when TAC is outside the acceptable
+    range (80-150 ppm).
+
+    Disabled in :attr:`~.model.PoolMode.WINTER_PASSIVE` and
+    :attr:`~.model.PoolMode.WINTER_ACTIVE` modes.
+    """
 
     def evaluate(
         self,
@@ -236,40 +320,50 @@ class TacRule(Rule):
         reading: PoolReading,
         mode: PoolMode,
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
-    ) -> list[Recommendation]:
-        """Evaluate TAC and recommend adjustments."""
+    ) -> list[Problem]:
+        """Evaluate TAC level and return problems if out of range."""
         if mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE) or reading.tac is None:
             return []
 
-        result = compute_tac_adjustment(pool, reading)
-        if result is None:
-            return []
+        tac = reading.tac
 
-        if reading.tac < TAC_MIN:
-            priority = RecommendationPriority.MEDIUM
-            kind = ActionKind.REQUIREMENT
-            message = f"Add {result.quantity_g:.0f}g of TAC+ (alkalinity too low)"
-        elif reading.tac > TAC_MAX:
-            priority = RecommendationPriority.LOW
-            kind = ActionKind.SUGGESTION
-            message = "Alkalinity too high, pH- treatments will help lower it"
-        else:
-            return []
+        if tac < TAC_MIN:
+            return [
+                Problem(
+                    code="alkalinity_too_low",
+                    message=f"Total alkalinity is too low: {tac:.0f} ppm (minimum {TAC_MIN} ppm)",
+                    severity=Severity.MEDIUM,
+                    metric=MetricName.ALKALINITY,
+                    value=tac,
+                    expected_range=(TAC_MIN, TAC_MAX),
+                )
+            ]
 
-        return [
-            Recommendation(
-                type=RecommendationType.CHEMICAL,
-                priority=priority,
-                kind=kind,
-                message=message,
-                product=result.product,
-                quantity_g=result.quantity_g,
-            )
-        ]
+        if tac > TAC_MAX:
+            return [
+                Problem(
+                    code="alkalinity_too_high",
+                    message=f"Total alkalinity is too high: {tac:.0f} ppm (maximum {TAC_MAX} ppm)",
+                    severity=Severity.LOW,
+                    metric=MetricName.ALKALINITY,
+                    value=tac,
+                    expected_range=(TAC_MIN, TAC_MAX),
+                )
+            ]
+
+        return []
 
 
 class AlgaeRiskRule(Rule):
-    """Rule for algae risk detection based on temperature and ORP."""
+    """Rule for algae risk detection based on temperature and ORP.
+
+    Generates a critical :class:`~.problem.Problem` when the water temperature
+    exceeds 28 °C and ORP is below the acceptable minimum simultaneously,
+    indicating high algae growth risk.
+
+    Disabled in :attr:`~.model.PoolMode.WINTER_PASSIVE` and
+    :attr:`~.model.PoolMode.WINTER_ACTIVE` modes.
+    """
 
     def evaluate(
         self,
@@ -277,7 +371,7 @@ class AlgaeRiskRule(Rule):
         reading: PoolReading,
         mode: PoolMode,
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
-    ) -> list[Recommendation]:
+    ) -> list[Problem]:
         """Evaluate algae risk from warm water and low ORP."""
         if mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE):
             return []
@@ -287,62 +381,16 @@ class AlgaeRiskRule(Rule):
 
         if reading.temp_c > 28 and reading.orp < ORP_MIN_ACCEPTABLE:
             return [
-                Recommendation(
-                    type=RecommendationType.ALERT,
-                    priority=RecommendationPriority.HIGH,
-                    kind=ActionKind.REQUIREMENT,
-                    message="High algae risk (warm water + low ORP)",
-                )
-            ]
-
-        return []
-
-
-class FreeChlorineRule(Rule):
-    """Rule for free chlorine level evaluation.
-
-    Supplements the ORP-based SanitizerRule with a direct chlorine reading.
-    Low free chlorine (< 1 ppm) requires immediate action; high free chlorine
-    (> 3 ppm) suggests reducing dosage.
-    """
-
-    def evaluate(
-        self,
-        pool: Pool,
-        reading: PoolReading,
-        mode: PoolMode,
-        manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
-    ) -> list[Recommendation]:
-        """Evaluate free chlorine and recommend adjustments."""
-        if (
-            mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE)
-            or reading.free_chlorine is None
-        ):
-            return []
-
-        result = compute_free_chlorine_adjustment(reading)
-        if result is None:
-            return []
-
-        if reading.free_chlorine < FREE_CHLORINE_MIN:
-            return [
-                Recommendation(
-                    type=RecommendationType.CHEMICAL,
-                    priority=RecommendationPriority.HIGH,
-                    kind=ActionKind.REQUIREMENT,
-                    message="Free chlorine too low, add chlorine",
-                    product=result.product,
-                )
-            ]
-
-        if reading.free_chlorine > FREE_CHLORINE_MAX:
-            return [
-                Recommendation(
-                    type=RecommendationType.ALERT,
-                    priority=RecommendationPriority.LOW,
-                    kind=ActionKind.SUGGESTION,
-                    message="Free chlorine too high, reduce chlorine dosage",
-                    product=result.product,
+                Problem(
+                    code="algae_risk",
+                    message=(
+                        f"High algae risk: water temperature {reading.temp_c:.1f} °C"
+                        f" with ORP {reading.orp:.0f} mV"
+                    ),
+                    severity=Severity.CRITICAL,
+                    metric=MetricName.ORP,
+                    value=reading.orp,
+                    expected_range=(ORP_MIN_ACCEPTABLE, ORP_MAX),
                 )
             ]
 
@@ -350,10 +398,13 @@ class FreeChlorineRule(Rule):
 
 
 class CyaRule(Rule):
-    """Rule for cyanuric acid (stabilizer) level adjustment.
+    """Rule for cyanuric acid (CYA / stabilizer) level monitoring.
 
-    CYA below minimum requires adding stabilizer (with dosage).
-    CYA above maximum has no chemical fix -- recommends partial drain.
+    CYA below minimum (20 ppm) requires adding stabilizer.
+    CYA above maximum (75 ppm) has no chemical fix; recommends partial drain.
+
+    Disabled in :attr:`~.model.PoolMode.WINTER_PASSIVE` and
+    :attr:`~.model.PoolMode.WINTER_ACTIVE` modes.
     """
 
     def evaluate(
@@ -362,33 +413,34 @@ class CyaRule(Rule):
         reading: PoolReading,
         mode: PoolMode,
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
-    ) -> list[Recommendation]:
-        """Evaluate CYA level and recommend adjustments."""
+    ) -> list[Problem]:
+        """Evaluate CYA level and return problems if out of range."""
         if mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE) or reading.cya is None:
             return []
 
-        if reading.cya < CYA_MIN:
-            result = compute_cya_adjustment(pool, reading)
-            if result is None:
-                return []
+        cya = reading.cya
+
+        if cya < CYA_MIN:
             return [
-                Recommendation(
-                    type=RecommendationType.CHEMICAL,
-                    priority=RecommendationPriority.MEDIUM,
-                    kind=ActionKind.REQUIREMENT,
-                    message=f"Add {result.quantity_g:.0f}g of stabilizer (CYA too low)",
-                    product=result.product,
-                    quantity_g=result.quantity_g,
+                Problem(
+                    code="cya_too_low",
+                    message=f"CYA is too low: {cya:.0f} ppm (minimum {CYA_MIN} ppm)",
+                    severity=Severity.MEDIUM,
+                    metric=MetricName.CYA,
+                    value=cya,
+                    expected_range=(CYA_MIN, CYA_MAX),
                 )
             ]
 
-        if reading.cya > CYA_MAX:
+        if cya > CYA_MAX:
             return [
-                Recommendation(
-                    type=RecommendationType.ALERT,
-                    priority=RecommendationPriority.LOW,
-                    kind=ActionKind.REQUIREMENT,
-                    message="CYA too high, consider partial water drain",
+                Problem(
+                    code="cya_too_high",
+                    message=f"CYA is too high: {cya:.0f} ppm (maximum {CYA_MAX} ppm)",
+                    severity=Severity.LOW,
+                    metric=MetricName.CYA,
+                    value=cya,
+                    expected_range=(CYA_MIN, CYA_MAX),
                 )
             ]
 
@@ -396,11 +448,14 @@ class CyaRule(Rule):
 
 
 class HardnessRule(Rule):
-    """Rule for calcium hardness level adjustment.
+    """Rule for calcium hardness level monitoring.
 
-    Hardness below minimum requires adding calcium hardness increaser
-    (with dosage). Hardness above maximum has no chemical fix -- recommends
-    partial drain.
+    Hardness below minimum (150 ppm) requires adding calcium hardness
+    increaser.  Hardness above maximum (400 ppm) has no chemical fix;
+    recommends partial drain.
+
+    Disabled in :attr:`~.model.PoolMode.WINTER_PASSIVE` and
+    :attr:`~.model.PoolMode.WINTER_ACTIVE` modes.
     """
 
     def evaluate(
@@ -409,36 +464,40 @@ class HardnessRule(Rule):
         reading: PoolReading,
         mode: PoolMode,
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
-    ) -> list[Recommendation]:
-        """Evaluate calcium hardness and recommend adjustments."""
+    ) -> list[Problem]:
+        """Evaluate calcium hardness and return problems if out of range."""
         if mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE) or reading.hardness is None:
             return []
 
-        if reading.hardness < HARDNESS_MIN:
-            result = compute_hardness_adjustment(pool, reading)
-            if result is None:
-                return []
+        hardness = reading.hardness
+
+        if hardness < HARDNESS_MIN:
             return [
-                Recommendation(
-                    type=RecommendationType.CHEMICAL,
-                    priority=RecommendationPriority.MEDIUM,
-                    kind=ActionKind.REQUIREMENT,
+                Problem(
+                    code="hardness_too_low",
                     message=(
-                        f"Add {result.quantity_g:.0f}g of calcium hardness"
-                        " increaser (hardness too low)"
+                        f"Calcium hardness is too low: {hardness:.0f} ppm"
+                        f" (minimum {HARDNESS_MIN} ppm)"
                     ),
-                    product=result.product,
-                    quantity_g=result.quantity_g,
+                    severity=Severity.MEDIUM,
+                    metric=MetricName.HARDNESS,
+                    value=hardness,
+                    expected_range=(HARDNESS_MIN, HARDNESS_MAX),
                 )
             ]
 
-        if reading.hardness > HARDNESS_MAX:
+        if hardness > HARDNESS_MAX:
             return [
-                Recommendation(
-                    type=RecommendationType.ALERT,
-                    priority=RecommendationPriority.LOW,
-                    kind=ActionKind.REQUIREMENT,
-                    message="Calcium hardness too high, consider partial water drain",
+                Problem(
+                    code="hardness_too_high",
+                    message=(
+                        f"Calcium hardness is too high: {hardness:.0f} ppm"
+                        f" (maximum {HARDNESS_MAX} ppm)"
+                    ),
+                    severity=Severity.LOW,
+                    metric=MetricName.HARDNESS,
+                    value=hardness,
+                    expected_range=(HARDNESS_MIN, HARDNESS_MAX),
                 )
             ]
 
@@ -446,12 +505,15 @@ class HardnessRule(Rule):
 
 
 class SaltRule(Rule):
-    """Rule for salt level adjustment in salt electrolysis pools.
+    """Rule for salt level monitoring in salt electrolysis pools.
 
-    Only evaluates when the pool treatment is salt electrolysis.
-    Salt below minimum requires adding salt (with dosage).
-    Salt above maximum has no chemical fix -- recommends partial drain.
-    Disabled in winter modes (passive and active).
+    Only evaluates when the pool treatment is
+    :attr:`~.model.TreatmentType.SALT_ELECTROLYSIS`.
+    Salt below minimum (2700 ppm) requires adding salt.
+    Salt above maximum (3400 ppm) recommends partial drain.
+
+    Disabled in :attr:`~.model.PoolMode.WINTER_PASSIVE` and
+    :attr:`~.model.PoolMode.WINTER_ACTIVE` modes.
     """
 
     def evaluate(
@@ -460,37 +522,37 @@ class SaltRule(Rule):
         reading: PoolReading,
         mode: PoolMode,
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
-    ) -> list[Recommendation]:
-        """Evaluate salt level and recommend adjustments."""
+    ) -> list[Problem]:
+        """Evaluate salt level and return problems if out of range."""
         if pool.treatment != TreatmentType.SALT_ELECTROLYSIS:
             return []
 
         if mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE) or reading.salt is None:
             return []
 
-        result = compute_salt_adjustment(pool, reading)
+        salt = reading.salt
 
-        if reading.salt < SALT_MIN:
-            if result is None:
-                return []
+        if salt < SALT_MIN:
             return [
-                Recommendation(
-                    type=RecommendationType.CHEMICAL,
-                    priority=RecommendationPriority.MEDIUM,
-                    kind=ActionKind.REQUIREMENT,
-                    message=f"Add {result.quantity_g:.0f}g of salt (salt level too low)",
-                    product=result.product,
-                    quantity_g=result.quantity_g,
+                Problem(
+                    code="salt_too_low",
+                    message=f"Salt level is too low: {salt:.0f} ppm (minimum {SALT_MIN} ppm)",
+                    severity=Severity.MEDIUM,
+                    metric=MetricName.SALT,
+                    value=salt,
+                    expected_range=(SALT_MIN, SALT_MAX),
                 )
             ]
 
-        if reading.salt > SALT_MAX:
+        if salt > SALT_MAX:
             return [
-                Recommendation(
-                    type=RecommendationType.ALERT,
-                    priority=RecommendationPriority.LOW,
-                    kind=ActionKind.REQUIREMENT,
-                    message="Salt level too high, consider partial water drain",
+                Problem(
+                    code="salt_too_high",
+                    message=f"Salt level is too high: {salt:.0f} ppm (maximum {SALT_MAX} ppm)",
+                    severity=Severity.LOW,
+                    metric=MetricName.SALT,
+                    value=salt,
+                    expected_range=(SALT_MIN, SALT_MAX),
                 )
             ]
 
@@ -498,19 +560,18 @@ class SaltRule(Rule):
 
 
 class TdsRule(Rule):
-    """Rule for Total Dissolved Solids (TDS) evaluation.
+    """Rule for Total Dissolved Solids (TDS) monitoring.
 
     TDS is derived from EC and indicates the concentration of dissolved
-    minerals in the water. High TDS reduces sanitizer effectiveness and
+    minerals in the water.  High TDS reduces sanitizer effectiveness and
     can cause cloudy water.
 
     Skipped for salt electrolysis pools because dissolved salt naturally
-    raises TDS well above the freshwater thresholds. Also skipped in
+    raises TDS well above the freshwater thresholds.  Also skipped in
     winter modes.
 
     TDS above maximum recommends a partial water drain (no chemical can
-    lower dissolved solids). TDS below minimum is uncommon and not
-    actionable.
+    lower dissolved solids).  TDS below minimum suggests sensor calibration.
     """
 
     def evaluate(
@@ -519,8 +580,8 @@ class TdsRule(Rule):
         reading: PoolReading,
         mode: PoolMode,
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
-    ) -> list[Recommendation]:
-        """Evaluate TDS and recommend actions when out of range."""
+    ) -> list[Problem]:
+        """Evaluate TDS level and return problems when out of range."""
         # Salt electrolysis pools naturally have high TDS from dissolved salt
         if pool.treatment == TreatmentType.SALT_ELECTROLYSIS:
             return []
@@ -528,23 +589,29 @@ class TdsRule(Rule):
         if mode in (PoolMode.WINTER_PASSIVE, PoolMode.WINTER_ACTIVE) or reading.tds is None:
             return []
 
-        if reading.tds > TDS_MAX:
+        tds = reading.tds
+
+        if tds > TDS_MAX:
             return [
-                Recommendation(
-                    type=RecommendationType.ALERT,
-                    priority=RecommendationPriority.MEDIUM,
-                    kind=ActionKind.REQUIREMENT,
-                    message="TDS too high, consider partial water drain",
+                Problem(
+                    code="tds_too_high",
+                    message=f"TDS is too high: {tds:.0f} ppm (maximum {TDS_MAX} ppm)",
+                    severity=Severity.MEDIUM,
+                    metric=MetricName.TDS,
+                    value=tds,
+                    expected_range=(TDS_MIN, TDS_MAX),
                 )
             ]
 
-        if reading.tds < TDS_MIN:
+        if tds < TDS_MIN:
             return [
-                Recommendation(
-                    type=RecommendationType.ALERT,
-                    priority=RecommendationPriority.LOW,
-                    kind=ActionKind.SUGGESTION,
-                    message="TDS unusually low, verify EC sensor calibration",
+                Problem(
+                    code="tds_too_low",
+                    message=f"TDS is unusually low: {tds:.0f} ppm (minimum {TDS_MIN} ppm)",
+                    severity=Severity.LOW,
+                    metric=MetricName.TDS,
+                    value=tds,
+                    expected_range=(TDS_MIN, TDS_MAX),
                 )
             ]
 
@@ -553,7 +620,7 @@ class TdsRule(Rule):
 
 # Deviation thresholds per parameter for calibration checks.
 # When the absolute difference between a sensor reading and the last manual
-# measurement exceeds these values, a calibration recommendation is generated.
+# measurement exceeds these values, a calibration problem is generated.
 _CALIBRATION_THRESHOLDS: dict[MeasureParameter, float] = {
     MeasureParameter.PH: 0.3,
     MeasureParameter.ORP: 50.0,
@@ -600,8 +667,12 @@ class CalibrationRule(Rule):
     """Rule that detects deviation between sensor readings and manual measurements.
 
     When both a sensor value and a manual measurement exist for the same
-    parameter, compares them. If the deviation exceeds a per-parameter
-    threshold, suggests sensor recalibration or a new manual measurement.
+    parameter, compares them.  If the deviation exceeds a per-parameter
+    threshold, generates a :class:`~.problem.Problem` with
+    :attr:`~.problem.Severity.LOW` suggesting sensor recalibration.
+
+    Disabled in :attr:`~.model.PoolMode.WINTER_PASSIVE` mode.
+    Requires at least one manual measurement to be recorded.
     """
 
     def evaluate(
@@ -610,12 +681,12 @@ class CalibrationRule(Rule):
         reading: PoolReading,
         mode: PoolMode,
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
-    ) -> list[Recommendation]:
+    ) -> list[Problem]:
         """Compare sensor readings against manual measures and flag deviations."""
         if mode == PoolMode.WINTER_PASSIVE or not manual_measures:
             return []
 
-        recommendations: list[Recommendation] = []
+        problems: list[Problem] = []
         for param, measure in manual_measures.items():
             threshold = _CALIBRATION_THRESHOLDS.get(param)
             if threshold is None:
@@ -632,34 +703,46 @@ class CalibrationRule(Rule):
             deviation = abs(sensor_value - measure.value)
             if deviation > threshold:
                 label = _MEASURE_LABELS.get(param, param.value)
-                recommendations.append(
-                    Recommendation(
-                        type=RecommendationType.MAINTENANCE,
-                        priority=RecommendationPriority.MEDIUM,
-                        kind=ActionKind.SUGGESTION,
+                problems.append(
+                    Problem(
+                        code=f"calibration_{param.value}",
                         message=(
                             f"{label} sensor reading ({sensor_value:.1f}) deviates from"
-                            f" manual measure ({measure.value:.1f})."
+                            f" manual measure ({measure.value:.1f}) by {deviation:.1f}"
+                            f" (threshold {threshold})."
                             " Consider sensor recalibration or a new manual measurement."
                         ),
+                        severity=Severity.LOW,
+                        metric=None,
+                        value=sensor_value,
+                        expected_range=None,
                     )
                 )
 
-        return recommendations
+        return problems
 
 
 class RuleEngine:
     """Engine that evaluates all registered rules against pool state.
 
-    Rules are evaluated in registration order. All applicable recommendations
-    are collected and returned.
+    Rules are evaluated in registration order.  All detected
+    :class:`~.problem.Problem` objects are collected and returned sorted by
+    severity (critical first).
+
+    Example::
+
+        engine = RuleEngine()
+        problems = engine.evaluate(pool, reading, mode)
+        for problem in problems:
+            print(f"[{problem.severity}] {problem.code}: {problem.message}")
     """
 
     def __init__(self, rules: list[Rule] | None = None) -> None:
         """Initialize the rule engine with optional rules.
 
         Args:
-            rules: List of rules to register. If None, uses default rules.
+            rules: List of rules to register.  If ``None``, uses the default
+                set of built-in rules.
         """
         self.rules = rules if rules is not None else self._default_rules()
 
@@ -686,8 +769,8 @@ class RuleEngine:
         reading: PoolReading,
         mode: PoolMode,
         manual_measures: dict[MeasureParameter, ManualMeasure] | None = None,
-    ) -> list[Recommendation]:
-        """Run all rules and collect recommendations.
+    ) -> list[Problem]:
+        """Run all rules and collect detected problems.
 
         Args:
             pool: Pool physical characteristics.
@@ -696,21 +779,18 @@ class RuleEngine:
             manual_measures: Manual measurements recorded by the user.
 
         Returns:
-            All recommendations from all rules, sorted by priority (highest first).
+            All problems from all rules, sorted by severity (critical first).
         """
-        recommendations: list[Recommendation] = []
+        problems: list[Problem] = []
         for rule in self.rules:
-            recommendations.extend(
-                rule.evaluate(pool, reading, mode, manual_measures=manual_measures)
-            )
+            problems.extend(rule.evaluate(pool, reading, mode, manual_measures=manual_measures))
 
-        # Sort by priority (critical first)
-        priority_order = {
-            RecommendationPriority.CRITICAL: 0,
-            RecommendationPriority.HIGH: 1,
-            RecommendationPriority.MEDIUM: 2,
-            RecommendationPriority.LOW: 3,
+        # Sort by severity (critical first)
+        severity_order = {
+            Severity.CRITICAL: 0,
+            Severity.MEDIUM: 1,
+            Severity.LOW: 2,
         }
-        recommendations.sort(key=lambda r: priority_order.get(r.priority, 99))
+        problems.sort(key=lambda p: severity_order.get(p.severity, 99))
 
-        return recommendations
+        return problems
