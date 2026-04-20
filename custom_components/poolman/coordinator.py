@@ -48,9 +48,21 @@ from .const import (
     SUBENTRY_ACTIVATION,
 )
 from .domain.activation import SHOCK_PRODUCT_VALUES, ActivationChecklist, ActivationStep
-from .domain.chemistry import compute_chemistry_report, compute_tds, compute_water_quality_score
+from .domain.analysis import AnalysisResult
+from .domain.chemistry import (
+    compute_chemistry_report,
+    compute_cya_adjustment,
+    compute_free_chlorine_adjustment,
+    compute_hardness_adjustment,
+    compute_ph_adjustment,
+    compute_salt_adjustment,
+    compute_tac_adjustment,
+    compute_tds,
+    compute_water_quality_score,
+)
 from .domain.filtration import compute_filtration_duration
 from .domain.model import (
+    ActionKind,
     ChemicalProduct,
     FiltrationDurationMode,
     FiltrationKind,
@@ -62,6 +74,8 @@ from .domain.model import (
     PoolShape,
     PoolState,
     Recommendation,
+    RecommendationPriority,
+    RecommendationType,
     SpoonSize,
     TreatmentType,
     compute_spoon_equivalent,
@@ -116,6 +130,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             update_interval=timedelta(minutes=DEFAULT_UPDATE_INTERVAL_MINUTES),
         )
         self.pool = self._build_pool()
+        self._analysis_result: AnalysisResult | None = None
         self.engine = RuleEngine()
         self._mode = PoolMode.ACTIVE
         self._filtration_duration_mode = FiltrationDurationMode(DEFAULT_FILTRATION_DURATION_MODE)
@@ -208,6 +223,102 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
                     )
             enriched.append(rec)
         return enriched
+
+    def _problems_to_legacy_recommendations(
+        self,
+        problems: list,
+        reading: PoolReading,
+    ) -> list[Recommendation]:
+        """Convert :class:`~.domain.problem.Problem` objects to legacy recommendations.
+
+        Temporary compatibility bridge between the new rule engine (which
+        returns :class:`~.domain.problem.Problem` objects) and the legacy
+        :class:`~.domain.model.PoolState` model (which stores
+        :class:`~.domain.model.Recommendation` Pydantic objects).
+
+        This bridge will be removed when the HA entity layer is refactored to
+        consume :class:`~.domain.analysis.AnalysisResult` directly (see
+        issues #98-#102).
+
+        Args:
+            problems: List of :class:`~.domain.problem.Problem` objects from the
+                rule engine.
+            reading: Current pool reading used for dosage calculations.
+
+        Returns:
+            List of legacy :class:`~.domain.model.Recommendation` objects
+            compatible with the current sensor and binary-sensor entities.
+        """
+        from .domain.problem import Severity
+
+        _severity_to_priority = {
+            Severity.CRITICAL: RecommendationPriority.CRITICAL,
+            Severity.MEDIUM: RecommendationPriority.HIGH,
+            Severity.LOW: RecommendationPriority.LOW,
+        }
+        _severity_to_kind = {
+            Severity.CRITICAL: ActionKind.REQUIREMENT,
+            Severity.MEDIUM: ActionKind.REQUIREMENT,
+            Severity.LOW: ActionKind.SUGGESTION,
+        }
+
+        recommendations: list[Recommendation] = []
+        for problem in problems:
+            priority = _severity_to_priority.get(problem.severity, RecommendationPriority.LOW)
+            kind = _severity_to_kind.get(problem.severity, ActionKind.SUGGESTION)
+
+            # Determine recommendation type from problem code
+            if problem.code == "filtration_required":
+                rec_type = RecommendationType.FILTRATION
+            elif problem.code.startswith("calibration_"):
+                rec_type = RecommendationType.MAINTENANCE
+            elif problem.code in (
+                "orp_too_high",
+                "cya_too_high",
+                "hardness_too_high",
+                "salt_too_high",
+                "tds_too_high",
+                "tds_too_low",
+                "algae_risk",
+            ):
+                rec_type = RecommendationType.ALERT
+            else:
+                rec_type = RecommendationType.CHEMICAL
+
+            # Try to attach a dosage for chemistry recommendations
+            quantity_g: float | None = None
+            product: str | None = None
+
+            if rec_type == RecommendationType.CHEMICAL and reading is not None:
+                dosage = None
+                if problem.code in ("ph_too_high", "ph_too_low"):
+                    dosage = compute_ph_adjustment(self.pool, reading)
+                elif problem.code == "alkalinity_too_low":
+                    dosage = compute_tac_adjustment(self.pool, reading)
+                elif problem.code == "cya_too_low":
+                    dosage = compute_cya_adjustment(self.pool, reading)
+                elif problem.code == "hardness_too_low":
+                    dosage = compute_hardness_adjustment(self.pool, reading)
+                elif problem.code == "salt_too_low":
+                    dosage = compute_salt_adjustment(self.pool, reading)
+                elif problem.code == "chlorine_too_low":
+                    dosage = compute_free_chlorine_adjustment(reading)
+
+                if dosage is not None:
+                    product = dosage.product
+                    quantity_g = dosage.quantity_g
+
+            recommendations.append(
+                Recommendation(
+                    type=rec_type,
+                    priority=priority,
+                    kind=kind,
+                    message=problem.message,
+                    product=product,
+                    quantity_g=quantity_g,
+                )
+            )
+        return recommendations
 
     @property
     def mode(self) -> PoolMode:
@@ -799,9 +910,10 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             hardness=self._read_sensor(CONF_HARDNESS_ENTITY),
         )
 
-        recommendations = self.engine.evaluate(
+        problems = self.engine.evaluate(
             self.pool, sensor_reading, self._mode, manual_measures=manual_measures
         )
+        recommendations = self._problems_to_legacy_recommendations(problems, reading)
         recommendations = self._enrich_recommendations_with_spoons(recommendations)
         filtration_hours = compute_filtration_duration(self.pool, reading, self._mode)
         water_quality_score = compute_water_quality_score(reading)

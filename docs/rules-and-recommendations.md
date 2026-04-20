@@ -245,3 +245,79 @@ as **Suggestions** of type **Maintenance**.
 
     This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering) mode.
     It requires at least one manual measurement to be recorded.
+
+## Analysis Pipeline
+
+The rule engine operates as a two-phase pipeline:
+
+```text
+PoolState
+    │
+    ▼
+detect_problems()         ← domain/problem.py
+    │  list[Problem]
+    ▼
+generate_recommendations() ← domain/analysis.py
+    │  list[Recommendation]
+    ▼
+AnalysisResult(problems, recommendations, timestamp)
+```
+
+### Phase 1 — Problem Detection
+
+`detect_problems(pool_state)` iterates over every chemistry parameter in the
+pool state and emits a `Problem` for each parameter whose status is not
+`GOOD`. Each `Problem` carries:
+
+| Field | Description |
+| --- | --- |
+| `code` | Machine-readable identifier, e.g. `"ph_too_high"` |
+| `severity` | `low`, `medium`, or `critical` |
+| `metric` | Canonical metric name, e.g. `"ph"` |
+| `value` | Actual measured value |
+| `expected_range` | `(minimum, maximum)` acceptable range |
+| `message` | Human-readable description |
+
+Severity is derived from the parameter report:
+
+| Status | Score | Severity |
+| --- | --- | --- |
+| `warning` | any | `low` |
+| `bad` | > 0 | `medium` |
+| `bad` | 0 | `critical` |
+
+Missing or `None` sensor values are silently skipped — the pipeline never
+crashes on incomplete data.
+
+### Phase 2 — Recommendation Generation
+
+`generate_recommendations(problems)` maps each `Problem` code to a
+`Recommendation` using an internal template table.  Templates define:
+
+- Recommendation type (`chemistry`, `filtration`, `alert`, or `maintenance`)
+- Human-readable title and description
+- Optional product identifier and unit for a concrete `Treatment` step
+
+Priority and `ActionKind` are derived from severity:
+
+| Severity | Priority | Kind |
+| --- | --- | --- |
+| `low` | `low` | `suggestion` |
+| `medium` | `medium` | `requirement` |
+| `critical` | `critical` | `requirement` |
+
+Duplicate codes are deduplicated — only the highest-severity problem for a
+given code produces a recommendation.  Unknown codes are silently skipped for
+forward compatibility.
+
+### AnalysisResult
+
+`analyze_pool(state)` runs both phases and returns an `AnalysisResult`
+dataclass with:
+
+- `problems` — ordered most-severe first
+- `recommendations` — ordered most-urgent first
+- `timestamp` — UTC datetime of the analysis run
+
+The coordinator calls `analyze_pool` on every state update and stores the
+result for sensor and binary-sensor entities to consume.
