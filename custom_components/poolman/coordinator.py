@@ -48,7 +48,12 @@ from .const import (
     SUBENTRY_ACTIVATION,
 )
 from .domain.activation import SHOCK_PRODUCT_VALUES, ActivationChecklist, ActivationStep
-from .domain.chemistry import compute_chemistry_report, compute_tds, compute_water_quality_score
+from .domain.analysis import AnalysisResult, analyze_pool
+from .domain.chemistry import (
+    compute_chemistry_report,
+    compute_tds,
+    compute_water_quality_score,
+)
 from .domain.filtration import compute_filtration_duration
 from .domain.model import (
     ChemicalProduct,
@@ -61,13 +66,10 @@ from .domain.model import (
     PoolReading,
     PoolShape,
     PoolState,
-    Recommendation,
     SpoonSize,
     TreatmentType,
-    compute_spoon_equivalent,
     compute_status_changes,
 )
-from .domain.rules import RuleEngine
 from .domain.treatment import (
     compute_active_treatments,
     compute_safe_at,
@@ -116,7 +118,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             update_interval=timedelta(minutes=DEFAULT_UPDATE_INTERVAL_MINUTES),
         )
         self.pool = self._build_pool()
-        self.engine = RuleEngine()
+        self._analysis_result: AnalysisResult | None = None
         self._mode = PoolMode.ACTIVE
         self._filtration_duration_mode = FiltrationDurationMode(DEFAULT_FILTRATION_DURATION_MODE)
         self._min_dynamic_period_duration = DEFAULT_MIN_DYNAMIC_DURATION_HOURS
@@ -172,42 +174,10 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             spoon_sizes=spoon_sizes,
         )
 
-    def _enrich_recommendations_with_spoons(
-        self, recommendations: list[Recommendation]
-    ) -> list[Recommendation]:
-        """Add spoon equivalents to recommendations that have a dosage.
-
-        For each recommendation with a ``quantity_g`` and ``product``,
-        computes the equivalent number of configured measuring spoons
-        and returns a new list with enriched recommendations.
-
-        Args:
-            recommendations: Original recommendations from the rule engine.
-
-        Returns:
-            List of recommendations with ``spoon_count`` and ``spoon_name``
-            populated where applicable.
-        """
-        if not self.pool.spoon_sizes:
-            return recommendations
-
-        enriched: list[Recommendation] = []
-        for rec in recommendations:
-            if rec.quantity_g and rec.product:
-                try:
-                    product = ChemicalProduct(rec.product)
-                except ValueError:
-                    enriched.append(rec)
-                    continue
-
-                result = compute_spoon_equivalent(rec.quantity_g, product, self.pool.spoon_sizes)
-                if result is not None:
-                    count, spoon = result
-                    rec = rec.model_copy(
-                        update={"spoon_count": int(count), "spoon_name": spoon.name}
-                    )
-            enriched.append(rec)
-        return enriched
+    @property
+    def analysis_result(self) -> AnalysisResult | None:
+        """Return the last analysis result, or None before first update."""
+        return self._analysis_result
 
     @property
     def mode(self) -> PoolMode:
@@ -799,10 +769,16 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             hardness=self._read_sensor(CONF_HARDNESS_ENTITY),
         )
 
-        recommendations = self.engine.evaluate(
-            self.pool, sensor_reading, self._mode, manual_measures=manual_measures
+        # Build an intermediate PoolState for the analysis pipeline.
+        # raw_sensor_reading is used by CalibrationRule to compare sensor vs. manual values.
+        analysis_state = PoolState(
+            mode=self._mode,
+            pool=self.pool,
+            reading=reading,
+            raw_sensor_reading=sensor_reading,
+            manual_measures=manual_measures,
         )
-        recommendations = self._enrich_recommendations_with_spoons(recommendations)
+        self._analysis_result = analyze_pool(analysis_state)
         filtration_hours = compute_filtration_duration(self.pool, reading, self._mode)
         water_quality_score = compute_water_quality_score(reading)
         chemistry_report = compute_chemistry_report(reading)
@@ -818,8 +794,10 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
 
         new_state = PoolState(
             mode=self._mode,
+            pool=self.pool,
             reading=reading,
-            recommendations=recommendations,
+            raw_sensor_reading=sensor_reading,
+            analysis_result=self._analysis_result,
             filtration_hours=filtration_hours,
             water_quality_score=water_quality_score,
             chemistry_report=chemistry_report,

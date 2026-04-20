@@ -1,16 +1,34 @@
 """Domain models for pool management.
 
 Pure Python models with no Home Assistant dependency.
+
+:class:`Severity` and :class:`MetricName` are the canonical definitions
+imported from :mod:`.problem`.  All other shared enums live here alongside
+their primary model.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .activation import ActivationChecklist
+from .problem import (  # noqa: F401 - re-exported for back-compat
+    ChemistryStatus,
+    MetricName,
+    ParameterReport,
+    Severity,
+)
+from .recommendation import (
+    ActionKind,
+    Recommendation,
+    RecommendationPriority,
+    RecommendationType,
+    Treatment,
+)
 
 
 class PoolShape(StrEnum):
@@ -153,69 +171,6 @@ PRODUCT_DENSITY_G_PER_ML: dict[ChemicalProduct, float] = {
 }
 
 
-class ChemistryStatus(StrEnum):
-    """Status levels for individual chemistry parameters."""
-
-    GOOD = "good"
-    WARNING = "warning"
-    BAD = "bad"
-
-
-class Severity(StrEnum):
-    """Severity levels for chemistry status."""
-
-    LOW = "low"
-    MEDIUM = "medium"
-    CRITICAL = "critical"
-
-
-class MetricName(StrEnum):
-    """Canonical names for pool chemistry metrics.
-
-    Used to identify the parameter a :class:`~problems.Problem` relates to in
-    a strongly-typed, serialisation-friendly way.
-    """
-
-    PH = "ph"
-    ORP = "orp"
-    CHLORINE = "chlorine"
-    TEMPERATURE = "temperature"
-    CYA = "cya"
-    ALKALINITY = "alkalinity"
-    HARDNESS = "hardness"
-    TDS = "tds"
-    SALT = "salt"
-
-
-class RecommendationType(StrEnum):
-    """Types of pool recommendations."""
-
-    CHEMICAL = "chemical"
-    FILTRATION = "filtration"
-    ALERT = "alert"
-    MAINTENANCE = "maintenance"
-
-
-class ActionKind(StrEnum):
-    """Whether a recommendation is a suggestion or a requirement.
-
-    Suggestions are optional improvements; requirements indicate
-    that the pool needs attention to remain safe or functional.
-    """
-
-    SUGGESTION = "suggestion"
-    REQUIREMENT = "requirement"
-
-
-class RecommendationPriority(StrEnum):
-    """Priority levels for recommendations."""
-
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-
 class DosageAdjustment(BaseModel, frozen=True):
     """A chemical dosage adjustment recommendation."""
 
@@ -228,24 +183,6 @@ class SanitizerStatus(BaseModel, frozen=True):
 
     product: ChemicalProduct
     severity: Severity
-
-
-class ParameterReport(BaseModel, frozen=True):
-    """Status report for a single chemistry parameter.
-
-    Bundles the metric identity with the evaluated status, the reading value,
-    target range, and individual quality score for rich dashboard display.
-    The :attr:`metric` field makes each report self-describing so callers
-    never need an external mapping from field name to metric name.
-    """
-
-    metric: MetricName
-    status: ChemistryStatus
-    value: float
-    target: float
-    minimum: float
-    maximum: float
-    score: int = Field(ge=0, le=100, description="Quality score from 0 to 100")
 
 
 class ChemistryReport(BaseModel, frozen=True):
@@ -366,6 +303,36 @@ def format_spoon_text(spoon_count: float, spoon_name: str) -> str:
     return f"{count_int} {spoon_name} {unit}"
 
 
+def format_treatment_spoon(
+    treatment: Treatment,
+    spoon_sizes: list[SpoonSize],
+) -> str | None:
+    """Return a human-readable spoon equivalent string for a treatment, or None.
+
+    Display-only helper: converts the treatment's gram quantity to a spoon
+    count using the pool's configured spoon sizes.  Returns ``None`` when
+    no spoon equivalent is applicable (tablet product, no spoon sizes, etc.).
+
+    Args:
+        treatment: The treatment whose dosage to express in spoons.
+        spoon_sizes: Configured measuring spoon sizes from :attr:`Pool.spoon_sizes`.
+
+    Returns:
+        A formatted string like ``"6 Large spoons"`` or ``None``.
+    """
+    try:
+        product = ChemicalProduct(treatment.product_id)
+    except ValueError:
+        return None
+
+    result = compute_spoon_equivalent(treatment.quantity, product, spoon_sizes)
+    if result is None:
+        return None
+
+    count, spoon = result
+    return format_spoon_text(count, spoon.name)
+
+
 class PoolReading(BaseModel):
     """Current sensor readings from the pool.
 
@@ -383,36 +350,6 @@ class PoolReading(BaseModel):
     tac: float | None = Field(None, ge=0, description="Total alkalinity in ppm")
     cya: float | None = Field(None, ge=0, description="Cyanuric acid (stabilizer) in ppm")
     hardness: float | None = Field(None, ge=0, description="Calcium hardness in ppm")
-
-
-class Recommendation(BaseModel):
-    """A pool treatment or maintenance recommendation."""
-
-    type: RecommendationType
-    priority: RecommendationPriority
-    kind: ActionKind = ActionKind.SUGGESTION
-    message: str
-    product: str | None = None
-    quantity_g: float | None = Field(None, ge=0, description="Quantity in grams")
-    spoon_count: int | None = Field(None, ge=0, description="Equivalent number of spoons")
-    spoon_name: str | None = Field(
-        None, description="Name of the spoon size used for the equivalent"
-    )
-
-    def __str__(self) -> str:
-        """Return human-readable recommendation."""
-        base = self.message
-        if self.quantity_g and self.product:
-            base = f"{base} ({self.quantity_g:.0f}g of {self.product})"
-        if self.spoon_count is not None and self.spoon_name is not None:
-            spoon_text = format_spoon_text(self.spoon_count, self.spoon_name)
-            if self.quantity_g and self.product:
-                # Append spoon info after the gram info: "msg (300g of ph_minus, 6 Large spoons)"
-                # Replace last ')' with ', spoon_text)'
-                base = base[:-1] + f", {spoon_text})"
-            else:
-                base = f"{base} ({spoon_text})"
-        return base
 
 
 class ManualMeasure(BaseModel, frozen=True):
@@ -448,11 +385,52 @@ class ActiveTreatment(BaseModel, frozen=True):
 
 
 class PoolState(BaseModel):
-    """Computed state of the pool combining readings, mode, and recommendations."""
+    """Computed state of the pool combining readings, analysis, and mode.
+
+    Attributes:
+        mode: Current operational mode of the pool.
+        pool: Physical pool configuration used by rules for dosage and
+            filtration calculations.  ``None`` when not yet built (e.g. in
+            tests that do not need rule evaluation).
+        reading: Current effective sensor readings (with manual fallbacks
+            applied).
+        raw_sensor_reading: Raw sensor-only readings before manual fallbacks.
+            Used by :class:`~.rules.maintenance.calibration.CalibrationRule`
+            to compare sensor vs. manual values.  ``None`` when not running
+            in coordinator context.
+        analysis_result: Output of the last :func:`~.analysis.analyze_pool`
+            run, containing all detected problems and recommendations.
+        filtration_hours: Recommended daily filtration duration in hours.
+        water_quality_score: Overall water quality score from 0 to 100.
+        chemistry_report: Per-parameter chemistry status report.
+        active_treatments: Chemical treatments currently within their
+            activity or safety window.
+        swimming_safe: True when no active treatment safety period is in
+            effect and the pool is in ACTIVE mode.
+        safe_at: When swimming will become safe, or ``None`` if already safe.
+        manual_measures: Latest manual measurements keyed by parameter.
+        reading_sources: Which source provided each reading value
+            (``"sensor"``, ``"manual"``, or ``"computed"``).
+        boost_remaining: Remaining boost filtration hours (0 when no boost).
+        activation: Activation checklist when the pool is in ACTIVATING mode.
+    """
 
     mode: PoolMode = PoolMode.ACTIVE
+    pool: Pool | None = None
     reading: PoolReading = Field(default_factory=PoolReading)
-    recommendations: list[Recommendation] = Field(default_factory=list)
+    raw_sensor_reading: PoolReading | None = None
+    analysis_result: Any = Field(default=None)  # AnalysisResult; Any avoids circular import
+
+    @model_validator(mode="after")
+    def _default_analysis_result(self) -> PoolState:
+        """Initialise analysis_result to an empty AnalysisResult when None."""
+        if self.analysis_result is None:
+            # Deferred import to break the model.py ↔ analysis.py circular dep.
+            from .analysis import AnalysisResult
+
+            object.__setattr__(self, "analysis_result", AnalysisResult())
+        return self
+
     filtration_hours: float | None = None
     water_quality_score: int | None = Field(None, ge=0, le=100)
     chemistry_report: ChemistryReport = Field(default_factory=ChemistryReport)
@@ -463,6 +441,11 @@ class PoolState(BaseModel):
     reading_sources: dict[str, str] = Field(default_factory=dict)
     boost_remaining: float = Field(0.0, ge=0, description="Remaining boost filtration hours")
     activation: ActivationChecklist | None = None
+
+    @property
+    def recommendations(self) -> list[Recommendation]:
+        """Return all recommendations from the latest analysis result."""
+        return self.analysis_result.recommendations
 
     @property
     def water_ok(self) -> bool:
@@ -476,21 +459,25 @@ class PoolState(BaseModel):
     @property
     def action_required(self) -> bool:
         """Return True if any recommendation exists."""
-        return len(self.recommendations) > 0
+        return len(self.analysis_result.recommendations) > 0
 
     @property
     def critical_recommendations(self) -> list[Recommendation]:
         """Return only high/critical priority recommendations."""
         return [
             r
-            for r in self.recommendations
+            for r in self.analysis_result.recommendations
             if r.priority in (RecommendationPriority.HIGH, RecommendationPriority.CRITICAL)
         ]
 
     @property
     def chemistry_actions(self) -> list[Recommendation]:
-        """Return only chemistry-related recommendations (excludes filtration)."""
-        return [r for r in self.recommendations if r.type != RecommendationType.FILTRATION]
+        """Return recommendations that are not filtration-related."""
+        return [
+            r
+            for r in self.analysis_result.recommendations
+            if r.type != RecommendationType.FILTRATION
+        ]
 
     @property
     def suggestions(self) -> list[Recommendation]:

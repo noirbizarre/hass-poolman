@@ -21,7 +21,13 @@ from homeassistant.helpers.typing import StateType
 from . import PoolmanConfigEntry
 from .coordinator import PoolmanCoordinator
 from .domain.activation import ActivationStep
-from .domain.model import ActionKind, ChemistryStatus, ParameterReport, PoolState
+from .domain.model import (
+    ActionKind,
+    ChemistryStatus,
+    ParameterReport,
+    PoolState,
+    format_treatment_spoon,
+)
 from .entity import PoolmanEntity
 
 
@@ -186,7 +192,7 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         icon="mdi:clipboard-list",
         value_fn=lambda state: len(state.recommendations),
         extra_attrs_fn=lambda state: {
-            "actions": [str(r) for r in state.recommendations],
+            "actions": [r.title for r in state.recommendations],
             "critical_count": len(state.critical_recommendations),
         },
     ),
@@ -199,11 +205,20 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
             "actions": [
                 {
                     "kind": r.kind,
-                    "message": r.message,
-                    "product": r.product,
-                    "quantity_g": r.quantity_g,
-                    "spoon_count": r.spoon_count,
-                    "spoon_name": r.spoon_name,
+                    "title": r.title,
+                    "description": r.description,
+                    "treatments": [
+                        {
+                            "product_id": t.product_id,
+                            "name": t.name,
+                            "quantity": t.quantity,
+                            "unit": t.unit,
+                            "spoon": format_treatment_spoon(t, state.pool.spoon_sizes)
+                            if state.pool
+                            else None,
+                        }
+                        for t in r.treatments
+                    ],
                 }
                 for r in state.chemistry_actions
             ],
