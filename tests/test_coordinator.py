@@ -1147,159 +1147,23 @@ class TestSpoonSizes:
         assert coordinator.pool.spoon_sizes[0].size_ml == 20.0
 
 
-class TestEnrichRecommendationsWithSpoons:
-    """Tests for _enrich_recommendations_with_spoons."""
+class TestAnalysisResult:
+    """Tests for coordinator.analysis_result after update."""
 
-    async def test_no_spoons_returns_unmodified(
+    async def test_analysis_result_populated_after_update(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
     ) -> None:
-        """With no spoon sizes, recommendations should be returned unchanged."""
-        from custom_components.poolman.domain.model import (
-            Recommendation,
-            RecommendationPriority,
-            RecommendationType,
-        )
+        """analysis_result should be set after the first coordinator refresh."""
+        from custom_components.poolman.domain.analysis import AnalysisResult
 
         coordinator = await _setup_coordinator(hass, mock_config_entry)
-        recs = [
-            Recommendation(
-                type=RecommendationType.CHEMICAL,
-                priority=RecommendationPriority.MEDIUM,
-                message="Add pH-",
-                product="ph_minus",
-                quantity_g=300.0,
-            )
-        ]
-        result = coordinator._enrich_recommendations_with_spoons(recs)
-        assert len(result) == 1
-        assert result[0].spoon_count is None
-        assert result[0].spoon_name is None
+        assert coordinator.analysis_result is not None
+        assert isinstance(coordinator.analysis_result, AnalysisResult)
 
-    async def test_enriches_with_spoon_data(self, hass: HomeAssistant) -> None:
-        """With spoon sizes configured, recommendations should include spoon equivalents."""
-        from custom_components.poolman.domain.model import (
-            Recommendation,
-            RecommendationPriority,
-            RecommendationType,
-        )
-
-        data = MOCK_CONFIG_DATA.copy()
-        data[CONF_SPOON_SIZES] = [{"name": "Large", "size_ml": 15.0}]
-        entry = MockConfigEntry(
-            domain=DOMAIN,
-            title="Test Pool",
-            data=data,
-            version=1,
-            minor_version=4,
-        )
-        coordinator = await _setup_coordinator(hass, entry)
-
-        recs = [
-            Recommendation(
-                type=RecommendationType.CHEMICAL,
-                priority=RecommendationPriority.MEDIUM,
-                message="Add pH-",
-                product="ph_minus",
-                quantity_g=300.0,
-            )
-        ]
-        result = coordinator._enrich_recommendations_with_spoons(recs)
-        assert len(result) == 1
-        assert result[0].spoon_count is not None
-        assert result[0].spoon_count > 0
-        assert result[0].spoon_name == "Large"
-
-    async def test_skips_tablet_products(self, hass: HomeAssistant) -> None:
-        """Tablet products should not get spoon equivalents."""
-        from custom_components.poolman.domain.model import (
-            Recommendation,
-            RecommendationPriority,
-            RecommendationType,
-        )
-
-        data = MOCK_CONFIG_DATA.copy()
-        data[CONF_SPOON_SIZES] = [{"name": "Large", "size_ml": 15.0}]
-        entry = MockConfigEntry(
-            domain=DOMAIN,
-            title="Test Pool",
-            data=data,
-            version=1,
-            minor_version=4,
-        )
-        coordinator = await _setup_coordinator(hass, entry)
-
-        recs = [
-            Recommendation(
-                type=RecommendationType.CHEMICAL,
-                priority=RecommendationPriority.MEDIUM,
-                message="Add chlorine tablet",
-                product="galet_chlore",
-                quantity_g=200.0,
-            )
-        ]
-        result = coordinator._enrich_recommendations_with_spoons(recs)
-        assert len(result) == 1
-        assert result[0].spoon_count is None
-        assert result[0].spoon_name is None
-
-    async def test_skips_no_quantity(self, hass: HomeAssistant) -> None:
-        """Recommendations without quantity_g should not get spoon equivalents."""
-        from custom_components.poolman.domain.model import (
-            Recommendation,
-            RecommendationPriority,
-            RecommendationType,
-        )
-
-        data = MOCK_CONFIG_DATA.copy()
-        data[CONF_SPOON_SIZES] = [{"name": "Large", "size_ml": 15.0}]
-        entry = MockConfigEntry(
-            domain=DOMAIN,
-            title="Test Pool",
-            data=data,
-            version=1,
-            minor_version=4,
-        )
-        coordinator = await _setup_coordinator(hass, entry)
-
-        recs = [
-            Recommendation(
-                type=RecommendationType.ALERT,
-                priority=RecommendationPriority.HIGH,
-                message="Check water level",
-            )
-        ]
-        result = coordinator._enrich_recommendations_with_spoons(recs)
-        assert len(result) == 1
-        assert result[0].spoon_count is None
-
-    async def test_skips_invalid_product(self, hass: HomeAssistant) -> None:
-        """Recommendations with an invalid product name should not crash."""
-        from custom_components.poolman.domain.model import (
-            Recommendation,
-            RecommendationPriority,
-            RecommendationType,
-        )
-
-        data = MOCK_CONFIG_DATA.copy()
-        data[CONF_SPOON_SIZES] = [{"name": "Large", "size_ml": 15.0}]
-        entry = MockConfigEntry(
-            domain=DOMAIN,
-            title="Test Pool",
-            data=data,
-            version=1,
-            minor_version=4,
-        )
-        coordinator = await _setup_coordinator(hass, entry)
-
-        recs = [
-            Recommendation(
-                type=RecommendationType.CHEMICAL,
-                priority=RecommendationPriority.MEDIUM,
-                message="Add mystery product",
-                product="nonexistent_product",
-                quantity_g=100.0,
-            )
-        ]
-        result = coordinator._enrich_recommendations_with_spoons(recs)
-        assert len(result) == 1
-        assert result[0].spoon_count is None
+    async def test_analysis_result_none_before_update(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """analysis_result should be None before first update."""
+        mock_config_entry.add_to_hass(hass)
+        coordinator = PoolmanCoordinator(hass, mock_config_entry)
+        assert coordinator.analysis_result is None

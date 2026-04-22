@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from custom_components.poolman.domain.analysis import AnalysisResult
 from custom_components.poolman.domain.model import (
     PRODUCT_DENSITY_G_PER_ML,
     TABLET_PRODUCTS,
@@ -19,7 +20,6 @@ from custom_components.poolman.domain.model import (
     ParameterReport,
     Pool,
     PoolState,
-    Recommendation,
     RecommendationPriority,
     RecommendationType,
     SpoonSize,
@@ -27,7 +27,10 @@ from custom_components.poolman.domain.model import (
     compute_spoon_equivalent,
     compute_status_changes,
     format_spoon_text,
+    format_treatment_spoon,
 )
+from custom_components.poolman.domain.problem import Severity
+from custom_components.poolman.domain.recommendation import Recommendation, Treatment
 
 
 def _make_report(
@@ -51,6 +54,25 @@ def _make_report(
     )
 
 
+def _make_rec(
+    rtype: RecommendationType = RecommendationType.CHEMISTRY,
+    kind: ActionKind = ActionKind.SUGGESTION,
+    priority: RecommendationPriority = RecommendationPriority.LOW,
+    reason: str = "test",
+) -> Recommendation:
+    """Build a new-style Recommendation dataclass instance."""
+    return Recommendation(
+        id=f"rec_{reason}",
+        type=rtype,
+        severity=Severity.LOW,
+        priority=priority,
+        kind=kind,
+        title="Test",
+        description="Test recommendation",
+        reason=reason,
+    )
+
+
 def _make_state(
     *,
     ph_status: ChemistryStatus | None = None,
@@ -64,6 +86,7 @@ def _make_state(
     recommendations: list[Recommendation] | None = None,
 ) -> PoolState:
     """Build a PoolState with the given chemistry statuses."""
+    analysis_result = AnalysisResult(recommendations=recommendations or [])
     return PoolState(
         chemistry_report=ChemistryReport(
             ph=_make_report(ph_status) if ph_status else None,
@@ -75,7 +98,7 @@ def _make_state(
             hardness=_make_report(hardness_status) if hardness_status else None,
             tds=_make_report(tds_status) if tds_status else None,
         ),
-        recommendations=recommendations or [],
+        analysis_result=analysis_result,
     )
 
 
@@ -169,10 +192,10 @@ class TestComputeStatusChanges:
 
     def test_water_ok_to_not_ok(self) -> None:
         prev = _make_state()  # No recommendations -> water_ok=True
-        critical_rec = Recommendation(
-            type=RecommendationType.CHEMICAL,
+        critical_rec = _make_rec(
+            rtype=RecommendationType.CHEMISTRY,
             priority=RecommendationPriority.HIGH,
-            message="pH too high",
+            reason="ph_too_high",
         )
         curr = _make_state(recommendations=[critical_rec])
         changes = compute_status_changes(prev, curr)
@@ -184,10 +207,10 @@ class TestComputeStatusChanges:
         assert water_changes[0].status == "not_ok"
 
     def test_water_not_ok_to_ok(self) -> None:
-        critical_rec = Recommendation(
-            type=RecommendationType.CHEMICAL,
+        critical_rec = _make_rec(
+            rtype=RecommendationType.CHEMISTRY,
             priority=RecommendationPriority.HIGH,
-            message="pH too high",
+            reason="ph_too_high",
         )
         prev = _make_state(recommendations=[critical_rec])
         curr = _make_state()
@@ -205,10 +228,10 @@ class TestComputeStatusChanges:
         assert water_changes == []
 
     def test_water_and_chemistry_change_together(self) -> None:
-        critical_rec = Recommendation(
-            type=RecommendationType.CHEMICAL,
+        critical_rec = _make_rec(
+            rtype=RecommendationType.CHEMISTRY,
             priority=RecommendationPriority.HIGH,
-            message="pH too high",
+            reason="ph_too_high",
         )
         prev = _make_state(ph_status=ChemistryStatus.GOOD)
         curr = _make_state(
@@ -260,42 +283,6 @@ class TestPoolTurnoversPerDay:
         assert pool.turnovers_per_day == pytest.approx(6.0)
 
 
-class TestRecommendationStr:
-    """Tests for Recommendation.__str__ method."""
-
-    def test_str_with_quantity_and_product(self) -> None:
-        """String should include dosage when both quantity and product are present."""
-        rec = Recommendation(
-            type=RecommendationType.CHEMICAL,
-            priority=RecommendationPriority.HIGH,
-            message="Add pH-",
-            product="ph_minus",
-            quantity_g=150.0,
-        )
-        assert str(rec) == "Add pH- (150g of ph_minus)"
-
-    def test_str_without_quantity(self) -> None:
-        """String should just be the message when no quantity."""
-        rec = Recommendation(
-            type=RecommendationType.FILTRATION,
-            priority=RecommendationPriority.LOW,
-            message="Run filtration for 8h",
-        )
-        assert str(rec) == "Run filtration for 8h"
-
-    def test_str_with_zero_quantity(self) -> None:
-        """Zero quantity should fall through to plain message."""
-        rec = Recommendation(
-            type=RecommendationType.CHEMICAL,
-            priority=RecommendationPriority.LOW,
-            message="Check levels",
-            product="ph_minus",
-            quantity_g=0.0,
-        )
-        # 0.0 is falsy, so falls to plain message
-        assert str(rec) == "Check levels"
-
-
 class TestPoolStateActionRequired:
     """Tests for PoolState.action_required property."""
 
@@ -304,57 +291,35 @@ class TestPoolStateActionRequired:
         assert state.action_required is False
 
     def test_with_recommendations_required(self) -> None:
-        rec = Recommendation(
-            type=RecommendationType.FILTRATION,
-            priority=RecommendationPriority.LOW,
-            message="Run filtration",
-        )
-        state = PoolState(recommendations=[rec])
+        rec = _make_rec(rtype=RecommendationType.FILTRATION, reason="filtration_required")
+        state = PoolState(analysis_result=AnalysisResult(recommendations=[rec]))
         assert state.action_required is True
 
 
 class TestActionKind:
-    """Tests for ActionKind enum and default value."""
+    """Tests for ActionKind enum."""
 
     def test_action_kind_values(self) -> None:
         assert ActionKind.SUGGESTION == "suggestion"
         assert ActionKind.REQUIREMENT == "requirement"
 
-    def test_recommendation_default_kind_is_suggestion(self) -> None:
-        rec = Recommendation(
-            type=RecommendationType.CHEMICAL,
-            priority=RecommendationPriority.LOW,
-            message="Test",
-        )
+    def test_recommendation_kind_suggestion(self) -> None:
+        rec = _make_rec(kind=ActionKind.SUGGESTION)
         assert rec.kind == ActionKind.SUGGESTION
 
-    def test_recommendation_explicit_kind(self) -> None:
-        rec = Recommendation(
-            type=RecommendationType.CHEMICAL,
-            priority=RecommendationPriority.HIGH,
-            kind=ActionKind.REQUIREMENT,
-            message="Test",
-        )
+    def test_recommendation_kind_requirement(self) -> None:
+        rec = _make_rec(kind=ActionKind.REQUIREMENT)
         assert rec.kind == ActionKind.REQUIREMENT
 
 
 class TestPoolStateChemistryActions:
     """Tests for PoolState.chemistry_actions, suggestions, and requirements."""
 
-    def _make_rec(
-        self,
-        rtype: RecommendationType = RecommendationType.CHEMICAL,
-        kind: ActionKind = ActionKind.SUGGESTION,
-        priority: RecommendationPriority = RecommendationPriority.LOW,
-        message: str = "test",
-    ) -> Recommendation:
-        return Recommendation(type=rtype, priority=priority, kind=kind, message=message)
-
     def test_chemistry_actions_excludes_filtration(self) -> None:
-        chem = self._make_rec(rtype=RecommendationType.CHEMICAL)
-        filt = self._make_rec(rtype=RecommendationType.FILTRATION)
-        alert = self._make_rec(rtype=RecommendationType.ALERT)
-        state = PoolState(recommendations=[chem, filt, alert])
+        chem = _make_rec(rtype=RecommendationType.CHEMISTRY, reason="a")
+        filt = _make_rec(rtype=RecommendationType.FILTRATION, reason="b")
+        alert = _make_rec(rtype=RecommendationType.ALERT, reason="c")
+        state = PoolState(analysis_result=AnalysisResult(recommendations=[chem, filt, alert]))
 
         assert len(state.chemistry_actions) == 2
         assert filt not in state.chemistry_actions
@@ -366,43 +331,49 @@ class TestPoolStateChemistryActions:
         assert state.chemistry_actions == []
 
     def test_suggestions_filters_by_kind(self) -> None:
-        sug = self._make_rec(kind=ActionKind.SUGGESTION)
-        req = self._make_rec(kind=ActionKind.REQUIREMENT)
-        state = PoolState(recommendations=[sug, req])
+        sug = _make_rec(kind=ActionKind.SUGGESTION, reason="a")
+        req = _make_rec(kind=ActionKind.REQUIREMENT, reason="b")
+        state = PoolState(analysis_result=AnalysisResult(recommendations=[sug, req]))
 
         assert len(state.suggestions) == 1
         assert state.suggestions[0] is sug
 
     def test_requirements_filters_by_kind(self) -> None:
-        sug = self._make_rec(kind=ActionKind.SUGGESTION)
-        req = self._make_rec(kind=ActionKind.REQUIREMENT)
-        state = PoolState(recommendations=[sug, req])
+        sug = _make_rec(kind=ActionKind.SUGGESTION, reason="a")
+        req = _make_rec(kind=ActionKind.REQUIREMENT, reason="b")
+        state = PoolState(analysis_result=AnalysisResult(recommendations=[sug, req]))
 
         assert len(state.requirements) == 1
         assert state.requirements[0] is req
 
     def test_filtration_excluded_from_suggestions_and_requirements(self) -> None:
-        filt = self._make_rec(rtype=RecommendationType.FILTRATION, kind=ActionKind.SUGGESTION)
-        state = PoolState(recommendations=[filt])
+        filt = _make_rec(
+            rtype=RecommendationType.FILTRATION,
+            kind=ActionKind.SUGGESTION,
+            reason="filtration_required",
+        )
+        state = PoolState(analysis_result=AnalysisResult(recommendations=[filt]))
 
         assert state.suggestions == []
         assert state.requirements == []
         assert state.chemistry_actions == []
 
     def test_mixed_recommendations(self) -> None:
-        chem_sug = self._make_rec(
-            rtype=RecommendationType.CHEMICAL, kind=ActionKind.SUGGESTION, message="chem_sug"
+        chem_sug = _make_rec(
+            rtype=RecommendationType.CHEMISTRY, kind=ActionKind.SUGGESTION, reason="a"
         )
-        chem_req = self._make_rec(
-            rtype=RecommendationType.CHEMICAL, kind=ActionKind.REQUIREMENT, message="chem_req"
+        chem_req = _make_rec(
+            rtype=RecommendationType.CHEMISTRY, kind=ActionKind.REQUIREMENT, reason="b"
         )
-        alert_req = self._make_rec(
-            rtype=RecommendationType.ALERT, kind=ActionKind.REQUIREMENT, message="alert_req"
+        alert_req = _make_rec(
+            rtype=RecommendationType.ALERT, kind=ActionKind.REQUIREMENT, reason="c"
         )
-        filt = self._make_rec(
-            rtype=RecommendationType.FILTRATION, kind=ActionKind.SUGGESTION, message="filt"
+        filt = _make_rec(
+            rtype=RecommendationType.FILTRATION, kind=ActionKind.SUGGESTION, reason="d"
         )
-        state = PoolState(recommendations=[chem_sug, chem_req, alert_req, filt])
+        state = PoolState(
+            analysis_result=AnalysisResult(recommendations=[chem_sug, chem_req, alert_req, filt])
+        )
 
         assert len(state.chemistry_actions) == 3
         assert len(state.suggestions) == 1
@@ -695,3 +666,55 @@ class TestFormatSpoonText:
     def test_float_count_truncated(self) -> None:
         # Float is truncated to int for display
         assert format_spoon_text(3.7, "Medium") == "3 Medium spoons"
+
+
+class TestComputeSpoonEquivalentEdgeCases:
+    """Additional edge-case tests for compute_spoon_equivalent."""
+
+    def test_unknown_product_density_returns_none(self) -> None:
+        """A product missing from PRODUCT_DENSITY_G_PER_ML should return None."""
+        spoon = SpoonSize(name="Small", size_ml=20.0)
+        # Patch the density table to simulate a missing entry
+        from unittest.mock import patch
+
+        patched = {
+            k: v for k, v in PRODUCT_DENSITY_G_PER_ML.items() if k != ChemicalProduct.PH_MINUS
+        }
+        with patch(
+            "custom_components.poolman.domain.model.PRODUCT_DENSITY_G_PER_ML",
+            patched,
+        ):
+            result = compute_spoon_equivalent(100.0, ChemicalProduct.PH_MINUS, [spoon])
+        assert result is None
+
+
+class TestFormatTreatmentSpoon:
+    """Tests for format_treatment_spoon."""
+
+    def test_returns_formatted_string_for_valid_product(self) -> None:
+        """A known product with quantity and spoon sizes returns a formatted string."""
+        spoon = SpoonSize(name="Large", size_ml=50.0)
+        # pH- density is 1.1 g/mL; 110g = 100 mL = 2 large spoons
+        treatment = Treatment(
+            id="t1",
+            product_id="ph_minus",
+            name="Ph Minus",
+            quantity=110.0,
+            unit="g",
+        )
+        result = format_treatment_spoon(treatment, [spoon])
+        assert result is not None
+        assert "Large" in result
+
+    def test_returns_none_for_invalid_product_id(self) -> None:
+        """An unrecognised product_id should return None without raising."""
+        spoon = SpoonSize(name="Large", size_ml=50.0)
+        treatment = Treatment(
+            id="t1",
+            product_id="not_a_real_product",
+            name="Mystery",
+            quantity=100.0,
+            unit="g",
+        )
+        result = format_treatment_spoon(treatment, [spoon])
+        assert result is None

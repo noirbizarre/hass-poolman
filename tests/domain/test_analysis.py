@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
 from datetime import UTC
+from unittest.mock import patch
 
 import pytest
 
@@ -14,6 +15,8 @@ from custom_components.poolman.domain.analysis import (
 )
 from custom_components.poolman.domain.model import (
     ChemistryReport,
+    DosageAdjustment,
+    PoolReading,
     PoolState,
 )
 from custom_components.poolman.domain.problem import (
@@ -61,9 +64,21 @@ def _make_state(
     orp: ParameterReport | None = None,
     tac: ParameterReport | None = None,
 ) -> PoolState:
-    """Return a PoolState with the given chemistry reports."""
+    """Return a PoolState with the given chemistry reports (for legacy tests)."""
     return PoolState(
         chemistry_report=ChemistryReport(ph=ph, orp=orp, tac=tac),
+    )
+
+
+def _make_reading_state(
+    *,
+    ph: float | None = None,
+    orp: float | None = None,
+    tac: float | None = None,
+) -> PoolState:
+    """Return a PoolState with PoolReading set (used by rule-engine-based tests)."""
+    return PoolState(
+        reading=PoolReading(ph=ph, orp=orp, tac=tac),
     )
 
 
@@ -242,6 +257,29 @@ class TestGenerateRecommendations:
         recs = generate_recommendations([problem])
         assert recs[0].treatments == []
 
+    def test_chlorine_dosage_quantity_populated_from_reading(self) -> None:
+        """chlorine_too_low with a reading that returns a dosage quantity populates it."""
+        from custom_components.poolman.domain.model import ChemicalProduct
+
+        problem = Problem(
+            code="chlorine_too_low",
+            severity=Severity.MEDIUM,
+            metric=MetricName.CHLORINE,
+            value=0.3,
+            message="Free chlorine is too low.",
+            expected_range=None,
+        )
+        reading = PoolReading(free_chlorine=0.3)
+        fake_dosage = DosageAdjustment(product=ChemicalProduct.CHLORE_CHOC, quantity_g=250.0)
+        with patch(
+            "custom_components.poolman.domain.analysis.compute_free_chlorine_adjustment",
+            return_value=fake_dosage,
+        ):
+            recs = generate_recommendations([problem], reading=reading)
+        assert len(recs) == 1
+        assert len(recs[0].treatments) == 1
+        assert recs[0].treatments[0].quantity == 250.0
+
 
 # ---------------------------------------------------------------------------
 # Tests for analyze_pool
@@ -253,9 +291,7 @@ class TestAnalyzePool:
 
     def test_normal_case_good_water(self) -> None:
         """Good water values should produce no problems and no recommendations."""
-        state = _make_state(
-            ph=_make_report(MetricName.PH, value=7.2, minimum=6.8, maximum=7.8, score=90),
-        )
+        state = _make_reading_state(ph=7.2)
         result = analyze_pool(state)
         assert isinstance(result, AnalysisResult)
         # Good value should not trigger any pH problem
@@ -273,17 +309,7 @@ class TestAnalyzePool:
     def test_single_metric_missing_other_params_evaluated(self) -> None:
         """If one sensor is missing, other sensors should still be evaluated."""
         # orp is missing; ph is provided and out of range
-        state = _make_state(
-            ph=_make_report(
-                MetricName.PH,
-                value=8.5,
-                minimum=6.8,
-                maximum=7.8,
-                status=ChemistryStatus.BAD,
-                score=0,
-            ),
-            orp=None,  # missing sensor
-        )
+        state = _make_reading_state(ph=8.5, orp=None)
         result = analyze_pool(state)
         ph_problems = [p for p in result.problems if p.metric == MetricName.PH]
         orp_problems = [p for p in result.problems if p.metric == MetricName.ORP]
@@ -292,16 +318,7 @@ class TestAnalyzePool:
 
     def test_result_contains_recommendations_for_problems(self) -> None:
         """A detected problem with a known code should produce a recommendation."""
-        state = _make_state(
-            ph=_make_report(
-                MetricName.PH,
-                value=8.5,
-                minimum=6.8,
-                maximum=7.8,
-                status=ChemistryStatus.BAD,
-                score=0,
-            ),
-        )
+        state = _make_reading_state(ph=8.5)
         result = analyze_pool(state)
         ph_recs = [r for r in result.recommendations if MetricName.PH in r.related_metrics]
         assert len(ph_recs) >= 1
@@ -315,24 +332,8 @@ class TestAnalyzePool:
 
     def test_problems_sorted_critical_first(self) -> None:
         """Problems in the result should be ordered most-severe first."""
-        state = _make_state(
-            ph=_make_report(
-                MetricName.PH,
-                value=8.5,
-                minimum=6.8,
-                maximum=7.8,
-                status=ChemistryStatus.BAD,
-                score=0,
-            ),
-            tac=_make_report(
-                MetricName.ALKALINITY,
-                value=200.0,
-                minimum=80.0,
-                maximum=180.0,
-                status=ChemistryStatus.BAD,
-                score=0,
-            ),
-        )
+        # Use pH well out of range (critical) and TAC slightly out of range
+        state = _make_reading_state(ph=9.5, tac=200.0)
         result = analyze_pool(state)
         if len(result.problems) >= 2:
             _order = {Severity.CRITICAL: 0, Severity.MEDIUM: 1, Severity.LOW: 2}
