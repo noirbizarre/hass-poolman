@@ -282,7 +282,7 @@ def compute_spoon_equivalent(
             best_count = rounded_count
             best_spoon = spoon
 
-    if best_spoon is None:
+    if best_spoon is None:  # pragma: no cover
         return None
 
     return (best_count, best_spoon)

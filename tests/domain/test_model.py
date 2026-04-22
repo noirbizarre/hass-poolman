@@ -27,9 +27,10 @@ from custom_components.poolman.domain.model import (
     compute_spoon_equivalent,
     compute_status_changes,
     format_spoon_text,
+    format_treatment_spoon,
 )
 from custom_components.poolman.domain.problem import Severity
-from custom_components.poolman.domain.recommendation import Recommendation
+from custom_components.poolman.domain.recommendation import Recommendation, Treatment
 
 
 def _make_report(
@@ -665,3 +666,55 @@ class TestFormatSpoonText:
     def test_float_count_truncated(self) -> None:
         # Float is truncated to int for display
         assert format_spoon_text(3.7, "Medium") == "3 Medium spoons"
+
+
+class TestComputeSpoonEquivalentEdgeCases:
+    """Additional edge-case tests for compute_spoon_equivalent."""
+
+    def test_unknown_product_density_returns_none(self) -> None:
+        """A product missing from PRODUCT_DENSITY_G_PER_ML should return None."""
+        spoon = SpoonSize(name="Small", size_ml=20.0)
+        # Patch the density table to simulate a missing entry
+        from unittest.mock import patch
+
+        patched = {
+            k: v for k, v in PRODUCT_DENSITY_G_PER_ML.items() if k != ChemicalProduct.PH_MINUS
+        }
+        with patch(
+            "custom_components.poolman.domain.model.PRODUCT_DENSITY_G_PER_ML",
+            patched,
+        ):
+            result = compute_spoon_equivalent(100.0, ChemicalProduct.PH_MINUS, [spoon])
+        assert result is None
+
+
+class TestFormatTreatmentSpoon:
+    """Tests for format_treatment_spoon."""
+
+    def test_returns_formatted_string_for_valid_product(self) -> None:
+        """A known product with quantity and spoon sizes returns a formatted string."""
+        spoon = SpoonSize(name="Large", size_ml=50.0)
+        # pH- density is 1.1 g/mL; 110g = 100 mL = 2 large spoons
+        treatment = Treatment(
+            id="t1",
+            product_id="ph_minus",
+            name="Ph Minus",
+            quantity=110.0,
+            unit="g",
+        )
+        result = format_treatment_spoon(treatment, [spoon])
+        assert result is not None
+        assert "Large" in result
+
+    def test_returns_none_for_invalid_product_id(self) -> None:
+        """An unrecognised product_id should return None without raising."""
+        spoon = SpoonSize(name="Large", size_ml=50.0)
+        treatment = Treatment(
+            id="t1",
+            product_id="not_a_real_product",
+            name="Mystery",
+            quantity=100.0,
+            unit="g",
+        )
+        result = format_treatment_spoon(treatment, [spoon])
+        assert result is None

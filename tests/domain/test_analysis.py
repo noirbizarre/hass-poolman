@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
 from datetime import UTC
+from unittest.mock import patch
 
 import pytest
 
@@ -14,6 +15,7 @@ from custom_components.poolman.domain.analysis import (
 )
 from custom_components.poolman.domain.model import (
     ChemistryReport,
+    DosageAdjustment,
     PoolReading,
     PoolState,
 )
@@ -254,6 +256,29 @@ class TestGenerateRecommendations:
         )
         recs = generate_recommendations([problem])
         assert recs[0].treatments == []
+
+    def test_chlorine_dosage_quantity_populated_from_reading(self) -> None:
+        """chlorine_too_low with a reading that returns a dosage quantity populates it."""
+        from custom_components.poolman.domain.model import ChemicalProduct
+
+        problem = Problem(
+            code="chlorine_too_low",
+            severity=Severity.MEDIUM,
+            metric=MetricName.CHLORINE,
+            value=0.3,
+            message="Free chlorine is too low.",
+            expected_range=None,
+        )
+        reading = PoolReading(free_chlorine=0.3)
+        fake_dosage = DosageAdjustment(product=ChemicalProduct.CHLORE_CHOC, quantity_g=250.0)
+        with patch(
+            "custom_components.poolman.domain.analysis.compute_free_chlorine_adjustment",
+            return_value=fake_dosage,
+        ):
+            recs = generate_recommendations([problem], reading=reading)
+        assert len(recs) == 1
+        assert len(recs[0].treatments) == 1
+        assert recs[0].treatments[0].quantity == 250.0
 
 
 # ---------------------------------------------------------------------------
