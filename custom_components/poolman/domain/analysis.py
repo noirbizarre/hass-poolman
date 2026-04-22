@@ -20,10 +20,10 @@ Pipeline
     PoolState
         │
         ▼
-    detect_problems()          ← domain/problem.py
+    RuleEngine(ALL_RULES).evaluate(state)  ← domain/rules/
         │  list[Problem]
         ▼
-    generate_recommendations() ← domain/analysis.py (this module)
+    generate_recommendations(problems, reading, pool)
         │  list[Recommendation]
         ▼
     AnalysisResult(problems, recommendations, timestamp)
@@ -32,8 +32,7 @@ Design constraints
 ------------------
 - Pure functions only: stateless, deterministic, no side effects.
 - No Home Assistant dependency anywhere in this module.
-- Resilient to missing / ``None`` sensor values — handled by
-  :func:`~.problem.detect_problems`.
+- Resilient to missing / ``None`` sensor values — rules guard individually.
 
 Example::
 
@@ -48,11 +47,20 @@ Example::
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
-from .model import PoolState
-from .problem import MetricName, Problem, Severity, detect_problems
+from .chemistry import (
+    compute_cya_adjustment,
+    compute_free_chlorine_adjustment,
+    compute_hardness_adjustment,
+    compute_ph_adjustment,
+    compute_salt_adjustment,
+    compute_tac_adjustment,
+)
+from .problem import Problem, Severity
 from .recommendation import (
     ActionKind,
     Recommendation,
@@ -60,6 +68,10 @@ from .recommendation import (
     RecommendationType,
     Treatment,
 )
+from .rules import ALL_RULES, RuleEngine
+
+if TYPE_CHECKING:
+    from .model import DosageAdjustment, Pool, PoolReading, PoolState
 
 # ---------------------------------------------------------------------------
 # Mapping helpers
@@ -72,7 +84,7 @@ _SEVERITY_TO_PRIORITY: dict[Severity, RecommendationPriority] = {
     Severity.CRITICAL: RecommendationPriority.CRITICAL,
 }
 
-# Map Severity → ActionKind (CRITICAL problems are always requirements)
+# Map Severity → ActionKind (CRITICAL and MEDIUM problems are requirements)
 _SEVERITY_TO_KIND: dict[Severity, ActionKind] = {
     Severity.LOW: ActionKind.SUGGESTION,
     Severity.MEDIUM: ActionKind.REQUIREMENT,
@@ -80,7 +92,7 @@ _SEVERITY_TO_KIND: dict[Severity, ActionKind] = {
 }
 
 # Map problem code → (RecommendationType, title, description template, product_id, unit)
-# ``description`` may contain ``{value}`` and ``{min}``/``{max}`` placeholders.
+# ``description`` may contain ``{value}`` placeholder.
 _PROBLEM_RECOMMENDATIONS: dict[
     str,
     tuple[RecommendationType, str, str, str | None, str | None],
@@ -198,18 +210,48 @@ _PROBLEM_RECOMMENDATIONS: dict[
         None,
         None,
     ),
+    "_calibration": (
+        RecommendationType.MAINTENANCE,
+        "Calibrate sensor",
+        "Sensor reading differs significantly from last manual measurement ({value}). Recalibrate.",
+        None,
+        None,
+    ),
+    "filtration_required": (
+        RecommendationType.FILTRATION,
+        "Run filtration",
+        "Filtration is required for {value} hours today.",
+        None,
+        None,
+    ),
+    "algae_risk": (
+        RecommendationType.ALERT,
+        "High algae risk",
+        "Water temperature is high and ORP is low ({value} mV). Risk of algae growth.",
+        None,
+        None,
+    ),
 }
 
-# Map MetricName to the problem code prefix used in _PROBLEM_RECOMMENDATIONS
-_METRIC_TO_PROBLEM_PREFIX: dict[MetricName, str] = {
-    MetricName.PH: "ph",
-    MetricName.ORP: "orp",
-    MetricName.CHLORINE: "chlorine",
-    MetricName.ALKALINITY: "alkalinity",
-    MetricName.CYA: "cya",
-    MetricName.HARDNESS: "hardness",
-    MetricName.SALT: "salt",
-    MetricName.TDS: "tds",
+# Dosage functions keyed by problem code.
+# Each value is a callable(pool, reading) → DosageAdjustment | None.
+# Codes not listed here produce no treatment quantity.
+_DOSAGE_FUNCTIONS: dict[str, Callable[..., DosageAdjustment | None]] = {
+    "ph_too_high": compute_ph_adjustment,
+    "ph_too_low": compute_ph_adjustment,
+    "alkalinity_too_low": compute_tac_adjustment,
+    "cya_too_low": compute_cya_adjustment,
+    "hardness_too_low": compute_hardness_adjustment,
+    "salt_too_low": compute_salt_adjustment,
+}
+# chlorine_too_low only needs reading (no pool arg)
+_DOSAGE_READING_ONLY: frozenset[str] = frozenset({"chlorine_too_low"})
+
+_PRIORITY_ORDER: dict[RecommendationPriority, int] = {
+    RecommendationPriority.CRITICAL: 0,
+    RecommendationPriority.HIGH: 1,
+    RecommendationPriority.MEDIUM: 2,
+    RecommendationPriority.LOW: 3,
 }
 
 
@@ -218,29 +260,41 @@ _METRIC_TO_PROBLEM_PREFIX: dict[MetricName, str] = {
 # ---------------------------------------------------------------------------
 
 
-def generate_recommendations(problems: list[Problem]) -> list[Recommendation]:
+def generate_recommendations(
+    problems: list[Problem],
+    reading: PoolReading | None = None,
+    pool: Pool | None = None,
+) -> list[Recommendation]:
     """Derive :class:`~.recommendation.Recommendation` objects from detected problems.
 
     For each :class:`~.problem.Problem`, looks up the matching recommendation
-    template in the internal mapping and produces a
-    :class:`~.recommendation.Recommendation` with:
+    template and produces a :class:`~.recommendation.Recommendation` with:
 
-    - A :class:`~.recommendation.Treatment` step when a product is known.
+    - A :class:`~.recommendation.Treatment` step when a product is known,
+      with ``quantity`` populated from the chemistry module when ``reading``
+      and ``pool`` are provided.
     - Priority derived from :attr:`~.problem.Problem.severity`.
     - :attr:`~.recommendation.ActionKind` set based on severity
-      (``CRITICAL`` and ``MEDIUM`` → ``REQUIREMENT``, ``LOW`` →
-      ``SUGGESTION``).
+      (``CRITICAL`` and ``MEDIUM`` → ``REQUIREMENT``, ``LOW`` → ``SUGGESTION``).
 
     Problems with no matching template are silently skipped (forward
     compatibility: new problem codes added before new templates exist will
     not crash the pipeline).
 
+    Calibration problem codes (``calibration_*``) share a single MAINTENANCE
+    template regardless of the specific parameter.
+
     Duplicate recommendations for the same problem code are deduplicated;
     only the highest-severity one is kept.
 
     Args:
-        problems: List of :class:`~.problem.Problem` objects produced by
-            :func:`~.problem.detect_problems`.
+        problems: List of :class:`~.problem.Problem` objects produced by the
+            rule engine.
+        reading: Current pool readings, used to compute dosage quantities.
+            When ``None``, treatment quantities are left at ``0.0``.
+        pool: Pool physical config, used for volume-based dosage calculations.
+            When ``None``, treatments that require pool data have quantity
+            ``0.0``.
 
     Returns:
         List of :class:`~.recommendation.Recommendation` objects, sorted by
@@ -257,7 +311,9 @@ def generate_recommendations(problems: list[Problem]) -> list[Recommendation]:
 
     recommendations: list[Recommendation] = []
     for code, problem in seen.items():
-        template = _PROBLEM_RECOMMENDATIONS.get(code)
+        # Calibration codes are dynamic; map them to a generic MAINTENANCE template
+        lookup_code = code if not code.startswith("calibration_") else "_calibration"
+        template = _PROBLEM_RECOMMENDATIONS.get(lookup_code)
         if template is None:
             continue
 
@@ -265,20 +321,31 @@ def generate_recommendations(problems: list[Problem]) -> list[Recommendation]:
         priority = _SEVERITY_TO_PRIORITY[problem.severity]
         kind = _SEVERITY_TO_KIND[problem.severity]
 
-        # Fill description placeholders
         description = desc_template.format(
             value=problem.value if problem.value is not None else "N/A",
         )
 
-        # Build treatment list when a product is known
+        # Build treatment with computed dosage when possible
         treatments: list[Treatment] = []
         if product_id is not None and unit is not None:
+            quantity = 0.0
+            if reading is not None:
+                if code in _DOSAGE_READING_ONLY:
+                    dosage = compute_free_chlorine_adjustment(reading)
+                    if dosage is not None and dosage.quantity_g is not None:
+                        quantity = dosage.quantity_g
+                elif pool is not None and code in _DOSAGE_FUNCTIONS:
+                    dosage_fn = _DOSAGE_FUNCTIONS[code]
+                    dosage = dosage_fn(pool, reading)  # type: ignore[call-arg]
+                    if dosage is not None and dosage.quantity_g is not None:
+                        quantity = dosage.quantity_g
+
             treatments.append(
                 Treatment(
                     id=f"{code}_{product_id}",
                     product_id=product_id,
                     name=product_id.replace("_", " ").title(),
-                    quantity=0.0,  # dosage calculated by chemistry module; not repeated here
+                    quantity=quantity,
                     unit=unit,
                 )
             )
@@ -300,14 +367,7 @@ def generate_recommendations(problems: list[Problem]) -> list[Recommendation]:
             )
         )
 
-    # Sort critical-first
-    _priority_order = {
-        RecommendationPriority.CRITICAL: 0,
-        RecommendationPriority.HIGH: 1,
-        RecommendationPriority.MEDIUM: 2,
-        RecommendationPriority.LOW: 3,
-    }
-    recommendations.sort(key=lambda r: _priority_order.get(r.priority, 99))
+    recommendations.sort(key=lambda r: _PRIORITY_ORDER.get(r.priority, 99))
     return recommendations
 
 
@@ -341,17 +401,19 @@ def analyze_pool(state: PoolState) -> AnalysisResult:
 
     Pipeline steps:
 
-    1. Call :func:`~.problem.detect_problems` to produce a list of
-       :class:`~.problem.Problem` objects.
+    1. Run :class:`~.rules.RuleEngine` with :data:`~.rules.ALL_RULES` to
+       produce a list of :class:`~.problem.Problem` objects.
     2. Call :func:`generate_recommendations` to derive a list of
-       :class:`~.recommendation.Recommendation` objects.
+       :class:`~.recommendation.Recommendation` objects, including computed
+       dosage quantities.
     3. Return an :class:`AnalysisResult` with both lists and the current
        UTC timestamp.
 
     Args:
-        state: The current pool state snapshot produced by the coordinator.
-            All sensor readings may be ``None``; the function handles missing
-            data gracefully.
+        state: The current pool state snapshot.  ``state.pool`` and
+            ``state.reading`` are forwarded to :func:`generate_recommendations`
+            for dosage computation.  All sensor readings may be ``None``; the
+            rules handle missing data gracefully.
 
     Returns:
         An :class:`AnalysisResult` with problems, recommendations, and
@@ -365,8 +427,8 @@ def analyze_pool(state: PoolState) -> AnalysisResult:
         for rec in result.recommendations:
             print(f"  [{rec.priority}] {rec.title}: {rec.description}")
     """
-    problems = detect_problems(state)
-    recommendations = generate_recommendations(problems)
+    problems = RuleEngine(ALL_RULES).evaluate(state)
+    recommendations = generate_recommendations(problems, state.reading, state.pool)
     return AnalysisResult(
         problems=problems,
         recommendations=recommendations,

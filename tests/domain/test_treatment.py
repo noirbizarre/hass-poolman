@@ -355,23 +355,29 @@ class TestPoolStateIntegration:
         assert state.water_ok is True
 
     def test_water_ok_false_with_critical_recommendations(self) -> None:
-        from custom_components.poolman.domain.model import (
-            PoolState,
+        from custom_components.poolman.domain.analysis import AnalysisResult
+        from custom_components.poolman.domain.model import PoolState
+        from custom_components.poolman.domain.problem import Severity
+        from custom_components.poolman.domain.recommendation import (
+            ActionKind,
             Recommendation,
             RecommendationPriority,
             RecommendationType,
         )
 
+        rec = Recommendation(
+            id="rec_ph_too_high",
+            type=RecommendationType.CHEMISTRY,
+            severity=Severity.CRITICAL,
+            priority=RecommendationPriority.CRITICAL,
+            kind=ActionKind.REQUIREMENT,
+            title="Lower pH",
+            description="pH too high",
+            reason="ph_too_high",
+        )
         state = PoolState(
             swimming_safe=True,
-            recommendations=[
-                Recommendation(
-                    type=RecommendationType.CHEMICAL,
-                    priority=RecommendationPriority.CRITICAL,
-                    message="pH too high",
-                    product="ph_minus",
-                )
-            ],
+            analysis_result=AnalysisResult(recommendations=[rec]),
         )
         assert state.water_ok is False
 
