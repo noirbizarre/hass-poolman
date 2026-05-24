@@ -356,6 +356,9 @@
       },
       "inventory_product": {
         "name": "{product_name} stock"
+      },
+      "action_history": {
+        "name": "Action history"
       }
     },
     "binary_sensor": {

@@ -54,6 +54,7 @@ export type EntityKey =
   | "water_quality_score"
   | "recommendations"
   | "problems"
+  | "action_history"
   | MetricKey;
 
 /**
@@ -147,6 +148,37 @@ export interface RecommendationDTO {
   /** Legacy field name retained for older payloads. */
   actions?: RecommendationTreatment[];
   related_metrics?: string[];
+}
+
+export type ActionType = "chemical" | "cleaning" | "maintenance";
+export type ActionSource = "user" | "recommendation" | "automation";
+
+export interface ActionDTO {
+  id: string;
+  type: ActionType;
+  source: ActionSource;
+  treatment_id: string;
+  quantity: number;
+  unit: string;
+  /** ISO-8601 timestamp (timezone-aware). */
+  timestamp: string;
+  recommendation_id: string | null;
+  product_id: string | null;
+  /** Duration in seconds, or `null` when not applicable. */
+  duration: number | null;
+}
+
+export interface ActionHistoryCardConfig {
+  type: string;
+  device_id?: string;
+  name?: string;
+  /** Cap on the number of actions to render (defaults to 50, max 50). */
+  limit?: number;
+  /** Hide the source badge when ``false``. */
+  show_source?: boolean;
+  /** Group rows under day headers when ``true`` (default). */
+  group_by_day?: boolean;
+  entities?: Partial<Record<"action_history", string>>;
 }
 
 export type GlobalStatus = "ok" | "warning" | "critical" | "unknown";
