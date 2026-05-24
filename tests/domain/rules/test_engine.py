@@ -66,3 +66,22 @@ class TestRuleEngine:
         engine = RuleEngine(rules=[PhRule()])
         problems = engine.evaluate(make_state(pool, PoolReading(ph=8.5)))
         assert all(isinstance(p, Problem) for p in problems)
+
+    def test_rules_sorted_by_priority(self) -> None:
+        """RuleEngine must sort rules by their `priority` attribute (ascending)."""
+        engine = RuleEngine(ALL_RULES)
+        priorities = [rule.priority for rule in engine.rules]
+        assert priorities == sorted(priorities)
+
+    def test_custom_priority_overrides_argument_order(self) -> None:
+        """Engine input order is ignored; only `priority` controls iteration order."""
+
+        class LowPriority(PhRule):
+            priority = 999
+
+        class HighPriority(PhRule):
+            priority = 1
+
+        engine = RuleEngine(rules=[LowPriority(), HighPriority()])
+        assert engine.rules[0].priority == 1
+        assert engine.rules[1].priority == 999

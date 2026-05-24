@@ -25,9 +25,10 @@ _SEVERITY_ORDER: dict[Severity, int] = {
 class RuleEngine:
     """Evaluates all registered rules against a pool state snapshot.
 
-    Rules are evaluated in registration order. All detected
-    :class:`~..problem.Problem` objects are collected and returned sorted
-    by severity (critical first).
+    Rules are sorted by :attr:`~.base.Rule.priority` (ascending) at engine
+    construction.  All detected :class:`~..problem.Problem` objects are then
+    collected and the final list is sorted by :class:`~..problem.Severity`
+    (critical first).
 
     Example::
 
@@ -37,16 +38,19 @@ class RuleEngine:
             print(f"[{problem.severity}] {problem.code}: {problem.message}")
 
     Attributes:
-        rules: The list of rules evaluated on each call to :meth:`evaluate`.
+        rules: The list of rules evaluated on each call to :meth:`evaluate`,
+            sorted by :attr:`~.base.Rule.priority`.
     """
 
     def __init__(self, rules: list[Rule]) -> None:
         """Initialize the engine with a list of rules.
 
         Args:
-            rules: Ordered list of :class:`~.base.Rule` instances to run.
+            rules: List of :class:`~.base.Rule` instances to run.  The
+                engine sorts them by :attr:`~.base.Rule.priority` (ascending)
+                so call order is independent of the argument order.
         """
-        self.rules = rules
+        self.rules = sorted(rules, key=lambda r: r.priority)
 
     def evaluate(self, state: PoolState) -> list[Problem]:
         """Run all rules and return detected problems sorted by severity.
@@ -55,10 +59,12 @@ class RuleEngine:
             state: Current pool state snapshot.
 
         Returns:
-            All problems from all rules, sorted critical-first.
+            All problems from all rules, sorted critical-first.  The sort is
+            stable, so equal-severity problems retain the rule-priority
+            order in which they were produced.
         """
         problems: list[Problem] = []
         for rule in self.rules:
-            problems.extend(rule.evaluate(state).problems)
+            problems.extend(rule.evaluate(state))
         problems.sort(key=lambda p: _SEVERITY_ORDER.get(p.severity, 99))
         return problems

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from ...filtration import compute_filtration_duration
 from ...model import PoolMode
 from ...problem import Problem, Severity
-from ..base import Rule, RuleResult
+from ..base import Rule
 
 if TYPE_CHECKING:
     from ...model import PoolState
@@ -29,28 +29,25 @@ class FiltrationRule(Rule):
 
     id = "filtration"
     description = "Signal required filtration duration"
+    priority = 100
 
-    def evaluate(self, state: PoolState) -> RuleResult:  # type: ignore[override]
+    def evaluate(self, state: PoolState) -> list[Problem]:
         """Evaluate filtration needs and return a problem when action is due."""
         if state.mode == PoolMode.WINTER_PASSIVE:
-            return RuleResult()
+            return []
         if state.pool is None:
-            return RuleResult()
+            return []
 
         hours = compute_filtration_duration(state.pool, state.reading, state.mode)
         if hours is None:
-            return RuleResult()
+            return []
 
         severity = Severity.MEDIUM if hours >= 12 else Severity.LOW
-        return RuleResult(
-            problems=[
-                Problem(
-                    code="filtration_required",
-                    message=f"Run filtration for {hours:.1f} hours today",
-                    severity=severity,
-                    metric=None,
-                    value=hours,
-                    expected_range=None,
-                )
-            ]
-        )
+        return [
+            Problem(
+                code="filtration_required",
+                message=f"Run filtration for {hours:.1f} hours today",
+                severity=severity,
+                value=hours,
+            )
+        ]

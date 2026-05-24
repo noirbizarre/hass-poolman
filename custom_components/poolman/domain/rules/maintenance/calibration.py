@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from ...model import MeasureParameter, PoolMode
 from ...problem import Problem, Severity
-from ..base import Rule, RuleResult
+from ..base import Rule
 
 if TYPE_CHECKING:
     from ...model import PoolState
@@ -73,13 +73,14 @@ class CalibrationRule(Rule):
 
     id = "calibration"
     description = "Detect sensor vs. manual measurement deviation"
+    priority = 10
 
-    def evaluate(self, state: PoolState) -> RuleResult:  # type: ignore[override]
+    def evaluate(self, state: PoolState) -> list[Problem]:
         """Compare sensor readings against manual measures and flag deviations."""
         if state.mode == PoolMode.WINTER_PASSIVE:
-            return RuleResult()
+            return []
         if state.raw_sensor_reading is None or not state.manual_measures:
-            return RuleResult()
+            return []
 
         problems: list[Problem] = []
         for param, measure in state.manual_measures.items():
@@ -108,10 +109,8 @@ class CalibrationRule(Rule):
                             " Consider sensor recalibration or a new manual measurement."
                         ),
                         severity=Severity.LOW,
-                        metric=None,
                         value=sensor_value,
-                        expected_range=None,
                     )
                 )
 
-        return RuleResult(problems=problems)
+        return problems

@@ -3,14 +3,14 @@
 Public API::
 
     from custom_components.poolman.domain.rules import (
-        Rule, RuleResult, RuleEngine, ALL_RULES,
+        Rule, RuleEngine, ALL_RULES,
         PhRule, SanitizerRule, FreeChlorineRule, TacRule,
         AlgaeRiskRule, CyaRule, HardnessRule, SaltRule, TdsRule,
         FiltrationRule, CalibrationRule,
     )
 """
 
-from .base import Rule, RuleResult
+from .base import Rule
 from .chemistry.algae import AlgaeRiskRule
 from .chemistry.alkalinity import TacRule
 from .chemistry.chlorine import FreeChlorineRule
@@ -36,7 +36,6 @@ __all__ = [
     "PhRule",
     "Rule",
     "RuleEngine",
-    "RuleResult",
     "SaltRule",
     "SanitizerRule",
     "TacRule",
