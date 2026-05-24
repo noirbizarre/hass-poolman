@@ -5,10 +5,13 @@ import type {
   HomeAssistant,
   MetricKey,
   PoolOverviewCardConfig,
+  PoolRecommendationsCardConfig,
   ProblemDTO,
   ProblemMetric,
   ProblemSeverity,
   RecommendationDTO,
+  RecommendationPriority,
+  RecommendationTreatment,
   WorstSeverity,
 } from "./types.js";
 
@@ -296,4 +299,95 @@ export function readProblems(entity: HassEntity | undefined): {
   const worst: WorstSeverity =
     worstAttr ?? (list[0]?.severity ?? "ok");
   return { count, list, worst };
+}
+
+/** Read the treatments list from a recommendation, accepting both the
+ *  modern `treatments` field and the legacy `actions` alias. */
+export function recommendationTreatments(
+  rec: RecommendationDTO,
+): RecommendationTreatment[] {
+  return rec.treatments ?? rec.actions ?? [];
+}
+
+const PRIORITY_PRESENTATION: Record<
+  RecommendationPriority,
+  { label: string; color: string; icon: string }
+> = {
+  low: {
+    label: "LOW",
+    color: "var(--info-color, #2196f3)",
+    icon: "ℹ️",
+  },
+  medium: {
+    label: "MEDIUM",
+    color: "var(--warning-color, #fbc02d)",
+    icon: "⚠️",
+  },
+  high: {
+    label: "HIGH",
+    color: "var(--warning-color, #ff9800)",
+    icon: "⚠️",
+  },
+  critical: {
+    label: "CRITICAL",
+    color: "var(--error-color, #e53935)",
+    icon: "🚨",
+  },
+};
+
+/** Resolve the effective priority for a recommendation.
+ *
+ *  Priority is the canonical field; severity is used as a fallback for
+ *  legacy payloads that omit `priority`. Severity values map to priority
+ *  as follows: `low → low`, `medium → medium`, `critical → critical`.
+ */
+export function recommendationPriority(
+  rec: Pick<RecommendationDTO, "priority" | "severity">,
+): RecommendationPriority {
+  if (rec.priority) return rec.priority;
+  switch (rec.severity) {
+    case "critical":
+      return "critical";
+    case "medium":
+      return "medium";
+    default:
+      return "low";
+  }
+}
+
+/** Map a recommendation's priority (or severity fallback) to a label, color
+ *  and icon used by the recommendations card. */
+export function priorityPresentation(
+  rec: Pick<RecommendationDTO, "priority" | "severity">,
+): { label: string; color: string; icon: string; key: RecommendationPriority } {
+  const key = recommendationPriority(rec);
+  return { key, ...PRIORITY_PRESENTATION[key] };
+}
+
+/** Format a treatment line: "200 g · pH-" with the locale-aware quantity. */
+export function formatTreatment(
+  treatment: RecommendationTreatment,
+  locale?: string,
+): string {
+  const lang = locale ?? "en";
+  const qty = Number.isFinite(treatment.quantity)
+    ? treatment.quantity.toLocaleString(lang, { maximumFractionDigits: 2 })
+    : String(treatment.quantity ?? "");
+  const unit = treatment.unit ?? "";
+  const amount = qty ? `${qty}${unit ? ` ${unit}` : ""}` : unit;
+  return amount ? `${amount} · ${treatment.name}` : treatment.name;
+}
+
+/** Resolve the recommendations sensor entity id from a card config. */
+export function resolveRecommendationsEntity(
+  hass: HomeAssistant,
+  config: PoolRecommendationsCardConfig,
+): string | undefined {
+  if (config.entity) return config.entity;
+  if (!config.device_id || !hass.entities) return undefined;
+  for (const reg of Object.values(hass.entities)) {
+    if (reg.device_id !== config.device_id) continue;
+    if (reg.entity_id.endsWith("_recommendations")) return reg.entity_id;
+  }
+  return undefined;
 }

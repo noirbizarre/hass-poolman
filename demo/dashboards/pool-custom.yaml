@@ -15,11 +15,6 @@ views:
           free_chlorine: sensor.demo_pool_free_chlorine
           orp: sensor.demo_pool_orp
 
-      # ── Pool Problems (first-party custom card) ─────────────────
-      - type: custom:poolman-problem-card
-        name: Demo Pool
-        entity: sensor.demo_pool_problems
-
       # ── Header ──────────────────────────────────────────────────
       - type: custom:bubble-card
         card_type: separator
@@ -253,6 +248,11 @@ views:
             show_state: true
 
       # ── Recommendations ──────────────────────────────────────────
+      - type: custom:poolman-recommendations-card
+        device_id: this
+        name: Demo Pool — Recommendations
+        entity: sensor.demo_pool_recommendations
+
       - type: custom:bubble-card
         card_type: button
         button_type: state

@@ -61,6 +61,7 @@ nav = [
   { "Rules & Recommendations" = "rules-and-recommendations.md" },
   { "Sample Dashboards" = "sample-dashboards.md" },
   { "Pool Overview Card" = "pool-overview-card.md" },
+  { "Recommendations Card" = "recommendations-card.md" },
   { "FAQ" = "faq.md" },
   { "Contributing" = "contributing.md" },
 ]
