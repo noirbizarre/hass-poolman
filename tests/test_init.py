@@ -1275,7 +1275,7 @@ class TestAnalyzeServiceHandler:
     async def test_analyze_triggers_refresh(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
     ) -> None:
-        """The analyze service should call async_request_refresh on the coordinator."""
+        """The analyze service should call async_refresh on the coordinator (non-debounced)."""
         from unittest.mock import AsyncMock, patch
 
         from homeassistant.helpers import device_registry as dr
@@ -1291,7 +1291,7 @@ class TestAnalyzeServiceHandler:
         )
         assert device is not None
 
-        with patch.object(coordinator, "async_request_refresh", new=AsyncMock()) as mock_refresh:
+        with patch.object(coordinator, "async_refresh", new=AsyncMock()) as mock_refresh:
             await hass.services.async_call(
                 DOMAIN,
                 SERVICE_ANALYZE,

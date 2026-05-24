@@ -663,12 +663,12 @@ def _async_register_services(hass: HomeAssistant) -> None:
     async def async_handle_analyze(call: ServiceCall) -> None:
         """Handle the ``analyze`` service call.
 
-        Triggers an immediate coordinator refresh, which re-runs
-        :func:`analyze_pool` (#97) and pushes the updated
+        Triggers an immediate, non-debounced coordinator refresh, which
+        re-runs :func:`analyze_pool` (#97) and pushes the updated
         :class:`AnalysisResult` to all listening entities (#98, #99, #102).
         """
         coordinator = _resolve_device_coordinator(call.data["device_id"])
-        await coordinator.async_request_refresh()
+        await coordinator.async_refresh()
 
     hass.services.async_register(
         DOMAIN,

@@ -1173,6 +1173,26 @@ class TestAnalysisResult:
         coordinator = PoolmanCoordinator(hass, mock_config_entry)
         assert coordinator.analysis_result is None
 
+    async def test_analysis_result_populated_with_no_sensors(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """analysis_result must be a valid AnalysisResult even when no sensor states exist.
+
+        Covers issue #101 acceptance criteria: "No crash if analysis returns empty
+        results" and "Analysis runs correctly after HA restart" (first refresh after
+        setup, with sensors not yet available).
+        """
+        from custom_components.poolman.domain.analysis import AnalysisResult
+
+        mock_config_entry.add_to_hass(hass)
+        # Intentionally do NOT call setup_mock_states: simulates a fresh HA
+        # boot where sensor states have not yet been published.
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        coordinator: PoolmanCoordinator = mock_config_entry.runtime_data
+        assert isinstance(coordinator.analysis_result, AnalysisResult)
+
 
 class TestActionTracking:
     """Tests for coordinator action recording and persistence (issue #19)."""
