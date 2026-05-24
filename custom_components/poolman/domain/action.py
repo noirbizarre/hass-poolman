@@ -21,7 +21,10 @@ field links back to the originating recommendation.
 This separation enables future features such as:
 
 - Treatment history and audit log (#19, #92).
-- Inventory tracking and product consumption (#94).
+- Inventory tracking and product consumption: recording an action with
+  a ``product_id`` automatically debits the matching inventory item
+  (see :meth:`Inventory.consume` and
+  :meth:`PoolmanCoordinator.async_record_action`).
 - Automatic feedback loop: mark a recommendation as resolved once the
   corresponding action is recorded.
 
