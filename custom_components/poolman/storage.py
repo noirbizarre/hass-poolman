@@ -1,14 +1,16 @@
 """Persistence helpers for Pool Manager.
 
 This module wraps :class:`homeassistant.helpers.storage.Store` to persist
-state that lives outside the config-entry data (currently the user's
-:class:`~.domain.inventory.Inventory`).
+state that lives outside the config-entry data:
+
+- The user's :class:`~.domain.inventory.Inventory`.
+- The append-only :class:`~.domain.action.ActionLog`.
 
 One store file is created per config entry, keyed
-``poolman.inventory.<entry_id>`` so that multi-pool installations remain
+``poolman.<area>.<entry_id>`` so that multi-pool installations remain
 isolated. Loading is fault-tolerant: corrupted or partial payloads cause
-the integration to fall back to an empty inventory and log a warning,
-never crash setup.
+the integration to fall back to an empty domain object and log a
+warning, never crash setup.
 """
 
 from __future__ import annotations
@@ -21,11 +23,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
+from .domain.action import ActionLog
 from .domain.inventory import Inventory
 
 _LOGGER = logging.getLogger(__name__)
 
 INVENTORY_STORAGE_VERSION = 1
+ACTION_STORAGE_VERSION = 1
 
 
 class InventoryStore:
@@ -70,3 +74,47 @@ class InventoryStore:
     async def async_save(self, inventory: Inventory) -> None:
         """Persist the inventory to disk."""
         await self._store.async_save(inventory.to_dict())
+
+
+class ActionStore:
+    """Persistence wrapper for an :class:`ActionLog` per config entry."""
+
+    def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
+        """Initialize the store.
+
+        Args:
+            hass: The Home Assistant instance.
+            entry_id: Config entry identifier; used to namespace the
+                storage key so multiple pools persist independently.
+        """
+        self._store: Store[dict[str, Any]] = Store(
+            hass,
+            ACTION_STORAGE_VERSION,
+            f"{DOMAIN}.actions.{entry_id}",
+        )
+
+    async def async_load(self) -> ActionLog:
+        """Load the action log from disk.
+
+        Returns:
+            The persisted :class:`ActionLog`, or an empty log when no
+            data exists or the stored payload cannot be parsed.
+        """
+        try:
+            data = await self._store.async_load()
+        except Exception:
+            _LOGGER.warning("Failed to load action store; starting empty", exc_info=True)
+            return ActionLog()
+
+        if not data:
+            return ActionLog()
+
+        try:
+            return ActionLog.from_dict(data)
+        except (KeyError, TypeError, ValueError):
+            _LOGGER.warning("Malformed action payload; starting empty", exc_info=True)
+            return ActionLog()
+
+    async def async_save(self, log: ActionLog) -> None:
+        """Persist the action log to disk."""
+        await self._store.async_save(log.to_dict())

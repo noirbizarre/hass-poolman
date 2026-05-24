@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from homeassistant.core import HomeAssistant
@@ -22,8 +24,10 @@ from custom_components.poolman.const import (
     SUBENTRY_ACTIVATION,
 )
 from custom_components.poolman.coordinator import PoolmanCoordinator
+from custom_components.poolman.domain.action import Action, ActionSource, ActionType
 from custom_components.poolman.domain.activation import ActivationStep
 from custom_components.poolman.domain.model import ChemicalProduct, MeasureParameter, PoolMode
+from custom_components.poolman.storage import ActionStore
 from tests.conftest import MOCK_CONFIG_DATA, setup_mock_states
 
 
@@ -1167,3 +1171,93 @@ class TestAnalysisResult:
         mock_config_entry.add_to_hass(hass)
         coordinator = PoolmanCoordinator(hass, mock_config_entry)
         assert coordinator.analysis_result is None
+
+
+class TestActionTracking:
+    """Tests for coordinator action recording and persistence (issue #19)."""
+
+    @staticmethod
+    def _action(
+        action_id: str = "act_test",
+        *,
+        unit: str = "g",
+        timestamp: datetime | None = None,
+        duration: timedelta | None = None,
+    ) -> Action:
+        return Action(
+            id=action_id,
+            type=ActionType.CHEMICAL,
+            source=ActionSource.USER,
+            treatment_id="ph_minus_300g",
+            quantity=300.0,
+            unit=unit,
+            timestamp=timestamp or datetime(2026, 4, 19, 10, 0, tzinfo=UTC),
+            product_id="ph_minus",
+            duration=duration,
+        )
+
+    async def test_record_action_persists_and_appears_in_history(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        action = self._action()
+        await coordinator.async_record_action(action)
+
+        history = coordinator.get_action_history()
+        assert history == [action]
+
+    async def test_get_active_actions_filters_by_duration(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        base = datetime(2026, 4, 19, 10, 0, tzinfo=UTC)
+        await coordinator.async_record_action(
+            self._action("act_expired", timestamp=base, duration=timedelta(minutes=5))
+        )
+        await coordinator.async_record_action(
+            self._action(
+                "act_ongoing",
+                timestamp=base + timedelta(minutes=30),
+                duration=timedelta(minutes=60),
+            )
+        )
+
+        active = coordinator.get_active_actions(now=base + timedelta(minutes=45))
+        assert [a.id for a in active] == ["act_ongoing"]
+
+    async def test_record_action_rejects_non_ha_unit(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        with pytest.raises(ValueError, match="not a Home Assistant-compatible unit"):
+            await coordinator.async_record_action(self._action(unit="spoon"))
+        assert coordinator.get_action_history() == []
+
+    async def test_record_action_accepts_tablet_unit(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        await coordinator.async_record_action(self._action(unit="tablet"))
+        assert len(coordinator.get_action_history()) == 1
+
+    async def test_history_persists_across_coordinator_restart(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        await coordinator.async_record_action(self._action("act_persist"))
+
+        # Simulate a restart by reloading the store fresh against the same entry id.
+        store = ActionStore(hass, mock_config_entry.entry_id)
+        reloaded = await store.async_load()
+        assert [a.id for a in reloaded.actions] == ["act_persist"]
+
+    async def test_on_action_recorded_listener(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        seen: list[Action] = []
+        unsubscribe = coordinator.on_action_recorded(seen.append)
+        await coordinator.async_record_action(self._action("act_1"))
+        unsubscribe()
+        await coordinator.async_record_action(self._action("act_2"))
+        assert [a.id for a in seen] == ["act_1"]
