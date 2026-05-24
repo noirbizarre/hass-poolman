@@ -306,3 +306,79 @@ inventory_set_stock:
           min: 0
           step: 0.1
           mode: box
+
+apply_recommendation:
+  name: Apply recommendation
+  description: Apply a recommendation, creating an Action and updating inventory.
+  fields:
+    device_id:
+      name: Pool device
+      description: The Pool Manager device that owns the recommendation.
+      required: true
+      selector:
+        device:
+          integration: poolman
+    recommendation_id:
+      name: Recommendation ID
+      description: Identifier of the recommendation to apply (e.g. ``rec_ph_too_high``).
+      required: true
+      selector:
+        text:
+
+record_action:
+  name: Record action
+  description: Manually record a pool action (treatment, cleaning, maintenance).
+  fields:
+    device_id:
+      name: Pool device
+      description: The Pool Manager device the action applies to.
+      required: true
+      selector:
+        device:
+          integration: poolman
+    type:
+      name: Action type
+      description: Category of action performed.
+      required: true
+      selector:
+        select:
+          translation_key: action_type
+          options:
+            - "chemical"
+            - "cleaning"
+            - "maintenance"
+    product_id:
+      name: Product ID
+      description: Identifier of the inventory product consumed by this action.
+      selector:
+        text:
+    quantity:
+      name: Quantity
+      description: Amount applied (required when product_id is set).
+      selector:
+        number:
+          min: 0
+          step: 0.1
+          mode: box
+    unit:
+      name: Unit
+      description: Unit for the quantity (required when product_id is set, e.g. ``g``, ``mL``, ``tablet``, ``min``).
+      selector:
+        text:
+    note:
+      name: Note
+      description: Optional free-form note describing the action.
+      selector:
+        text:
+
+analyze:
+  name: Analyze pool
+  description: Trigger an immediate pool analysis, refreshing problems and recommendations.
+  fields:
+    device_id:
+      name: Pool device
+      description: The Pool Manager device to analyze.
+      required: true
+      selector:
+        device:
+          integration: poolman

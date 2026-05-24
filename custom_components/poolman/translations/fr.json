@@ -784,6 +784,13 @@
         "winter_passive": "Hivernage passif",
         "winter_active": "Hivernage actif"
       }
+    },
+    "action_type": {
+      "options": {
+        "chemical": "Traitement chimique",
+        "cleaning": "Nettoyage",
+        "maintenance": "Maintenance"
+      }
     }
   },
   "services": {
@@ -952,6 +959,60 @@
         "low_stock_threshold": {
           "name": "Seuil de stock bas",
           "description": "Nouvelle valeur de seuil optionnelle."
+        }
+      }
+    },
+    "apply_recommendation": {
+      "name": "Appliquer la recommandation",
+      "description": "Appliquer une recommandation, en cr\u00e9ant une action et en mettant \u00e0 jour l'inventaire.",
+      "fields": {
+        "device_id": {
+          "name": "Bassin",
+          "description": "L'appareil Pool Manager qui porte la recommandation."
+        },
+        "recommendation_id": {
+          "name": "Identifiant de la recommandation",
+          "description": "Identifiant de la recommandation \u00e0 appliquer (ex. rec_ph_too_high)."
+        }
+      }
+    },
+    "record_action": {
+      "name": "Enregistrer une action",
+      "description": "Enregistrer manuellement une action sur la piscine (traitement, nettoyage, maintenance).",
+      "fields": {
+        "device_id": {
+          "name": "Bassin",
+          "description": "L'appareil Pool Manager auquel l'action s'applique."
+        },
+        "type": {
+          "name": "Type d'action",
+          "description": "Cat\u00e9gorie d'action r\u00e9alis\u00e9e."
+        },
+        "product_id": {
+          "name": "Identifiant du produit",
+          "description": "Identifiant du produit d'inventaire consomm\u00e9 par cette action."
+        },
+        "quantity": {
+          "name": "Quantit\u00e9",
+          "description": "Quantit\u00e9 appliqu\u00e9e (obligatoire si product_id est renseign\u00e9)."
+        },
+        "unit": {
+          "name": "Unit\u00e9",
+          "description": "Unit\u00e9 de la quantit\u00e9 (obligatoire si product_id est renseign\u00e9, ex. g, mL, tablet, min)."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Note libre optionnelle d\u00e9crivant l'action."
+        }
+      }
+    },
+    "analyze": {
+      "name": "Analyser le bassin",
+      "description": "D\u00e9clencher une analyse imm\u00e9diate du bassin, en rafra\u00eechissant probl\u00e8mes et recommandations.",
+      "fields": {
+        "device_id": {
+          "name": "Bassin",
+          "description": "L'appareil Pool Manager \u00e0 analyser."
         }
       }
     }

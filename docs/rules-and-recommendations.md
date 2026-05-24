@@ -321,3 +321,65 @@ dataclass with:
 
 The coordinator calls `analyze_pool` on every state update and stores the
 result for sensor and binary-sensor entities to consume.
+
+## Services
+
+Three services let users and automations interact with the analysis output
+directly.
+
+### `poolman.analyze`
+
+Trigger an immediate pool analysis. The coordinator re-reads sensors,
+re-runs `analyze_pool()`, and pushes the refreshed problems and
+recommendations to all listening entities.
+
+```yaml
+service: poolman.analyze
+data:
+  device_id: <pool device id>
+```
+
+### `poolman.apply_recommendation`
+
+Apply a recommendation by its id (e.g. `rec_ph_too_high`). One `Action` is
+recorded per `Treatment` step in the recommendation, with
+`source: recommendation` and `recommendation_id` set. When a treatment
+references an inventory `product_id`, the corresponding stock is debited.
+Recommendations without treatments still record a single placeholder
+action so the recommendation is tracked as acknowledged.
+
+```yaml
+service: poolman.apply_recommendation
+data:
+  device_id: <pool device id>
+  recommendation_id: rec_ph_too_high
+```
+
+If the `recommendation_id` is unknown or no analysis has run yet, the
+service raises a `ServiceValidationError` with a friendly message.
+
+### `poolman.record_action`
+
+Manually record a treatment, cleaning, or maintenance action. When
+`product_id` is provided, both `quantity` and `unit` are required so that
+inventory consumption can be applied. When the action is not tied to a
+product, the service stores a placeholder action with `unit: min`.
+
+```yaml
+service: poolman.record_action
+data:
+  device_id: <pool device id>
+  type: chemical
+  product_id: ph_minus
+  quantity: 250
+  unit: g
+  note: Topped up after rain
+```
+
+### `poolman_action_recorded` event
+
+Each call to `apply_recommendation` or `record_action` fires a
+`poolman_action_recorded` event on the Home Assistant bus. The payload
+includes `device_id`, `action_id`, `type`, `source`, `recommendation_id`,
+`product_id`, `quantity`, and `unit`, so automations can react to recorded
+actions (e.g. send a notification or update an external log).

@@ -784,6 +784,13 @@
         "winter_passive": "Passive wintering",
         "winter_active": "Active wintering"
       }
+    },
+    "action_type": {
+      "options": {
+        "chemical": "Chemical treatment",
+        "cleaning": "Cleaning",
+        "maintenance": "Maintenance"
+      }
     }
   },
   "services": {
@@ -952,6 +959,60 @@
         "low_stock_threshold": {
           "name": "Low-stock threshold",
           "description": "Optional new threshold value."
+        }
+      }
+    },
+    "apply_recommendation": {
+      "name": "Apply recommendation",
+      "description": "Apply a recommendation, creating an Action and updating inventory.",
+      "fields": {
+        "device_id": {
+          "name": "Pool device",
+          "description": "The Pool Manager device that owns the recommendation."
+        },
+        "recommendation_id": {
+          "name": "Recommendation ID",
+          "description": "Identifier of the recommendation to apply (e.g. rec_ph_too_high)."
+        }
+      }
+    },
+    "record_action": {
+      "name": "Record action",
+      "description": "Manually record a pool action (treatment, cleaning, maintenance).",
+      "fields": {
+        "device_id": {
+          "name": "Pool device",
+          "description": "The Pool Manager device the action applies to."
+        },
+        "type": {
+          "name": "Action type",
+          "description": "Category of action performed."
+        },
+        "product_id": {
+          "name": "Product ID",
+          "description": "Identifier of the inventory product consumed by this action."
+        },
+        "quantity": {
+          "name": "Quantity",
+          "description": "Amount applied (required when product_id is set)."
+        },
+        "unit": {
+          "name": "Unit",
+          "description": "Unit for the quantity (required when product_id is set, e.g. g, mL, tablet, min)."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Optional free-form note describing the action."
+        }
+      }
+    },
+    "analyze": {
+      "name": "Analyze pool",
+      "description": "Trigger an immediate pool analysis, refreshing problems and recommendations.",
+      "fields": {
+        "device_id": {
+          "name": "Pool device",
+          "description": "The Pool Manager device to analyze."
         }
       }
     }

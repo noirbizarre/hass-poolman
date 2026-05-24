@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 
+from datetime import UTC, datetime
+
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
@@ -21,20 +23,25 @@ from .const import (
     DEFAULT_FILTRATION_KIND,
     DEFAULT_TREATMENT,
     DOMAIN,
+    EVENT_POOLMAN_ACTION_RECORDED,
     INVENTORY_UNITS,
     PLATFORMS,
     SERVICE_ADD_TREATMENT,
+    SERVICE_ANALYZE,
+    SERVICE_APPLY_RECOMMENDATION,
     SERVICE_BOOST_FILTRATION,
     SERVICE_CONFIRM_ACTIVATION_STEP,
     SERVICE_INVENTORY_ADD_PRODUCT,
     SERVICE_INVENTORY_ADD_STOCK,
     SERVICE_INVENTORY_REMOVE_PRODUCT,
     SERVICE_INVENTORY_SET_STOCK,
+    SERVICE_RECORD_ACTION,
     SERVICE_RECORD_MEASURE,
     SUBENTRY_ACTIVATION,
     SUBENTRY_HIBERNATION,
 )
 from .coordinator import PoolmanCoordinator
+from .domain.action import Action, ActionSource, ActionType
 from .domain.activation import ActivationChecklist, ActivationStep
 from .domain.inventory import Product
 from .domain.model import PRODUCT_DENSITY_G_PER_ML, ChemicalProduct, MeasureParameter, PoolMode
@@ -113,6 +120,30 @@ SERVICE_INVENTORY_SET_STOCK_SCHEMA = vol.Schema(
     }
 )
 
+SERVICE_APPLY_RECOMMENDATION_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): str,
+        vol.Required("recommendation_id"): vol.All(str, vol.Length(min=1)),
+    }
+)
+
+SERVICE_RECORD_ACTION_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): str,
+        vol.Required("type"): vol.In([t.value for t in ActionType]),
+        vol.Optional("product_id"): vol.All(str, vol.Length(min=1)),
+        vol.Optional("quantity"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+        vol.Optional("unit"): vol.All(str, vol.Length(min=1)),
+        vol.Optional("note"): str,
+    }
+)
+
+SERVICE_ANALYZE_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): str,
+    }
+)
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) -> bool:
     """Set up Pool Manager from a config entry."""
@@ -180,6 +211,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) -> 
         hass.services.async_remove(DOMAIN, SERVICE_INVENTORY_REMOVE_PRODUCT)
         hass.services.async_remove(DOMAIN, SERVICE_INVENTORY_ADD_STOCK)
         hass.services.async_remove(DOMAIN, SERVICE_INVENTORY_SET_STOCK)
+        hass.services.async_remove(DOMAIN, SERVICE_APPLY_RECOMMENDATION)
+        hass.services.async_remove(DOMAIN, SERVICE_RECORD_ACTION)
+        hass.services.async_remove(DOMAIN, SERVICE_ANALYZE)
 
     return result
 
@@ -461,4 +495,184 @@ def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_INVENTORY_SET_STOCK,
         async_handle_inventory_set_stock,
         schema=SERVICE_INVENTORY_SET_STOCK_SCHEMA,
+    )
+
+    def _resolve_device_coordinator(device_id: str) -> PoolmanCoordinator:
+        """Resolve the Pool Manager coordinator owning the given device.
+
+        Raises:
+            ServiceValidationError: If the device id is unknown or does not
+                belong to a Pool Manager config entry.
+        """
+        device_reg = dr.async_get(hass)
+        device = device_reg.async_get(device_id)
+        if device is None:
+            raise ServiceValidationError(f"Unknown device: {device_id}")
+        for entry_id in device.config_entries:
+            entry = hass.config_entries.async_get_entry(entry_id)
+            if entry and entry.domain == DOMAIN:
+                return entry.runtime_data
+        raise ServiceValidationError(
+            f"Device {device_id} is not a Pool Manager device",
+        )
+
+    def _fire_action_recorded(device_id: str, action: Action) -> None:
+        """Fire the ``poolman_action_recorded`` event for ``action``."""
+        hass.bus.async_fire(
+            EVENT_POOLMAN_ACTION_RECORDED,
+            {
+                "device_id": device_id,
+                "action_id": action.id,
+                "type": action.type.value,
+                "source": action.source.value,
+                "recommendation_id": action.recommendation_id,
+                "product_id": action.product_id,
+                "quantity": action.quantity,
+                "unit": action.unit,
+            },
+        )
+
+    async def async_handle_apply_recommendation(call: ServiceCall) -> None:
+        """Handle the ``apply_recommendation`` service call.
+
+        Resolves the recommendation by id in the current
+        :class:`AnalysisResult` and records one :class:`Action` per
+        :class:`Treatment` step (or a single placeholder action when the
+        recommendation has no treatments).  Each recorded action triggers
+        inventory decrement (#94) and fires
+        :data:`EVENT_POOLMAN_ACTION_RECORDED`.
+        """
+        device_id: str = call.data["device_id"]
+        recommendation_id: str = call.data["recommendation_id"]
+        coordinator = _resolve_device_coordinator(device_id)
+
+        result = coordinator.analysis_result
+        if result is None:
+            raise ServiceValidationError(
+                "No pool analysis is available yet. Wait for the first refresh.",
+            )
+
+        rec = next(
+            (r for r in result.recommendations if r.id == recommendation_id),
+            None,
+        )
+        if rec is None:
+            known = ", ".join(r.id for r in result.recommendations) or "(none)"
+            raise ServiceValidationError(
+                f"Unknown recommendation_id {recommendation_id!r}. Known: {known}",
+            )
+
+        now = datetime.now(UTC)
+        ts_token = now.strftime("%Y%m%dT%H%M%S%f")
+        if rec.treatments:
+            actions = [
+                Action(
+                    id=f"act_{ts_token}_{rec.id}_{idx}",
+                    type=ActionType.CHEMICAL,
+                    source=ActionSource.RECOMMENDATION,
+                    treatment_id=treatment.id,
+                    quantity=treatment.quantity,
+                    unit=treatment.unit,
+                    timestamp=now,
+                    recommendation_id=rec.id,
+                    product_id=treatment.product_id,
+                    duration=treatment.duration,
+                )
+                for idx, treatment in enumerate(rec.treatments)
+            ]
+        else:
+            actions = [
+                Action(
+                    id=f"act_{ts_token}_{rec.id}",
+                    type=ActionType.MAINTENANCE,
+                    source=ActionSource.RECOMMENDATION,
+                    treatment_id="",
+                    quantity=0.0,
+                    unit="min",
+                    timestamp=now,
+                    recommendation_id=rec.id,
+                )
+            ]
+
+        for action in actions:
+            try:
+                await coordinator.async_record_action(action)
+            except ValueError as exc:
+                raise ServiceValidationError(str(exc)) from exc
+            _fire_action_recorded(device_id, action)
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_APPLY_RECOMMENDATION,
+        async_handle_apply_recommendation,
+        schema=SERVICE_APPLY_RECOMMENDATION_SCHEMA,
+    )
+
+    async def async_handle_record_action(call: ServiceCall) -> None:
+        """Handle the ``record_action`` service call.
+
+        Records a user-initiated :class:`Action` (treatment, cleaning, or
+        maintenance).  When ``product_id`` is provided, both ``quantity``
+        and ``unit`` are required so that inventory decrement (#94) can be
+        applied unambiguously.  Fires :data:`EVENT_POOLMAN_ACTION_RECORDED`.
+        """
+        device_id: str = call.data["device_id"]
+        coordinator = _resolve_device_coordinator(device_id)
+
+        product_id: str | None = call.data.get("product_id")
+        quantity: float | None = call.data.get("quantity")
+        unit: str | None = call.data.get("unit")
+        note: str | None = call.data.get("note")
+
+        if product_id is not None and (quantity is None or unit is None):
+            raise ServiceValidationError(
+                "quantity and unit are required when product_id is set",
+            )
+
+        now = datetime.now(UTC)
+        ts_token = now.strftime("%Y%m%dT%H%M%S%f")
+        action = Action(
+            id=f"act_{ts_token}_manual",
+            type=ActionType(call.data["type"]),
+            source=ActionSource.USER,
+            treatment_id=f"manual_{ts_token}",
+            quantity=quantity if quantity is not None else 0.0,
+            unit=unit if unit is not None else "min",
+            timestamp=now,
+            product_id=product_id,
+        )
+
+        if note:
+            # Action has no notes field today (#19); log it so context isn't
+            # silently lost. A future PR may extend Action.
+            _LOGGER.debug("record_action note for %s: %s", action.id, note)
+
+        try:
+            await coordinator.async_record_action(action)
+        except ValueError as exc:
+            raise ServiceValidationError(str(exc)) from exc
+        _fire_action_recorded(device_id, action)
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_RECORD_ACTION,
+        async_handle_record_action,
+        schema=SERVICE_RECORD_ACTION_SCHEMA,
+    )
+
+    async def async_handle_analyze(call: ServiceCall) -> None:
+        """Handle the ``analyze`` service call.
+
+        Triggers an immediate coordinator refresh, which re-runs
+        :func:`analyze_pool` (#97) and pushes the updated
+        :class:`AnalysisResult` to all listening entities (#98, #99, #102).
+        """
+        coordinator = _resolve_device_coordinator(call.data["device_id"])
+        await coordinator.async_request_refresh()
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_ANALYZE,
+        async_handle_analyze,
+        schema=SERVICE_ANALYZE_SCHEMA,
     )
