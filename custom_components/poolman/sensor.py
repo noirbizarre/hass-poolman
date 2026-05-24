@@ -27,6 +27,8 @@ from .domain.model import (
     ChemistryStatus,
     ParameterReport,
     PoolState,
+    PoolStatus,
+    Severity,
     format_treatment_spoon,
 )
 from .entity import PoolmanEntity
@@ -98,6 +100,7 @@ def _status_with_source(
 
 
 _CHEMISTRY_STATUS_OPTIONS: list[str] = list(ChemistryStatus)
+_POOL_STATUS_OPTIONS: list[str] = list(PoolStatus)
 
 
 def _chemistry_actions_attrs(state: PoolState) -> dict[str, Any]:
@@ -348,6 +351,24 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TIMESTAMP,
         icon="mdi:shield-check",
         value_fn=lambda state: state.safe_at,
+    ),
+    PoolmanSensorEntityDescription(
+        key="status",
+        translation_key="status",
+        device_class=SensorDeviceClass.ENUM,
+        options=_POOL_STATUS_OPTIONS,
+        value_fn=lambda state: state.status,
+        extra_attrs_fn=lambda state: {
+            "problem_count": len(state.analysis_result.problems),
+            "critical_count": sum(
+                1 for p in state.analysis_result.problems if p.severity is Severity.CRITICAL
+            ),
+            "worst_severity": (
+                state.analysis_result.problems[0].severity
+                if state.analysis_result.problems
+                else None
+            ),
+        },
     ),
 )
 

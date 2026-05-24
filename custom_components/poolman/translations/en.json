@@ -260,6 +260,14 @@
       "chemistry_actions": {
         "name": "Chemistry actions"
       },
+      "status": {
+        "name": "Status",
+        "state": {
+          "ok": "OK",
+          "warning": "Warning",
+          "critical": "Critical"
+        }
+      },
       "ph_status": {
         "name": "pH status",
         "state": {

@@ -20,6 +20,7 @@ from custom_components.poolman.domain.model import (
     ParameterReport,
     Pool,
     PoolState,
+    PoolStatus,
     RecommendationPriority,
     RecommendationType,
     SpoonSize,
@@ -29,7 +30,7 @@ from custom_components.poolman.domain.model import (
     format_spoon_text,
     format_treatment_spoon,
 )
-from custom_components.poolman.domain.problem import Severity
+from custom_components.poolman.domain.problem import Problem, Severity
 from custom_components.poolman.domain.recommendation import Recommendation, Treatment
 
 
@@ -310,6 +311,68 @@ class TestActionKind:
     def test_recommendation_kind_requirement(self) -> None:
         rec = _make_rec(kind=ActionKind.REQUIREMENT)
         assert rec.kind == ActionKind.REQUIREMENT
+
+
+def _make_problem(severity: Severity, code: str = "test") -> Problem:
+    """Build a minimal Problem with the given severity."""
+    return Problem(code=code, message=f"{code} problem", severity=severity)
+
+
+class TestPoolStatusEnum:
+    """Tests for the PoolStatus enum used by the global status sensor."""
+
+    def test_values(self) -> None:
+        assert PoolStatus.OK == "ok"
+        assert PoolStatus.WARNING == "warning"
+        assert PoolStatus.CRITICAL == "critical"
+
+    def test_list_order(self) -> None:
+        assert list(PoolStatus) == [PoolStatus.OK, PoolStatus.WARNING, PoolStatus.CRITICAL]
+
+
+class TestPoolStateStatus:
+    """Tests for PoolState.status global rollup property."""
+
+    def test_no_problems_is_ok(self) -> None:
+        state = PoolState()
+        assert state.status is PoolStatus.OK
+
+    def test_only_low_is_warning(self) -> None:
+        state = PoolState(analysis_result=AnalysisResult(problems=[_make_problem(Severity.LOW)]))
+        assert state.status is PoolStatus.WARNING
+
+    def test_only_medium_is_warning(self) -> None:
+        state = PoolState(analysis_result=AnalysisResult(problems=[_make_problem(Severity.MEDIUM)]))
+        assert state.status is PoolStatus.WARNING
+
+    def test_mixed_low_and_medium_is_warning(self) -> None:
+        state = PoolState(
+            analysis_result=AnalysisResult(
+                problems=[
+                    _make_problem(Severity.LOW, "low"),
+                    _make_problem(Severity.MEDIUM, "med"),
+                ]
+            )
+        )
+        assert state.status is PoolStatus.WARNING
+
+    def test_single_critical_is_critical(self) -> None:
+        state = PoolState(
+            analysis_result=AnalysisResult(problems=[_make_problem(Severity.CRITICAL)])
+        )
+        assert state.status is PoolStatus.CRITICAL
+
+    def test_mixed_with_critical_is_critical(self) -> None:
+        state = PoolState(
+            analysis_result=AnalysisResult(
+                problems=[
+                    _make_problem(Severity.LOW, "low"),
+                    _make_problem(Severity.MEDIUM, "med"),
+                    _make_problem(Severity.CRITICAL, "crit"),
+                ]
+            )
+        )
+        assert state.status is PoolStatus.CRITICAL
 
 
 class TestPoolStateChemistryActions:
