@@ -15,55 +15,54 @@ class TestCyaRule:
     """Tests for CYA (cyanuric acid) rule evaluation."""
 
     def test_cya_in_range_no_problem(self, pool: Pool) -> None:
-        result = CyaRule().evaluate(make_state(pool, PoolReading(cya=40.0)))
-        assert result.problems == []
+        problems = CyaRule().evaluate(make_state(pool, PoolReading(cya=40.0)))
+        assert problems == []
 
     def test_cya_too_low_returns_medium_problem(self, pool: Pool) -> None:
-        result = CyaRule().evaluate(make_state(pool, PoolReading(cya=10.0)))
-        assert len(result.problems) == 1
-        assert result.problems[0].code == "cya_too_low"
-        assert result.problems[0].metric == MetricName.CYA
-        assert result.problems[0].severity == Severity.MEDIUM
-        assert result.problems[0].value == pytest.approx(10.0)
+        problems = CyaRule().evaluate(make_state(pool, PoolReading(cya=10.0)))
+        assert len(problems) == 1
+        assert problems[0].code == "cya_too_low"
+        assert problems[0].metric == MetricName.CYA
+        assert problems[0].severity == Severity.MEDIUM
+        assert problems[0].value == pytest.approx(10.0)
 
     def test_cya_too_high_returns_low_problem(self, pool: Pool) -> None:
-        result = CyaRule().evaluate(make_state(pool, PoolReading(cya=100.0)))
-        assert len(result.problems) == 1
-        assert result.problems[0].code == "cya_too_high"
-        assert result.problems[0].severity == Severity.LOW
-        assert (
-            "drain" in result.problems[0].message.lower()
-            or "too high" in result.problems[0].message.lower()
-        )
+        problems = CyaRule().evaluate(make_state(pool, PoolReading(cya=100.0)))
+        assert len(problems) == 1
+        assert problems[0].code == "cya_too_high"
+        assert problems[0].severity == Severity.LOW
+        assert "drain" in problems[0].message.lower() or "too high" in problems[0].message.lower()
 
     def test_cya_none_no_problem(self, pool: Pool) -> None:
-        result = CyaRule().evaluate(make_state(pool, PoolReading(cya=None)))
-        assert result.problems == []
+        problems = CyaRule().evaluate(make_state(pool, PoolReading(cya=None)))
+        assert problems == []
 
     def test_winter_passive_skips(self, pool: Pool) -> None:
-        result = CyaRule().evaluate(
+        problems = CyaRule().evaluate(
             make_state(pool, PoolReading(cya=10.0), PoolMode.WINTER_PASSIVE)
         )
-        assert result.problems == []
+        assert problems == []
 
     def test_winter_active_skips(self, pool: Pool) -> None:
-        result = CyaRule().evaluate(make_state(pool, PoolReading(cya=10.0), PoolMode.WINTER_ACTIVE))
-        assert result.problems == []
+        problems = CyaRule().evaluate(
+            make_state(pool, PoolReading(cya=10.0), PoolMode.WINTER_ACTIVE)
+        )
+        assert problems == []
 
     def test_hibernating_evaluates(self, pool: Pool) -> None:
-        result = CyaRule().evaluate(make_state(pool, PoolReading(cya=10.0), PoolMode.HIBERNATING))
-        assert len(result.problems) == 1
-        assert result.problems[0].code == "cya_too_low"
+        problems = CyaRule().evaluate(make_state(pool, PoolReading(cya=10.0), PoolMode.HIBERNATING))
+        assert len(problems) == 1
+        assert problems[0].code == "cya_too_low"
 
     def test_activating_evaluates(self, pool: Pool) -> None:
-        result = CyaRule().evaluate(make_state(pool, PoolReading(cya=10.0), PoolMode.ACTIVATING))
-        assert len(result.problems) == 1
-        assert result.problems[0].code == "cya_too_low"
+        problems = CyaRule().evaluate(make_state(pool, PoolReading(cya=10.0), PoolMode.ACTIVATING))
+        assert len(problems) == 1
+        assert problems[0].code == "cya_too_low"
 
     def test_cya_at_min_no_problem(self, pool: Pool) -> None:
-        result = CyaRule().evaluate(make_state(pool, PoolReading(cya=20.0)))
-        assert result.problems == []
+        problems = CyaRule().evaluate(make_state(pool, PoolReading(cya=20.0)))
+        assert problems == []
 
     def test_cya_at_max_no_problem(self, pool: Pool) -> None:
-        result = CyaRule().evaluate(make_state(pool, PoolReading(cya=75.0)))
-        assert result.problems == []
+        problems = CyaRule().evaluate(make_state(pool, PoolReading(cya=75.0)))
+        assert problems == []

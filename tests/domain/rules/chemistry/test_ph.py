@@ -15,67 +15,67 @@ class TestPhRule:
     """Tests for pH rule evaluation."""
 
     def test_good_ph_no_problem(self, pool: Pool) -> None:
-        result = PhRule().evaluate(make_state(pool, PoolReading(ph=7.2)))
-        assert result.problems == []
+        problems = PhRule().evaluate(make_state(pool, PoolReading(ph=7.2)))
+        assert problems == []
 
     def test_high_ph_returns_problem(self, pool: Pool) -> None:
-        result = PhRule().evaluate(make_state(pool, PoolReading(ph=7.8)))
-        assert len(result.problems) == 1
-        assert result.problems[0].code == "ph_too_high"
-        assert result.problems[0].metric == MetricName.PH
-        assert result.problems[0].value == pytest.approx(7.8)
+        problems = PhRule().evaluate(make_state(pool, PoolReading(ph=7.8)))
+        assert len(problems) == 1
+        assert problems[0].code == "ph_too_high"
+        assert problems[0].metric == MetricName.PH
+        assert problems[0].value == pytest.approx(7.8)
 
     def test_low_ph_returns_critical_problem(self, pool: Pool) -> None:
-        result = PhRule().evaluate(make_state(pool, PoolReading(ph=6.6)))
-        assert len(result.problems) == 1
-        assert result.problems[0].code == "ph_too_low"
-        assert result.problems[0].severity == Severity.CRITICAL
-        assert result.problems[0].metric == MetricName.PH
+        problems = PhRule().evaluate(make_state(pool, PoolReading(ph=6.6)))
+        assert len(problems) == 1
+        assert problems[0].code == "ph_too_low"
+        assert problems[0].severity == Severity.CRITICAL
+        assert problems[0].metric == MetricName.PH
 
     def test_winter_passive_skips(self, pool: Pool) -> None:
-        result = PhRule().evaluate(make_state(pool, PoolReading(ph=8.5), PoolMode.WINTER_PASSIVE))
-        assert result.problems == []
+        problems = PhRule().evaluate(make_state(pool, PoolReading(ph=8.5), PoolMode.WINTER_PASSIVE))
+        assert problems == []
 
     def test_winter_active_evaluates(self, pool: Pool) -> None:
         """pH rule should still evaluate in active winter mode (equipment protection)."""
-        result = PhRule().evaluate(make_state(pool, PoolReading(ph=7.8), PoolMode.WINTER_ACTIVE))
-        assert len(result.problems) == 1
-        assert result.problems[0].code == "ph_too_high"
+        problems = PhRule().evaluate(make_state(pool, PoolReading(ph=7.8), PoolMode.WINTER_ACTIVE))
+        assert len(problems) == 1
+        assert problems[0].code == "ph_too_high"
 
     def test_hibernating_evaluates(self, pool: Pool) -> None:
-        result = PhRule().evaluate(make_state(pool, PoolReading(ph=7.8), PoolMode.HIBERNATING))
-        assert len(result.problems) == 1
-        assert result.problems[0].code == "ph_too_high"
+        problems = PhRule().evaluate(make_state(pool, PoolReading(ph=7.8), PoolMode.HIBERNATING))
+        assert len(problems) == 1
+        assert problems[0].code == "ph_too_high"
 
     def test_activating_evaluates(self, pool: Pool) -> None:
-        result = PhRule().evaluate(make_state(pool, PoolReading(ph=7.8), PoolMode.ACTIVATING))
-        assert len(result.problems) == 1
-        assert result.problems[0].code == "ph_too_high"
+        problems = PhRule().evaluate(make_state(pool, PoolReading(ph=7.8), PoolMode.ACTIVATING))
+        assert len(problems) == 1
+        assert problems[0].code == "ph_too_high"
 
     def test_slightly_off_ph_returns_low_severity(self, pool: Pool) -> None:
         """pH slightly off target (delta <= tolerance*3) -> LOW severity."""
-        result = PhRule().evaluate(make_state(pool, PoolReading(ph=7.4)))
-        assert len(result.problems) == 1
-        assert result.problems[0].severity == Severity.LOW
+        problems = PhRule().evaluate(make_state(pool, PoolReading(ph=7.4)))
+        assert len(problems) == 1
+        assert problems[0].severity == Severity.LOW
 
     def test_ph_outside_range_returns_critical_severity(self, pool: Pool) -> None:
-        result = PhRule().evaluate(make_state(pool, PoolReading(ph=8.2)))
-        assert len(result.problems) == 1
-        assert result.problems[0].severity == Severity.CRITICAL
+        problems = PhRule().evaluate(make_state(pool, PoolReading(ph=8.2)))
+        assert len(problems) == 1
+        assert problems[0].severity == Severity.CRITICAL
 
     def test_ph_medium_deviation_returns_medium_severity(self, pool: Pool) -> None:
         """pH delta > 3x tolerance but within range -> MEDIUM severity."""
-        result = PhRule().evaluate(make_state(pool, PoolReading(ph=7.6)))
-        assert len(result.problems) == 1
-        assert result.problems[0].severity == Severity.MEDIUM
+        problems = PhRule().evaluate(make_state(pool, PoolReading(ph=7.6)))
+        assert len(problems) == 1
+        assert problems[0].severity == Severity.MEDIUM
 
     def test_none_ph_skips(self, pool: Pool) -> None:
-        result = PhRule().evaluate(make_state(pool, PoolReading()))
-        assert result.problems == []
+        problems = PhRule().evaluate(make_state(pool, PoolReading()))
+        assert problems == []
 
     def test_expected_range_set(self, pool: Pool) -> None:
-        result = PhRule().evaluate(make_state(pool, PoolReading(ph=8.5)))
-        assert result.problems[0].expected_range is not None
-        low, high = result.problems[0].expected_range
+        problems = PhRule().evaluate(make_state(pool, PoolReading(ph=8.5)))
+        assert problems[0].expected_range is not None
+        low, high = problems[0].expected_range
         assert low < 7.0
         assert high > 7.5

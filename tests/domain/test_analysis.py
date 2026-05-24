@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
 from datetime import UTC
-from unittest.mock import patch
 
 import pytest
 
@@ -13,16 +12,9 @@ from custom_components.poolman.domain.analysis import (
     analyze_pool,
     generate_recommendations,
 )
-from custom_components.poolman.domain.model import (
-    ChemistryReport,
-    DosageAdjustment,
-    PoolReading,
-    PoolState,
-)
+from custom_components.poolman.domain.model import PoolReading, PoolState
 from custom_components.poolman.domain.problem import (
-    ChemistryStatus,
     MetricName,
-    ParameterReport,
     Problem,
     Severity,
 )
@@ -30,44 +22,12 @@ from custom_components.poolman.domain.recommendation import (
     ActionKind,
     RecommendationPriority,
     RecommendationType,
+    Treatment,
 )
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _make_report(
-    metric: MetricName,
-    value: float,
-    minimum: float,
-    maximum: float,
-    target: float | None = None,
-    status: ChemistryStatus = ChemistryStatus.GOOD,
-    score: int = 80,
-) -> ParameterReport:
-    """Return a ParameterReport with the given parameters."""
-    return ParameterReport(
-        metric=metric,
-        status=status,
-        value=value,
-        target=target if target is not None else (minimum + maximum) / 2,
-        minimum=minimum,
-        maximum=maximum,
-        score=score,
-    )
-
-
-def _make_state(
-    *,
-    ph: ParameterReport | None = None,
-    orp: ParameterReport | None = None,
-    tac: ParameterReport | None = None,
-) -> PoolState:
-    """Return a PoolState with the given chemistry reports (for legacy tests)."""
-    return PoolState(
-        chemistry_report=ChemistryReport(ph=ph, orp=orp, tac=tac),
-    )
 
 
 def _make_reading_state(
@@ -231,7 +191,31 @@ class TestGenerateRecommendations:
             RecommendationPriority.LOW
         )
 
-    def test_recommendation_has_treatment_when_product_known(self) -> None:
+    def test_recommendation_has_treatment_when_attached(self) -> None:
+        """When a Problem carries a Treatment, it must be included in the rec."""
+        treatment = Treatment(
+            id="ph_too_high_ph_minus",
+            product_id="ph_minus",
+            name="Ph Minus",
+            quantity=120.0,
+            unit="g",
+        )
+        problem = Problem(
+            code="ph_too_high",
+            severity=Severity.MEDIUM,
+            metric=MetricName.PH,
+            value=8.1,
+            message="pH is too high.",
+            expected_range=None,
+            treatment=treatment,
+        )
+        recs = generate_recommendations([problem])
+        assert len(recs[0].treatments) == 1
+        assert recs[0].treatments[0].product_id == "ph_minus"
+        assert recs[0].treatments[0].quantity == 120.0
+
+    def test_recommendation_no_treatment_when_problem_has_none(self) -> None:
+        """Problems without an attached Treatment produce empty treatments."""
         problem = Problem(
             code="ph_too_high",
             severity=Severity.MEDIUM,
@@ -241,8 +225,7 @@ class TestGenerateRecommendations:
             expected_range=None,
         )
         recs = generate_recommendations([problem])
-        assert len(recs[0].treatments) == 1
-        assert recs[0].treatments[0].product_id == "ph_minus"
+        assert recs[0].treatments == []
 
     def test_recommendation_no_treatment_when_no_product(self) -> None:
         """Some problems (e.g., orp_too_low) have no specific product."""
@@ -256,29 +239,6 @@ class TestGenerateRecommendations:
         )
         recs = generate_recommendations([problem])
         assert recs[0].treatments == []
-
-    def test_chlorine_dosage_quantity_populated_from_reading(self) -> None:
-        """chlorine_too_low with a reading that returns a dosage quantity populates it."""
-        from custom_components.poolman.domain.model import ChemicalProduct
-
-        problem = Problem(
-            code="chlorine_too_low",
-            severity=Severity.MEDIUM,
-            metric=MetricName.CHLORINE,
-            value=0.3,
-            message="Free chlorine is too low.",
-            expected_range=None,
-        )
-        reading = PoolReading(free_chlorine=0.3)
-        fake_dosage = DosageAdjustment(product=ChemicalProduct.CHLORE_CHOC, quantity_g=250.0)
-        with patch(
-            "custom_components.poolman.domain.analysis.compute_free_chlorine_adjustment",
-            return_value=fake_dosage,
-        ):
-            recs = generate_recommendations([problem], reading=reading)
-        assert len(recs) == 1
-        assert len(recs[0].treatments) == 1
-        assert recs[0].treatments[0].quantity == 250.0
 
 
 # ---------------------------------------------------------------------------

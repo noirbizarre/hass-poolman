@@ -17,6 +17,7 @@ from custom_components.poolman.domain.problem import (
     Problem,
     Severity,
 )
+from custom_components.poolman.domain.recommendation import Treatment
 
 
 class TestProblemDataclass:
@@ -51,18 +52,36 @@ class TestProblemDataclass:
         assert p.expected_range == (6.8, 7.8)
 
     def test_problem_optional_fields(self) -> None:
-        """metric, value, and expected_range are all optional (None)."""
+        """metric, value, expected_range, and treatment are all optional (default None)."""
         p = Problem(
             code="unknown_out_of_range",
             message="unknown is out of range",
             severity=Severity.LOW,
-            metric=None,
-            value=None,
-            expected_range=None,
         )
         assert p.metric is None
         assert p.value is None
         assert p.expected_range is None
+        assert p.treatment is None
+
+    def test_problem_with_treatment(self) -> None:
+        """Problem accepts an optional pre-computed Treatment."""
+        treatment = Treatment(
+            id="ph_too_high_ph_minus",
+            product_id="ph_minus",
+            name="Ph Minus",
+            quantity=120.0,
+            unit="g",
+        )
+        p = Problem(
+            code="ph_too_high",
+            message="pH is too high.",
+            severity=Severity.MEDIUM,
+            metric=MetricName.PH,
+            value=8.1,
+            treatment=treatment,
+        )
+        assert p.treatment is treatment
+        assert p.treatment.product_id == "ph_minus"
 
 
 class TestSeverityEnum:

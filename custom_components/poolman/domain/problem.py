@@ -34,8 +34,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from .recommendation import Treatment
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -161,11 +165,20 @@ class Problem:
         expected_range: ``(minimum, maximum)`` tuple representing the
             acceptable range for this parameter, or ``None`` when the range
             is unknown.
+        treatment: Optional pre-computed :class:`~.recommendation.Treatment`
+            attached by the rule when a specific dosage is known (e.g. pH-,
+            chlorine, alkalinity adjustments).  Used by
+            :func:`~.analysis.generate_recommendations` to build the
+            corresponding :class:`~.recommendation.Recommendation` without
+            re-reading sensor or pool data.  ``None`` for alert-only
+            problems (e.g. CYA too high, drain required) or rules that
+            have no associated product.
     """
 
     code: str
     message: str
     severity: Severity
-    metric: MetricName | None
-    value: float | None
-    expected_range: tuple[float, float] | None
+    metric: MetricName | None = None
+    value: float | None = None
+    expected_range: tuple[float, float] | None = None
+    treatment: Treatment | None = None

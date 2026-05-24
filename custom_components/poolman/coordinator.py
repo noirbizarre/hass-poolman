@@ -755,7 +755,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         # against manual measures, even when the effective reading uses
         # manual values as fallback.
         sensor_ec = self._read_sensor(CONF_EC_ENTITY)
-        sensor_reading = PoolReading(
+        raw_sensor_reading = PoolReading(
             ph=self._read_sensor(CONF_PH_ENTITY),
             orp=self._read_sensor(CONF_ORP_ENTITY),
             free_chlorine=self._read_sensor(CONF_FREE_CHLORINE_ENTITY),
@@ -775,7 +775,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             mode=self._mode,
             pool=self.pool,
             reading=reading,
-            raw_sensor_reading=sensor_reading,
+            raw_sensor_reading=raw_sensor_reading,
             manual_measures=manual_measures,
         )
         self._analysis_result = analyze_pool(analysis_state)
@@ -796,7 +796,7 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             mode=self._mode,
             pool=self.pool,
             reading=reading,
-            raw_sensor_reading=sensor_reading,
+            raw_sensor_reading=raw_sensor_reading,
             analysis_result=self._analysis_result,
             filtration_hours=filtration_hours,
             water_quality_score=water_quality_score,
