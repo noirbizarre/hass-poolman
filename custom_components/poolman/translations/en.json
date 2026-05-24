@@ -342,6 +342,9 @@
           "shock_treatment": "Shock treatment",
           "intensive_filtration": "Intensive filtration"
         }
+      },
+      "inventory_product": {
+        "name": "{product_name} stock"
       }
     },
     "binary_sensor": {
@@ -353,6 +356,9 @@
       },
       "swimming_safe": {
         "name": "Swimming safe"
+      },
+      "inventory_low_stock": {
+        "name": "{product_name} low stock"
       }
     },
     "event": {
@@ -858,6 +864,94 @@
         "step": {
           "name": "Step",
           "description": "The activation step to confirm as completed."
+        }
+      }
+    },
+    "inventory_add_product": {
+      "name": "Add inventory product",
+      "description": "Register a product in the pool's inventory catalog.",
+      "fields": {
+        "entry_id": {
+          "name": "Config entry",
+          "description": "The Pool Manager config entry that owns the inventory."
+        },
+        "product_id": {
+          "name": "Product ID",
+          "description": "Stable identifier used to reference this product."
+        },
+        "name": {
+          "name": "Display name",
+          "description": "Human-readable label for the product."
+        },
+        "unit": {
+          "name": "Unit",
+          "description": "Unit used to express the product quantity."
+        },
+        "chemical": {
+          "name": "Chemical kind",
+          "description": "Optional tag mapping this product to a known chemical kind."
+        },
+        "initial_quantity": {
+          "name": "Initial quantity",
+          "description": "Optional initial stock to seed the product with."
+        },
+        "low_stock_threshold": {
+          "name": "Low-stock threshold",
+          "description": "Optional threshold; the low-stock binary sensor turns on when quantity falls at or below this value."
+        }
+      }
+    },
+    "inventory_remove_product": {
+      "name": "Remove inventory product",
+      "description": "Remove a product (and its stock) from the inventory catalog.",
+      "fields": {
+        "entry_id": {
+          "name": "Config entry",
+          "description": "The Pool Manager config entry that owns the inventory."
+        },
+        "product_id": {
+          "name": "Product ID",
+          "description": "Identifier of the product to remove."
+        }
+      }
+    },
+    "inventory_add_stock": {
+      "name": "Add inventory stock",
+      "description": "Add stock to an existing inventory product.",
+      "fields": {
+        "entry_id": {
+          "name": "Config entry",
+          "description": "The Pool Manager config entry that owns the inventory."
+        },
+        "product_id": {
+          "name": "Product ID",
+          "description": "Identifier of the product to credit."
+        },
+        "quantity": {
+          "name": "Quantity",
+          "description": "Amount to add, in the product's unit."
+        }
+      }
+    },
+    "inventory_set_stock": {
+      "name": "Set inventory stock",
+      "description": "Set the absolute stock (and optionally the low-stock threshold) of a product.",
+      "fields": {
+        "entry_id": {
+          "name": "Config entry",
+          "description": "The Pool Manager config entry that owns the inventory."
+        },
+        "product_id": {
+          "name": "Product ID",
+          "description": "Identifier of the product to update."
+        },
+        "quantity": {
+          "name": "Quantity",
+          "description": "New absolute quantity, in the product's unit."
+        },
+        "low_stock_threshold": {
+          "name": "Low-stock threshold",
+          "description": "Optional new threshold value."
         }
       }
     }

@@ -13,14 +13,15 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfTemperature, UnitOfTime
-from homeassistant.core import HomeAssistant
+from homeassistant.const import UnitOfMass, UnitOfTemperature, UnitOfTime, UnitOfVolume
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
 from . import PoolmanConfigEntry
 from .coordinator import PoolmanCoordinator
 from .domain.activation import ActivationStep
+from .domain.inventory import Product
 from .domain.model import (
     ActionKind,
     ChemistryStatus,
@@ -379,7 +380,37 @@ async def async_setup_entry(
         PoolmanSensor(coordinator, description) for description in descriptions
     ]
     entities.append(PoolmanActivationStepSensor(coordinator))
+
+    # Inventory: one quantity sensor per configured product, with
+    # dynamic discovery of products added later via services.
+    known_inventory_ids: set[str] = set()
+
+    def _add_inventory_entities(product_ids: set[str]) -> None:
+        new_entities: list[SensorEntity] = []
+        for product_id in product_ids:
+            product = coordinator.inventory.products.get(product_id)
+            if product is None or product_id in known_inventory_ids:
+                continue
+            known_inventory_ids.add(product_id)
+            new_entities.append(PoolmanInventorySensor(coordinator, product))
+        if new_entities:
+            async_add_entities(new_entities)
+
+    initial_ids = set(coordinator.inventory.products.keys())
+    for product_id in initial_ids:
+        known_inventory_ids.add(product_id)
+        entities.append(
+            PoolmanInventorySensor(coordinator, coordinator.inventory.products[product_id])
+        )
+
     async_add_entities(entities)
+
+    @callback
+    def _on_inventory_change(added: set[str], _removed: set[str]) -> None:
+        if added:
+            _add_inventory_entities(added)
+
+    entry.async_on_unload(coordinator.on_inventory_change(_on_inventory_change))
 
 
 class PoolmanSensor(PoolmanEntity, SensorEntity):
@@ -454,4 +485,66 @@ class PoolmanActivationStepSensor(PoolmanEntity, SensorEntity):
             "pending_steps": [s.value for s in activation.pending_steps],
             "progress": f"{completed}/{total}",
             "started_at": activation.started_at.isoformat(),
+        }
+
+
+# Mapping from inventory unit string to (HA unit constant, device class).
+_INVENTORY_UNIT_MAP: dict[str, tuple[str | None, SensorDeviceClass | None]] = {
+    "g": (UnitOfMass.GRAMS, SensorDeviceClass.WEIGHT),
+    "kg": (UnitOfMass.KILOGRAMS, SensorDeviceClass.WEIGHT),
+    "mL": (UnitOfVolume.MILLILITERS, SensorDeviceClass.VOLUME_STORAGE),
+    "L": (UnitOfVolume.LITERS, SensorDeviceClass.VOLUME_STORAGE),
+    "tablet": (None, None),
+}
+
+
+class PoolmanInventorySensor(PoolmanEntity, SensorEntity):
+    """Sensor reporting the current stock for a single inventory product."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:package-variant"
+
+    def __init__(self, coordinator: PoolmanCoordinator, product: Product) -> None:
+        """Initialize the inventory sensor.
+
+        Args:
+            coordinator: The pool coordinator owning the inventory.
+            product: The product this sensor reports stock for.
+        """
+        super().__init__(coordinator)
+        self._product_id = product.id
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_inventory_{product.id}"
+        self._attr_translation_key = "inventory_product"
+        self._attr_translation_placeholders = {"product_name": product.name}
+        self._attr_name = product.name
+        unit, device_class = _INVENTORY_UNIT_MAP.get(product.unit, (product.unit, None))
+        self._attr_native_unit_of_measurement = unit
+        if device_class is not None:
+            self._attr_device_class = device_class
+
+    @property
+    def available(self) -> bool:
+        """Return whether the product is still in the inventory catalog."""
+        return super().available and self._product_id in self.coordinator.inventory.products
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the current quantity in stock, or ``None`` if unknown."""
+        item = self.coordinator.inventory.get(self._product_id)
+        return item.quantity if item is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return product metadata and low-stock state as attributes."""
+        product = self.coordinator.inventory.products.get(self._product_id)
+        item = self.coordinator.inventory.get(self._product_id)
+        if product is None:
+            return {}
+        return {
+            "product_id": product.id,
+            "product_name": product.name,
+            "unit": product.unit,
+            "chemical": product.chemical.value if product.chemical else None,
+            "low_stock_threshold": item.low_stock_threshold if item is not None else None,
+            "is_low": self.coordinator.inventory.is_low(self._product_id),
         }

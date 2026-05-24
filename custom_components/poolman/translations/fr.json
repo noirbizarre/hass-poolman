@@ -342,6 +342,9 @@
           "shock_treatment": "Traitement choc",
           "intensive_filtration": "Filtration intensive"
         }
+      },
+      "inventory_product": {
+        "name": "Stock {product_name}"
       }
     },
     "binary_sensor": {
@@ -353,6 +356,9 @@
       },
       "swimming_safe": {
         "name": "Baignade s\u00fbre"
+      },
+      "inventory_low_stock": {
+        "name": "Stock {product_name} bas"
       }
     },
     "event": {
@@ -858,6 +864,94 @@
         "step": {
           "name": "\u00c9tape",
           "description": "L'\u00e9tape de remise en route \u00e0 confirmer."
+        }
+      }
+    },
+    "inventory_add_product": {
+      "name": "Ajouter un produit \u00e0 l'inventaire",
+      "description": "Enregistre un produit dans le catalogue d'inventaire de la piscine.",
+      "fields": {
+        "entry_id": {
+          "name": "Configuration",
+          "description": "La configuration Pool Manager qui poss\u00e8de l'inventaire."
+        },
+        "product_id": {
+          "name": "Identifiant produit",
+          "description": "Identifiant stable utilis\u00e9 pour r\u00e9f\u00e9rencer ce produit."
+        },
+        "name": {
+          "name": "Nom affich\u00e9",
+          "description": "Libell\u00e9 lisible pour le produit."
+        },
+        "unit": {
+          "name": "Unit\u00e9",
+          "description": "Unit\u00e9 utilis\u00e9e pour exprimer la quantit\u00e9 du produit."
+        },
+        "chemical": {
+          "name": "Type chimique",
+          "description": "\u00c9tiquette optionnelle associant ce produit \u00e0 un type chimique connu."
+        },
+        "initial_quantity": {
+          "name": "Quantit\u00e9 initiale",
+          "description": "Stock initial optionnel pour initialiser le produit."
+        },
+        "low_stock_threshold": {
+          "name": "Seuil de stock bas",
+          "description": "Seuil optionnel ; le capteur binaire de stock bas s'active quand la quantit\u00e9 descend au-dessous ou \u00e9gal \u00e0 cette valeur."
+        }
+      }
+    },
+    "inventory_remove_product": {
+      "name": "Retirer un produit de l'inventaire",
+      "description": "Retire un produit (et son stock) du catalogue d'inventaire.",
+      "fields": {
+        "entry_id": {
+          "name": "Configuration",
+          "description": "La configuration Pool Manager qui poss\u00e8de l'inventaire."
+        },
+        "product_id": {
+          "name": "Identifiant produit",
+          "description": "Identifiant du produit \u00e0 retirer."
+        }
+      }
+    },
+    "inventory_add_stock": {
+      "name": "Ajouter du stock",
+      "description": "Ajoute du stock \u00e0 un produit existant de l'inventaire.",
+      "fields": {
+        "entry_id": {
+          "name": "Configuration",
+          "description": "La configuration Pool Manager qui poss\u00e8de l'inventaire."
+        },
+        "product_id": {
+          "name": "Identifiant produit",
+          "description": "Identifiant du produit \u00e0 cr\u00e9diter."
+        },
+        "quantity": {
+          "name": "Quantit\u00e9",
+          "description": "Quantit\u00e9 \u00e0 ajouter, dans l'unit\u00e9 du produit."
+        }
+      }
+    },
+    "inventory_set_stock": {
+      "name": "D\u00e9finir le stock",
+      "description": "D\u00e9finit le stock absolu (et optionnellement le seuil de stock bas) d'un produit.",
+      "fields": {
+        "entry_id": {
+          "name": "Configuration",
+          "description": "La configuration Pool Manager qui poss\u00e8de l'inventaire."
+        },
+        "product_id": {
+          "name": "Identifiant produit",
+          "description": "Identifiant du produit \u00e0 mettre \u00e0 jour."
+        },
+        "quantity": {
+          "name": "Quantit\u00e9",
+          "description": "Nouvelle quantit\u00e9 absolue, dans l'unit\u00e9 du produit."
+        },
+        "low_stock_threshold": {
+          "name": "Seuil de stock bas",
+          "description": "Nouvelle valeur de seuil optionnelle."
         }
       }
     }

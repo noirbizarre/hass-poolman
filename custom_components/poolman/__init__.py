@@ -8,6 +8,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import device_registry as dr
 
 from .const import (
@@ -20,16 +21,22 @@ from .const import (
     DEFAULT_FILTRATION_KIND,
     DEFAULT_TREATMENT,
     DOMAIN,
+    INVENTORY_UNITS,
     PLATFORMS,
     SERVICE_ADD_TREATMENT,
     SERVICE_BOOST_FILTRATION,
     SERVICE_CONFIRM_ACTIVATION_STEP,
+    SERVICE_INVENTORY_ADD_PRODUCT,
+    SERVICE_INVENTORY_ADD_STOCK,
+    SERVICE_INVENTORY_REMOVE_PRODUCT,
+    SERVICE_INVENTORY_SET_STOCK,
     SERVICE_RECORD_MEASURE,
     SUBENTRY_ACTIVATION,
     SUBENTRY_HIBERNATION,
 )
 from .coordinator import PoolmanCoordinator
 from .domain.activation import ActivationChecklist, ActivationStep
+from .domain.inventory import Product
 from .domain.model import PRODUCT_DENSITY_G_PER_ML, ChemicalProduct, MeasureParameter, PoolMode
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,6 +74,42 @@ SERVICE_CONFIRM_ACTIVATION_STEP_SCHEMA = vol.Schema(
     {
         vol.Required("device_id"): str,
         vol.Required("step"): vol.In([s.value for s in ActivationStep]),
+    }
+)
+
+SERVICE_INVENTORY_ADD_PRODUCT_SCHEMA = vol.Schema(
+    {
+        vol.Required("entry_id"): str,
+        vol.Required("product_id"): vol.All(str, vol.Length(min=1)),
+        vol.Required("name"): vol.All(str, vol.Length(min=1)),
+        vol.Required("unit"): vol.In(INVENTORY_UNITS),
+        vol.Optional("chemical"): vol.In([p.value for p in ChemicalProduct]),
+        vol.Optional("initial_quantity"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+        vol.Optional("low_stock_threshold"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+    }
+)
+
+SERVICE_INVENTORY_REMOVE_PRODUCT_SCHEMA = vol.Schema(
+    {
+        vol.Required("entry_id"): str,
+        vol.Required("product_id"): vol.All(str, vol.Length(min=1)),
+    }
+)
+
+SERVICE_INVENTORY_ADD_STOCK_SCHEMA = vol.Schema(
+    {
+        vol.Required("entry_id"): str,
+        vol.Required("product_id"): vol.All(str, vol.Length(min=1)),
+        vol.Required("quantity"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+    }
+)
+
+SERVICE_INVENTORY_SET_STOCK_SCHEMA = vol.Schema(
+    {
+        vol.Required("entry_id"): str,
+        vol.Required("product_id"): vol.All(str, vol.Length(min=1)),
+        vol.Required("quantity"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+        vol.Optional("low_stock_threshold"): vol.All(vol.Coerce(float), vol.Range(min=0)),
     }
 )
 
@@ -133,6 +176,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) -> 
         hass.services.async_remove(DOMAIN, SERVICE_RECORD_MEASURE)
         hass.services.async_remove(DOMAIN, SERVICE_BOOST_FILTRATION)
         hass.services.async_remove(DOMAIN, SERVICE_CONFIRM_ACTIVATION_STEP)
+        hass.services.async_remove(DOMAIN, SERVICE_INVENTORY_ADD_PRODUCT)
+        hass.services.async_remove(DOMAIN, SERVICE_INVENTORY_REMOVE_PRODUCT)
+        hass.services.async_remove(DOMAIN, SERVICE_INVENTORY_ADD_STOCK)
+        hass.services.async_remove(DOMAIN, SERVICE_INVENTORY_SET_STOCK)
 
     return result
 
@@ -341,4 +388,77 @@ def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_CONFIRM_ACTIVATION_STEP,
         async_handle_confirm_activation_step,
         schema=SERVICE_CONFIRM_ACTIVATION_STEP_SCHEMA,
+    )
+
+    def _resolve_coordinator(entry_id: str) -> PoolmanCoordinator:
+        entry = hass.config_entries.async_get_entry(entry_id)
+        if entry is None or entry.domain != DOMAIN:
+            raise ServiceValidationError(f"Unknown Pool Manager config entry: {entry_id}")
+        return entry.runtime_data
+
+    async def async_handle_inventory_add_product(call: ServiceCall) -> None:
+        coordinator = _resolve_coordinator(call.data["entry_id"])
+        chemical_raw: str | None = call.data.get("chemical")
+        product = Product(
+            id=call.data["product_id"],
+            name=call.data["name"],
+            unit=call.data["unit"],
+            chemical=ChemicalProduct(chemical_raw) if chemical_raw else None,
+        )
+        await coordinator.async_inventory_add_product(
+            product,
+            initial_quantity=call.data.get("initial_quantity"),
+            low_stock_threshold=call.data.get("low_stock_threshold"),
+        )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_INVENTORY_ADD_PRODUCT,
+        async_handle_inventory_add_product,
+        schema=SERVICE_INVENTORY_ADD_PRODUCT_SCHEMA,
+    )
+
+    async def async_handle_inventory_remove_product(call: ServiceCall) -> None:
+        coordinator = _resolve_coordinator(call.data["entry_id"])
+        await coordinator.async_inventory_remove_product(call.data["product_id"])
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_INVENTORY_REMOVE_PRODUCT,
+        async_handle_inventory_remove_product,
+        schema=SERVICE_INVENTORY_REMOVE_PRODUCT_SCHEMA,
+    )
+
+    async def async_handle_inventory_add_stock(call: ServiceCall) -> None:
+        coordinator = _resolve_coordinator(call.data["entry_id"])
+        product_id = call.data["product_id"]
+        try:
+            await coordinator.async_inventory_add_stock(product_id, call.data["quantity"])
+        except KeyError as exc:
+            raise ServiceValidationError(f"Unknown inventory product: {product_id}") from exc
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_INVENTORY_ADD_STOCK,
+        async_handle_inventory_add_stock,
+        schema=SERVICE_INVENTORY_ADD_STOCK_SCHEMA,
+    )
+
+    async def async_handle_inventory_set_stock(call: ServiceCall) -> None:
+        coordinator = _resolve_coordinator(call.data["entry_id"])
+        product_id = call.data["product_id"]
+        try:
+            await coordinator.async_inventory_set_stock(
+                product_id,
+                call.data["quantity"],
+                low_stock_threshold=call.data.get("low_stock_threshold"),
+            )
+        except KeyError as exc:
+            raise ServiceValidationError(f"Unknown inventory product: {product_id}") from exc
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_INVENTORY_SET_STOCK,
+        async_handle_inventory_set_stock,
+        schema=SERVICE_INVENTORY_SET_STOCK_SCHEMA,
     )

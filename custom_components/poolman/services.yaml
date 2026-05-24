@@ -149,3 +149,160 @@ confirm_activation_step:
             - "clean_pool_and_filter"
             - "shock_treatment"
             - "intensive_filtration"
+
+inventory_add_product:
+  name: Add inventory product
+  description: Register a product in the pool's inventory catalog.
+  fields:
+    entry_id:
+      name: Config entry
+      description: The Pool Manager config entry that owns the inventory.
+      required: true
+      selector:
+        config_entry:
+          integration: poolman
+    product_id:
+      name: Product ID
+      description: Stable identifier used to reference this product.
+      required: true
+      selector:
+        text:
+    name:
+      name: Display name
+      description: Human-readable label for the product.
+      required: true
+      selector:
+        text:
+    unit:
+      name: Unit
+      description: Unit used to express the product quantity.
+      required: true
+      selector:
+        select:
+          options:
+            - "g"
+            - "kg"
+            - "mL"
+            - "L"
+            - "tablet"
+    chemical:
+      name: Chemical kind
+      description: Optional tag mapping this product to a known chemical kind.
+      selector:
+        select:
+          translation_key: chemical_product
+          options:
+            - "ph_minus"
+            - "ph_plus"
+            - "chlore_choc"
+            - "galet_chlore"
+            - "neutralizer"
+            - "tac_plus"
+            - "salt"
+            - "bromine_tablet"
+            - "bromine_shock"
+            - "active_oxygen_tablet"
+            - "active_oxygen_activator"
+            - "flocculant"
+            - "anti_algae"
+            - "stabilizer"
+            - "clarifier"
+            - "metal_sequestrant"
+            - "calcium_hardness_increaser"
+            - "winterizing_product"
+    initial_quantity:
+      name: Initial quantity
+      description: Optional initial stock to seed the product with.
+      selector:
+        number:
+          min: 0
+          step: 0.1
+          mode: box
+    low_stock_threshold:
+      name: Low-stock threshold
+      description: Optional threshold; the low-stock binary sensor turns on when quantity falls at or below this value.
+      selector:
+        number:
+          min: 0
+          step: 0.1
+          mode: box
+
+inventory_remove_product:
+  name: Remove inventory product
+  description: Remove a product (and its stock) from the inventory catalog.
+  fields:
+    entry_id:
+      name: Config entry
+      description: The Pool Manager config entry that owns the inventory.
+      required: true
+      selector:
+        config_entry:
+          integration: poolman
+    product_id:
+      name: Product ID
+      description: Identifier of the product to remove.
+      required: true
+      selector:
+        text:
+
+inventory_add_stock:
+  name: Add inventory stock
+  description: Add stock to an existing inventory product.
+  fields:
+    entry_id:
+      name: Config entry
+      description: The Pool Manager config entry that owns the inventory.
+      required: true
+      selector:
+        config_entry:
+          integration: poolman
+    product_id:
+      name: Product ID
+      description: Identifier of the product to credit.
+      required: true
+      selector:
+        text:
+    quantity:
+      name: Quantity
+      description: Amount to add, in the product's unit.
+      required: true
+      selector:
+        number:
+          min: 0
+          step: 0.1
+          mode: box
+
+inventory_set_stock:
+  name: Set inventory stock
+  description: Set the absolute stock (and optionally the low-stock threshold) of a product.
+  fields:
+    entry_id:
+      name: Config entry
+      description: The Pool Manager config entry that owns the inventory.
+      required: true
+      selector:
+        config_entry:
+          integration: poolman
+    product_id:
+      name: Product ID
+      description: Identifier of the product to update.
+      required: true
+      selector:
+        text:
+    quantity:
+      name: Quantity
+      description: New absolute quantity, in the product's unit.
+      required: true
+      selector:
+        number:
+          min: 0
+          step: 0.1
+          mode: box
+    low_stock_threshold:
+      name: Low-stock threshold
+      description: Optional new threshold value.
+      selector:
+        number:
+          min: 0
+          step: 0.1
+          mode: box
