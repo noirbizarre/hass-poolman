@@ -26,8 +26,9 @@ from custom_components.poolman.const import (
 from custom_components.poolman.coordinator import PoolmanCoordinator
 from custom_components.poolman.domain.action import Action, ActionSource, ActionType
 from custom_components.poolman.domain.activation import ActivationStep
+from custom_components.poolman.domain.inventory import Product
 from custom_components.poolman.domain.model import ChemicalProduct, MeasureParameter, PoolMode
-from custom_components.poolman.storage import ActionStore
+from custom_components.poolman.storage import ActionStore, InventoryStore
 from tests.conftest import MOCK_CONFIG_DATA, setup_mock_states
 
 
@@ -1261,3 +1262,130 @@ class TestActionTracking:
         unsubscribe()
         await coordinator.async_record_action(self._action("act_2"))
         assert [a.id for a in seen] == ["act_1"]
+
+
+class TestActionInventoryIntegration:
+    """Tests for the action -> inventory glue (issue #94)."""
+
+    @staticmethod
+    def _action(
+        action_id: str = "act_test",
+        *,
+        product_id: str | None = "ph_minus",
+        unit: str = "g",
+        quantity: float = 300.0,
+    ) -> Action:
+        return Action(
+            id=action_id,
+            type=ActionType.CHEMICAL,
+            source=ActionSource.USER,
+            treatment_id="ph_minus_300g",
+            quantity=quantity,
+            unit=unit,
+            timestamp=datetime(2026, 4, 19, 10, 0, tzinfo=UTC),
+            product_id=product_id,
+        )
+
+    @staticmethod
+    async def _prepare_inventory(
+        coordinator: PoolmanCoordinator,
+        *,
+        product_id: str = "ph_minus",
+        unit: str = "g",
+        quantity: float = 1000.0,
+    ) -> None:
+        await coordinator.async_inventory_add_product(
+            Product(id=product_id, name=product_id, unit=unit),
+            initial_quantity=quantity,
+        )
+
+    async def test_action_with_known_product_decrements_stock(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        await self._prepare_inventory(coordinator)
+
+        await coordinator.async_record_action(self._action())
+
+        item = coordinator.inventory.get("ph_minus")
+        assert item is not None
+        assert item.quantity == 700.0
+        assert [a.id for a in coordinator.get_action_history()] == ["act_test"]
+
+    async def test_action_without_product_leaves_inventory_untouched(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        await self._prepare_inventory(coordinator)
+
+        await coordinator.async_record_action(self._action(product_id=None))
+
+        item = coordinator.inventory.get("ph_minus")
+        assert item is not None
+        assert item.quantity == 1000.0
+
+    async def test_unknown_product_logs_warning_and_records_action(
+        self,
+        hass: HomeAssistant,
+        mock_config_entry: MockConfigEntry,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        # No product registered; inventory must stay empty.
+
+        with caplog.at_level("WARNING", logger="custom_components.poolman.domain.inventory"):
+            await coordinator.async_record_action(self._action(product_id="ghost"))
+
+        assert any("Unknown product ghost" in r.message for r in caplog.records)
+        assert coordinator.inventory.get("ghost") is None
+        assert [a.id for a in coordinator.get_action_history()] == ["act_test"]
+
+    async def test_unit_mismatch_logs_error_and_skips_consumption(
+        self,
+        hass: HomeAssistant,
+        mock_config_entry: MockConfigEntry,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        await self._prepare_inventory(coordinator, unit="g", quantity=1000.0)
+
+        with caplog.at_level("ERROR", logger="custom_components.poolman.domain.inventory"):
+            await coordinator.async_record_action(self._action(unit="mL"))
+
+        assert any("Unit mismatch for product ph_minus" in r.message for r in caplog.records)
+        item = coordinator.inventory.get("ph_minus")
+        assert item is not None
+        assert item.quantity == 1000.0
+        assert [a.id for a in coordinator.get_action_history()] == ["act_test"]
+
+    async def test_negative_stock_logs_warning_but_applies(
+        self,
+        hass: HomeAssistant,
+        mock_config_entry: MockConfigEntry,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        await self._prepare_inventory(coordinator, quantity=100.0)
+
+        with caplog.at_level("WARNING", logger="custom_components.poolman.domain.inventory"):
+            await coordinator.async_record_action(self._action(quantity=300.0))
+
+        assert any("Negative stock for product ph_minus" in r.message for r in caplog.records)
+        item = coordinator.inventory.get("ph_minus")
+        assert item is not None
+        assert item.quantity == -200.0
+        assert [a.id for a in coordinator.get_action_history()] == ["act_test"]
+
+    async def test_inventory_decrement_persists_across_restart(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        coordinator = await _setup_coordinator(hass, mock_config_entry)
+        await self._prepare_inventory(coordinator, quantity=1000.0)
+
+        await coordinator.async_record_action(self._action(quantity=400.0))
+
+        store = InventoryStore(hass, mock_config_entry.entry_id)
+        reloaded = await store.async_load()
+        item = reloaded.get("ph_minus")
+        assert item is not None
+        assert item.quantity == 600.0

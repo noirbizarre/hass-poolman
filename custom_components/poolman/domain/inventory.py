@@ -13,7 +13,7 @@ products available for treatment. It is the canonical home for:
 The inventory is **decoupled** from the analysis pipeline: rules and
 recommendations MUST NOT mutate it. Stock is only modified by user input
 (via Home Assistant services) or by recording an :class:`~.action.Action`
-(see #94).
+that carries a ``product_id`` (see :meth:`Inventory.consume`).
 
 Units are plain Home Assistant-compatible strings (``"g"``, ``"mL"``,
 ``"tablet"``), matching the convention used by :class:`~.action.Action`
@@ -119,7 +119,7 @@ class Inventory:
 
     An item is created lazily by :meth:`add_stock` the first time a
     product receives stock. Consumption of an unknown product is logged
-    and silently skipped (matching the contract expected by #94).
+    and silently skipped so action recording is never blocked.
 
     Attributes:
         products: Catalog of known products, keyed by product id.
@@ -222,7 +222,8 @@ class Inventory:
     ) -> None:
         """Decrement the stock for a product.
 
-        Designed to be called from the action-recording pipeline (#94):
+        Called from the action-recording pipeline whenever an
+        :class:`~.action.Action` carries a ``product_id``:
 
         - Unknown products are logged as a warning and skipped, never
           raised, so action recording is not blocked.

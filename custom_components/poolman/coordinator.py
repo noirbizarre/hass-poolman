@@ -625,7 +625,12 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         quantity: float,
         unit: str | None = None,
     ) -> None:
-        """Decrement the stock for a product. Used by action recording (#94)."""
+        """Decrement the stock for a product.
+
+        Called by :meth:`async_record_action` when the recorded action
+        carries a ``product_id``. See :meth:`Inventory.consume` for the
+        unit-mismatch / unknown-product / negative-stock contract.
+        """
         self.inventory.consume(product_id, quantity, unit=unit)
         await self._async_persist_inventory()
 
@@ -674,8 +679,13 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         and the ``source``/``recommendation_id`` invariant are enforced
         by :meth:`ActionLog.record`.
 
-        Inventory consumption is intentionally not triggered here; it is
-        tracked separately in #94.
+        When ``action.product_id`` is set, the matching inventory item
+        is debited via :meth:`Inventory.consume` after the action has
+        been persisted. Inventory failures (unknown product, unit
+        mismatch, negative stock) are logged by ``Inventory.consume``
+        itself and MUST NOT block action recording; any unexpected
+        exception is caught and logged so the caller still observes a
+        successfully recorded action.
 
         Args:
             action: The :class:`Action` to record.
@@ -691,6 +701,20 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
             )
         self.action_log.record(action)
         await self._async_persist_actions(recorded=action)
+
+        if action.product_id is not None:
+            try:
+                await self.async_inventory_consume(
+                    action.product_id,
+                    action.quantity,
+                    unit=action.unit,
+                )
+            except Exception:  # never block action recording on inventory errors
+                _LOGGER.exception(
+                    "Failed to apply action %s to inventory product %s",
+                    action.id,
+                    action.product_id,
+                )
 
     def get_action_history(self, limit: int = 50) -> list[Action]:
         """Return the most recent actions, newest first (see :meth:`ActionLog.history`)."""

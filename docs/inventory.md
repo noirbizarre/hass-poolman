@@ -24,9 +24,11 @@ persisted to local storage, so it survives Home Assistant restarts.
   stock drops at or below it, a dedicated binary sensor turns on.
 
 The inventory is decoupled from the analysis pipeline: rules and
-recommendations cannot mutate it. Only Home Assistant services
-(documented below) and -- in a future release -- recording an action
-will change stock.
+recommendations cannot mutate it. Stock changes only come from:
+
+- Home Assistant services (documented below), or
+- Recording an action that carries a `product_id` (see
+  [Automatic decrement on action recording](#automatic-decrement-on-action-recording)).
 
 ## Supported units
 
@@ -120,6 +122,27 @@ data:
   low_stock_threshold: 250   # optional
 ```
 
+## Automatic decrement on action recording
+
+When an [action](rules-and-recommendations.md) is recorded with a
+`product_id`, Pool Manager automatically debits the matching product's
+stock by `action.quantity`. The contract is intentionally lenient so an
+inventory issue never prevents the action itself from being logged:
+
+- **Unknown product** -- the action is recorded and a warning is logged
+  (`Unknown product <id> -- action recorded but inventory not updated`).
+  The inventory is left unchanged.
+- **Unit mismatch** -- when the action unit differs from the product
+  unit, the consumption is skipped and an error is logged
+  (`Unit mismatch for product <id>: inventory=<u1> action=<u2> -- skipping
+  inventory update`). No silent unit conversion is performed.
+- **Negative stock** -- the consumption is still applied so the discrepancy
+  remains visible; a warning is logged
+  (`Negative stock for product <id> (<qty>)`).
+
+Actions without a `product_id` (e.g. cleaning or maintenance) never
+touch the inventory.
+
 ## Persistence
 
 The inventory is persisted to Home Assistant's local storage as
@@ -151,8 +174,5 @@ inventory at startup; it never blocks integration setup.
 
 ## Roadmap
 
-- **Automatic decrement on treatment recording** (issue #94) -- recording
-  an action with a `product_id` will consume the corresponding stock,
-  using the product's unit for safety.
 - **Config-flow editor** for products (currently services-only).
 - **External inventory integration** with Vesta (issue #93).
