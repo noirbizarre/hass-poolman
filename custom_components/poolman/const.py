@@ -5,6 +5,7 @@ from typing import Final
 
 DOMAIN: Final = "poolman"
 EVENT_POOLMAN: Final = "poolman_event"
+EVENT_POOLMAN_ACTION_RECORDED: Final = "poolman_action_recorded"
 
 PLATFORMS: Final = ["sensor", "binary_sensor", "select", "switch", "time", "number", "event"]
 
@@ -163,6 +164,9 @@ SERVICE_INVENTORY_ADD_PRODUCT: Final = "inventory_add_product"
 SERVICE_INVENTORY_REMOVE_PRODUCT: Final = "inventory_remove_product"
 SERVICE_INVENTORY_ADD_STOCK: Final = "inventory_add_stock"
 SERVICE_INVENTORY_SET_STOCK: Final = "inventory_set_stock"
+SERVICE_APPLY_RECOMMENDATION: Final = "apply_recommendation"
+SERVICE_RECORD_ACTION: Final = "record_action"
+SERVICE_ANALYZE: Final = "analyze"
 
 # Inventory units exposed by services
 INVENTORY_UNITS: Final = ["g", "kg", "mL", "L", "tablet"]
