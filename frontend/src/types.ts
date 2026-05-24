@@ -53,7 +53,50 @@ export type EntityKey =
   | "status"
   | "water_quality_score"
   | "recommendations"
+  | "problems"
   | MetricKey;
+
+/**
+ * Metric identifier emitted by the backend `Problem.metric` field. Mirrors
+ * the canonical `MetricName` enum in
+ * `custom_components/poolman/domain/problem.py`.
+ */
+export type ProblemMetric =
+  | "ph"
+  | "orp"
+  | "chlorine"
+  | "temperature"
+  | "cya"
+  | "alkalinity"
+  | "hardness"
+  | "tds"
+  | "salt"
+  | "ec";
+
+/** Per-problem severity emitted by the backend (StrEnum value). */
+export type ProblemSeverity = "low" | "medium" | "critical";
+
+/** Sensor-level aggregate severity; `"ok"` when the problem list is empty. */
+export type WorstSeverity = ProblemSeverity | "ok";
+
+/** Problem payload as serialized by the `problems` sensor attribute. */
+export interface ProblemDTO {
+  code: string;
+  severity: ProblemSeverity;
+  metric: ProblemMetric | null;
+  value: number | null;
+  expected_range: [number, number] | null;
+  message: string;
+}
+
+export interface PoolProblemCardConfig {
+  type: string;
+  device_id?: string;
+  name?: string;
+  entity?: string;
+  /** Maximum number of problem rows to render before showing a "+N more" hint. */
+  max?: number;
+}
 
 export interface RecommendationAction {
   product_id: string;

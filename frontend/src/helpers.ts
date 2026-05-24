@@ -5,7 +5,11 @@ import type {
   HomeAssistant,
   MetricKey,
   PoolOverviewCardConfig,
+  ProblemDTO,
+  ProblemMetric,
+  ProblemSeverity,
   RecommendationDTO,
+  WorstSeverity,
 } from "./types.js";
 
 /** Placeholder rendered for any missing / unavailable metric. */
@@ -35,6 +39,7 @@ export function resolveEntities(
     status: "_status",
     water_quality_score: "_water_quality_score",
     recommendations: "_recommendations",
+    problems: "_problems",
     temperature: "_temperature",
     ph: "_ph",
     free_chlorine: "_free_chlorine",
@@ -174,4 +179,121 @@ export function readRecommendations(
   const count = Number(entity.state);
   const list = (entity.attributes["recommendations"] as RecommendationDTO[] | undefined) ?? [];
   return { count: Number.isFinite(count) ? count : list.length, list };
+}
+
+/** Severity ranking matching the backend ordering in `sensor.py`. */
+const SEVERITY_RANK: Record<ProblemSeverity, number> = {
+  low: 1,
+  medium: 2,
+  critical: 3,
+};
+
+const SEVERITY_PRESENTATION: Record<
+  ProblemSeverity,
+  { label: string; color: string; icon: string }
+> = {
+  low: {
+    label: "INFO",
+    color: "var(--info-color, #2196f3)",
+    icon: "ℹ️",
+  },
+  medium: {
+    label: "WARNING",
+    color: "var(--warning-color, #ff9800)",
+    icon: "⚠️",
+  },
+  critical: {
+    label: "CRITICAL",
+    color: "var(--error-color, #e53935)",
+    icon: "🚨",
+  },
+};
+
+export function severityPresentation(severity: ProblemSeverity) {
+  return SEVERITY_PRESENTATION[severity];
+}
+
+export function severityRank(severity: ProblemSeverity): number {
+  return SEVERITY_RANK[severity];
+}
+
+/** Per-metric formatting hints. Keys match {@link ProblemMetric}. */
+export const PROBLEM_METRIC_FORMAT: Record<
+  ProblemMetric,
+  { unit: string; fractionDigits: number; label: string }
+> = {
+  ph: { unit: "", fractionDigits: 2, label: "pH" },
+  orp: { unit: "mV", fractionDigits: 0, label: "ORP" },
+  chlorine: { unit: "mg/L", fractionDigits: 1, label: "Chlorine" },
+  temperature: { unit: "°C", fractionDigits: 1, label: "Temperature" },
+  cya: { unit: "mg/L", fractionDigits: 0, label: "CYA" },
+  alkalinity: { unit: "mg/L", fractionDigits: 0, label: "Alkalinity" },
+  hardness: { unit: "mg/L", fractionDigits: 0, label: "Hardness" },
+  tds: { unit: "mg/L", fractionDigits: 0, label: "TDS" },
+  salt: { unit: "g/L", fractionDigits: 2, label: "Salt" },
+  ec: { unit: "µS/cm", fractionDigits: 0, label: "EC" },
+};
+
+function appendUnit(value: string, unit: string): string {
+  return unit ? `${value} ${unit}` : value;
+}
+
+/** Format a numeric problem value using the per-metric map. */
+export function formatProblemValue(
+  metric: ProblemMetric | null,
+  value: number | null,
+): string {
+  if (value === null || !Number.isFinite(value)) return MISSING;
+  if (metric === null) return String(value);
+  const meta = PROBLEM_METRIC_FORMAT[metric];
+  if (!meta) return String(value);
+  return appendUnit(value.toFixed(meta.fractionDigits), meta.unit);
+}
+
+/** Format an `[min, max]` expected range using the per-metric map. */
+export function formatExpectedRange(
+  metric: ProblemMetric | null,
+  range: [number, number] | null,
+): string {
+  if (!range || range.length !== 2) return MISSING;
+  const [min, max] = range;
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return MISSING;
+  if (metric === null) return `${min}–${max}`;
+  const meta = PROBLEM_METRIC_FORMAT[metric];
+  if (!meta) return `${min}–${max}`;
+  const minStr = min.toFixed(meta.fractionDigits);
+  const maxStr = max.toFixed(meta.fractionDigits);
+  return appendUnit(`${minStr}–${maxStr}`, meta.unit);
+}
+
+/** Resolve a metric's human-friendly label, falling back to the raw key. */
+export function problemMetricLabel(metric: ProblemMetric | null): string {
+  if (metric === null) return "";
+  return PROBLEM_METRIC_FORMAT[metric]?.label ?? metric;
+}
+
+/**
+ * Read the `problems` sensor: count, attribute list and worst severity.
+ *
+ * Defensive against missing / unavailable entities; falls back to a healthy
+ * zero state so the card renders the empty placeholder rather than nothing.
+ */
+export function readProblems(entity: HassEntity | undefined): {
+  count: number;
+  list: ProblemDTO[];
+  worst: WorstSeverity;
+} {
+  if (!entity || isUnavailable(entity)) {
+    return { count: 0, list: [], worst: "ok" };
+  }
+  const list =
+    (entity.attributes["problems"] as ProblemDTO[] | undefined) ?? [];
+  const rawCount = Number(entity.state);
+  const count = Number.isFinite(rawCount) ? rawCount : list.length;
+  const worstAttr = entity.attributes["worst_severity"] as
+    | WorstSeverity
+    | undefined;
+  const worst: WorstSeverity =
+    worstAttr ?? (list[0]?.severity ?? "ok");
+  return { count, list, worst };
 }
