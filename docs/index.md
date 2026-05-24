@@ -60,6 +60,7 @@ All computations happen locally. No cloud API, no account, no internet connectio
 - [Getting Started](getting-started.md) -- Prerequisites, installation, and configuration
 - [Entities](entities.md) -- Sensors, binary sensors, event entities, select, and filtration control entities
 - [Chemistry Tracking](chemistry-tracking.md) -- Treatment recording, safety profiles, and swimming safety
+- [Inventory](inventory.md) -- Track chemical product stock with low-stock warnings
 - [Filtration Control](filtration-control.md) -- Automatic pump scheduling, events, and automation examples
 - [Pool Modes](pool-modes.md) -- Running, Active Wintering, and Passive Wintering explained
 - [Water Chemistry](water-chemistry.md) -- Target ranges, scoring, and parameter details

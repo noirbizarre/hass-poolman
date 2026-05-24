@@ -159,3 +159,10 @@ SERVICE_ADD_TREATMENT: Final = "add_treatment"
 SERVICE_RECORD_MEASURE: Final = "record_measure"
 SERVICE_BOOST_FILTRATION: Final = "boost_filtration"
 SERVICE_CONFIRM_ACTIVATION_STEP: Final = "confirm_activation_step"
+SERVICE_INVENTORY_ADD_PRODUCT: Final = "inventory_add_product"
+SERVICE_INVENTORY_REMOVE_PRODUCT: Final = "inventory_remove_product"
+SERVICE_INVENTORY_ADD_STOCK: Final = "inventory_add_stock"
+SERVICE_INVENTORY_SET_STOCK: Final = "inventory_set_stock"
+
+# Inventory units exposed by services
+INVENTORY_UNITS: Final = ["g", "kg", "mL", "L", "tablet"]

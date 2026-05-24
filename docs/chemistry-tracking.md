@@ -144,3 +144,11 @@ tap_action:
     product: chlore_choc
     quantity_g: 500
 ```
+
+## Related: Inventory
+
+Treatment recording is currently independent from your product stock.
+The [Inventory](inventory.md) feature lets you track how much of each
+product you have on hand and get warnings when stock is low.
+Automatic stock decrement when a treatment is recorded is tracked in
+issue #94.

@@ -553,6 +553,63 @@ def seed_dashboards(token: str, yaml_dir: str = "/demo/dashboards") -> None:
 
 
 # ---------------------------------------------------------------------------
+# Inventory seeding
+# ---------------------------------------------------------------------------
+
+# Sample products to seed in the Pool Manager inventory.  Each entry is
+# fed verbatim to the ``poolman.inventory_add_product`` service.  Tweak
+# the demo by editing this list -- duplicates are silently overwritten.
+DEMO_INVENTORY_PRODUCTS: list[dict] = [
+    {
+        "product_id": "demo_ph_minus_1_5kg",
+        "name": "Demo pH Minus 1.5kg",
+        "unit": "g",
+        "chemical": "ph_minus",
+        "initial_quantity": 1500,
+        "low_stock_threshold": 300,
+    },
+    {
+        "product_id": "demo_chlore_choc_400g",
+        "name": "Demo Chlore Choc 400g",
+        "unit": "g",
+        "chemical": "chlore_choc",
+        "initial_quantity": 200,
+        "low_stock_threshold": 250,
+    },
+]
+
+
+def seed_inventory(token: str) -> None:
+    """Seed sample inventory products on the Pool Manager entry.
+
+    Looks up the active ``poolman`` config entry and calls
+    ``poolman.inventory_add_product`` for each entry in
+    :data:`DEMO_INVENTORY_PRODUCTS`. The service is idempotent: calling
+    it again on a known ``product_id`` updates the existing record.
+    """
+    entries = get_config_entries(token)
+    poolman_entry = next((e for e in entries if e["domain"] == "poolman"), None)
+    if poolman_entry is None:
+        log.warning("Pool Manager entry not found, skipping inventory seeding.")
+        return
+
+    entry_id = poolman_entry["entry_id"]
+    log.info("Seeding inventory products on entry %s...", entry_id)
+    for product in DEMO_INVENTORY_PRODUCTS:
+        try:
+            post(
+                f"{HA_URL}/api/services/poolman/inventory_add_product",
+                token=token,
+                json_data={"entry_id": entry_id, **product},
+            )
+            log.info(
+                "  + %s (%s %s)", product["name"], product["initial_quantity"], product["unit"]
+            )
+        except niquests.RequestException as exc:
+            log.warning("Failed to add product %s: %s", product["product_id"], exc)
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -616,6 +673,10 @@ def main() -> None:
                 },
             ],
         )
+
+    # Seed a couple of inventory products so the demo shows stock sensors
+    # and the low-stock binary sensor in action.
+    seed_inventory(token)
 
     # Create storage-mode dashboards (editable from the HA UI)
     log.info("Seeding dashboards...")

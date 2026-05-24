@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import logging
 
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -55,6 +56,7 @@ from .domain.chemistry import (
     compute_water_quality_score,
 )
 from .domain.filtration import compute_filtration_duration
+from .domain.inventory import Inventory, Product
 from .domain.model import (
     ChemicalProduct,
     FiltrationDurationMode,
@@ -76,6 +78,7 @@ from .domain.treatment import (
     compute_swimming_safe,
 )
 from .scheduler import FiltrationScheduler
+from .storage import InventoryStore
 
 if TYPE_CHECKING:
     from .event import PoolmanMeasureEvent, PoolmanTreatmentEvent
@@ -125,6 +128,12 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         self._treatment_entities: dict[ChemicalProduct, PoolmanTreatmentEvent] = {}
         self._measure_entities: dict[MeasureParameter, PoolmanMeasureEvent] = {}
         self._activation: ActivationChecklist | None = None
+
+        # Inventory persistence: loaded asynchronously on first refresh.
+        self._inventory_store = InventoryStore(hass, config_entry.entry_id)
+        self.inventory: Inventory = Inventory()
+        self._inventory_loaded = False
+        self._inventory_listeners: list[Callable[[set[str], set[str]], None]] = []
 
         # Filtration scheduler: only created when a pump entity is configured
         pump_entity_id = self._get_config(CONF_PUMP_ENTITY)
@@ -497,6 +506,108 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         entity.record_measure(value=value, notes=notes)
         await self.async_request_refresh()
 
+    # ------------------------------------------------------------------
+    # Inventory helpers
+    # ------------------------------------------------------------------
+    def on_inventory_change(
+        self,
+        callback: Callable[[set[str], set[str]], None],
+    ) -> Callable[[], None]:
+        """Register a listener notified when products are added or removed.
+
+        The listener receives two sets: ``(added_ids, removed_ids)`` of
+        product identifiers. It is invoked synchronously after the
+        inventory has been mutated and persisted.
+
+        Returns:
+            A callable that removes the listener when invoked.
+        """
+        self._inventory_listeners.append(callback)
+
+        def _remove() -> None:
+            with contextlib.suppress(ValueError):
+                self._inventory_listeners.remove(callback)
+
+        return _remove
+
+    def _notify_inventory_listeners(
+        self,
+        added: set[str],
+        removed: set[str],
+    ) -> None:
+        for listener in list(self._inventory_listeners):
+            try:
+                listener(added, removed)
+            except Exception:
+                _LOGGER.exception("Inventory listener raised")
+
+    async def _async_persist_inventory(
+        self,
+        added: set[str] | None = None,
+        removed: set[str] | None = None,
+    ) -> None:
+        """Persist the inventory and notify listeners + entities."""
+        await self._inventory_store.async_save(self.inventory)
+        self._notify_inventory_listeners(added or set(), removed or set())
+        # Trigger an entity refresh so quantity sensors update immediately.
+        self.async_update_listeners()
+
+    async def async_inventory_add_product(
+        self,
+        product: Product,
+        initial_quantity: float | None = None,
+        low_stock_threshold: float | None = None,
+    ) -> None:
+        """Register a product, optionally seeding its stock and threshold."""
+        is_new = product.id not in self.inventory.products
+        self.inventory.add_product(product)
+        if initial_quantity is not None or low_stock_threshold is not None:
+            self.inventory.set_stock(
+                product.id,
+                initial_quantity if initial_quantity is not None else 0.0,
+                low_stock_threshold=low_stock_threshold,
+            )
+        await self._async_persist_inventory(
+            added={product.id} if is_new else set(),
+        )
+
+    async def async_inventory_remove_product(self, product_id: str) -> None:
+        """Remove a product and its stock from inventory."""
+        existed = product_id in self.inventory.products
+        self.inventory.remove_product(product_id)
+        await self._async_persist_inventory(
+            removed={product_id} if existed else set(),
+        )
+
+    async def async_inventory_add_stock(
+        self,
+        product_id: str,
+        quantity: float,
+    ) -> None:
+        """Increase the stock for a product. Raises KeyError if unknown."""
+        self.inventory.add_stock(product_id, quantity)
+        await self._async_persist_inventory()
+
+    async def async_inventory_set_stock(
+        self,
+        product_id: str,
+        quantity: float,
+        low_stock_threshold: float | None = None,
+    ) -> None:
+        """Set the absolute stock and (optionally) the low-stock threshold."""
+        self.inventory.set_stock(product_id, quantity, low_stock_threshold)
+        await self._async_persist_inventory()
+
+    async def async_inventory_consume(
+        self,
+        product_id: str,
+        quantity: float,
+        unit: str | None = None,
+    ) -> None:
+        """Decrement the stock for a product. Used by action recording (#94)."""
+        self.inventory.consume(product_id, quantity, unit=unit)
+        await self._async_persist_inventory()
+
     def _read_sensor(self, entity_key: str) -> float | None:
         """Safely read a float value from a HA sensor entity.
 
@@ -663,6 +774,11 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         sensors are unavailable. Tracks which source provided each value
         in ``reading_sources``.
         """
+        # Load inventory on first refresh (no async work allowed in __init__).
+        if not self._inventory_loaded:
+            self.inventory = await self._inventory_store.async_load()
+            self._inventory_loaded = True
+
         # Read manual measures from event entities
         manual_measures = self._read_measure_entries()
 
