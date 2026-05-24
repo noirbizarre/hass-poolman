@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfMass, UnitOfTime, UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -48,6 +49,7 @@ from .const import (
     EVENT_POOLMAN,
     SUBENTRY_ACTIVATION,
 )
+from .domain.action import Action, ActionLog
 from .domain.activation import SHOCK_PRODUCT_VALUES, ActivationChecklist, ActivationStep
 from .domain.analysis import AnalysisResult, analyze_pool
 from .domain.chemistry import (
@@ -78,7 +80,7 @@ from .domain.treatment import (
     compute_swimming_safe,
 )
 from .scheduler import FiltrationScheduler
-from .storage import InventoryStore
+from .storage import ActionStore, InventoryStore
 
 if TYPE_CHECKING:
     from .event import PoolmanMeasureEvent, PoolmanTreatmentEvent
@@ -86,6 +88,19 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 type PoolmanConfigEntry = ConfigEntry[PoolmanCoordinator]
+
+# Set of unit strings accepted by :meth:`PoolmanCoordinator.async_record_action`.
+#
+# The domain :class:`Action` model allows any string for forward compat,
+# but at recording time we enforce HA-compatible units (see #19).  The
+# allowlist combines mass/volume/time units from ``homeassistant.const``
+# with the integration-specific countable units used for tablet products.
+_VALID_ACTION_UNITS: frozenset[str] = frozenset(
+    {u.value for u in UnitOfMass}
+    | {u.value for u in UnitOfVolume}
+    | {u.value for u in UnitOfTime}
+    | {"tablet"}
+)
 
 # Mapping from MeasureParameter to the config key for the corresponding sensor entity
 _MEASURE_SENSOR_KEY: dict[MeasureParameter, str] = {
@@ -134,6 +149,12 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         self.inventory: Inventory = Inventory()
         self._inventory_loaded = False
         self._inventory_listeners: list[Callable[[set[str], set[str]], None]] = []
+
+        # Action log persistence: loaded asynchronously on first refresh.
+        self._action_store = ActionStore(hass, config_entry.entry_id)
+        self.action_log: ActionLog = ActionLog()
+        self._action_log_loaded = False
+        self._action_listeners: list[Callable[[Action], None]] = []
 
         # Filtration scheduler: only created when a pump entity is configured
         pump_entity_id = self._get_config(CONF_PUMP_ENTITY)
@@ -608,6 +629,81 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         self.inventory.consume(product_id, quantity, unit=unit)
         await self._async_persist_inventory()
 
+    # ------------------------------------------------------------------
+    # Action history helpers (issue #19)
+    # ------------------------------------------------------------------
+    def on_action_recorded(
+        self,
+        callback: Callable[[Action], None],
+    ) -> Callable[[], None]:
+        """Register a listener notified when a new action is recorded.
+
+        The listener receives the newly recorded :class:`Action` after it
+        has been appended to :attr:`action_log` and persisted to disk.
+
+        Returns:
+            A callable that removes the listener when invoked.
+        """
+        self._action_listeners.append(callback)
+
+        def _remove() -> None:
+            with contextlib.suppress(ValueError):
+                self._action_listeners.remove(callback)
+
+        return _remove
+
+    def _notify_action_listeners(self, action: Action) -> None:
+        for listener in list(self._action_listeners):
+            try:
+                listener(action)
+            except Exception:
+                _LOGGER.exception("Action listener raised")
+
+    async def _async_persist_actions(self, recorded: Action | None = None) -> None:
+        """Persist the action log and notify listeners + entities."""
+        await self._action_store.async_save(self.action_log)
+        if recorded is not None:
+            self._notify_action_listeners(recorded)
+        self.async_update_listeners()
+
+    async def async_record_action(self, action: Action) -> None:
+        """Record a user-executed action and persist it across restarts.
+
+        Validates that ``action.unit`` is a Home Assistant-compatible
+        unit (see :data:`_VALID_ACTION_UNITS`).  Append-only semantics
+        and the ``source``/``recommendation_id`` invariant are enforced
+        by :meth:`ActionLog.record`.
+
+        Inventory consumption is intentionally not triggered here; it is
+        tracked separately in #94.
+
+        Args:
+            action: The :class:`Action` to record.
+
+        Raises:
+            ValueError: If ``action.unit`` is not in the HA allowlist,
+                or if the action violates :class:`ActionLog` invariants
+                (duplicate id, missing ``recommendation_id``).
+        """
+        if action.unit not in _VALID_ACTION_UNITS:
+            raise ValueError(
+                f"Unit {action.unit!r} is not a Home Assistant-compatible unit",
+            )
+        self.action_log.record(action)
+        await self._async_persist_actions(recorded=action)
+
+    def get_action_history(self, limit: int = 50) -> list[Action]:
+        """Return the most recent actions, newest first (see :meth:`ActionLog.history`)."""
+        return self.action_log.history(limit)
+
+    def get_active_actions(self, now: datetime | None = None) -> list[Action]:
+        """Return actions whose ``duration`` window has not yet elapsed.
+
+        Args:
+            now: Reference instant; defaults to :func:`utcnow`.
+        """
+        return self.action_log.active(now if now is not None else utcnow())
+
     def _read_sensor(self, entity_key: str) -> float | None:
         """Safely read a float value from a HA sensor entity.
 
@@ -778,6 +874,11 @@ class PoolmanCoordinator(DataUpdateCoordinator[PoolState]):
         if not self._inventory_loaded:
             self.inventory = await self._inventory_store.async_load()
             self._inventory_loaded = True
+
+        # Load action log on first refresh as well.
+        if not self._action_log_loaded:
+            self.action_log = await self._action_store.async_load()
+            self._action_log_loaded = True
 
         # Read manual measures from event entities
         manual_measures = self._read_measure_entries()

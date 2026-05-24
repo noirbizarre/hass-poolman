@@ -46,9 +46,14 @@ Example::
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
+
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
+from typing import Any
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class ActionType(StrEnum):
@@ -127,3 +132,173 @@ class Action:
     recommendation_id: str | None = None
     product_id: str | None = None
     duration: timedelta | None = None
+
+
+@dataclass
+class ActionLog:
+    """Append-only history of :class:`Action` records.
+
+    The log is the in-memory representation of the pool's action timeline.
+    It is intentionally append-only: once recorded, an :class:`Action`
+    cannot be mutated or removed.  The container is JSON-serializable via
+    :meth:`to_dict`/:meth:`from_dict` so that it can be persisted with
+    :class:`homeassistant.helpers.storage.Store` (see
+    :class:`~..storage.ActionStore`).
+
+    Attributes:
+        actions: Recorded actions in insertion order (oldest first).
+    """
+
+    actions: list[Action] = field(default_factory=list)
+
+    # ------------------------------------------------------------------
+    # Mutation (append-only)
+    # ------------------------------------------------------------------
+    def record(self, action: Action) -> None:
+        """Append a new :class:`Action` to the log.
+
+        Enforces the invariants documented in #19:
+
+        - Action ids are unique within the log.
+        - When ``source == ActionSource.RECOMMENDATION`` the
+          ``recommendation_id`` field MUST be set.
+
+        Args:
+            action: The action to record.
+
+        Raises:
+            ValueError: If the id collides with an existing record, or
+                the ``source``/``recommendation_id`` invariant is broken.
+        """
+        if action.source is ActionSource.RECOMMENDATION and not action.recommendation_id:
+            raise ValueError(
+                "recommendation_id is required when source == ActionSource.RECOMMENDATION",
+            )
+        if any(existing.id == action.id for existing in self.actions):
+            raise ValueError(f"Duplicate action id: {action.id}")
+        self.actions.append(action)
+
+    # ------------------------------------------------------------------
+    # Queries
+    # ------------------------------------------------------------------
+    def get(self, action_id: str) -> Action | None:
+        """Return the action with the given id, or ``None`` if absent."""
+        for action in self.actions:
+            if action.id == action_id:
+                return action
+        return None
+
+    def history(self, limit: int = 50) -> list[Action]:
+        """Return the most recent actions, newest first.
+
+        Args:
+            limit: Maximum number of actions to return.
+
+        Returns:
+            Up to ``limit`` actions sorted by ``timestamp`` descending.
+        """
+        ordered = sorted(self.actions, key=lambda a: a.timestamp, reverse=True)
+        return ordered[:limit]
+
+    def active(self, now: datetime) -> list[Action]:
+        """Return actions whose ``duration`` window has not yet elapsed.
+
+        Matches the contract from #19::
+
+            [a for a in actions if a.duration and a.timestamp + a.duration > now]
+
+        Args:
+            now: Reference instant to compare against.
+
+        Returns:
+            Actions still within their active duration window.
+        """
+        return [
+            action
+            for action in self.actions
+            if action.duration is not None and action.timestamp + action.duration > now
+        ]
+
+    def since(self, moment: datetime) -> list[Action]:
+        """Return actions recorded at or after ``moment``, oldest first."""
+        return [action for action in self.actions if action.timestamp >= moment]
+
+    def by_recommendation(self, recommendation_id: str) -> list[Action]:
+        """Return actions linked to the given recommendation id."""
+        return [action for action in self.actions if action.recommendation_id == recommendation_id]
+
+    # ------------------------------------------------------------------
+    # Serialization (used by helpers.storage.Store)
+    # ------------------------------------------------------------------
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable representation of the log.
+
+        Timestamps are serialized as ISO-8601 strings and durations as
+        their total number of seconds, both natively supported by HA's
+        JSON encoder.
+        """
+        return {
+            "actions": [
+                {
+                    "id": action.id,
+                    "type": action.type.value,
+                    "source": action.source.value,
+                    "treatment_id": action.treatment_id,
+                    "quantity": action.quantity,
+                    "unit": action.unit,
+                    "timestamp": action.timestamp.isoformat(),
+                    "recommendation_id": action.recommendation_id,
+                    "product_id": action.product_id,
+                    "duration": (
+                        action.duration.total_seconds() if action.duration is not None else None
+                    ),
+                }
+                for action in self.actions
+            ],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ActionLog:
+        """Rebuild an :class:`ActionLog` from its JSON representation.
+
+        Entries with an unknown ``type`` or ``source`` value, or missing
+        required fields, are dropped with a warning rather than causing
+        the load to fail.  This keeps history compatible across
+        integration upgrades and downgrades.
+
+        Args:
+            data: A dictionary previously produced by :meth:`to_dict`.
+        """
+        log = cls()
+        if not isinstance(data, dict):
+            raise TypeError(f"ActionLog payload must be a mapping, got {type(data).__name__}")
+        for raw in data.get("actions", []):
+            try:
+                action_type = ActionType(raw["type"])
+                action_source = ActionSource(raw["source"])
+                timestamp = datetime.fromisoformat(raw["timestamp"])
+                raw_duration = raw.get("duration")
+                duration = (
+                    timedelta(seconds=float(raw_duration)) if raw_duration is not None else None
+                )
+                action = Action(
+                    id=raw["id"],
+                    type=action_type,
+                    source=action_source,
+                    treatment_id=raw["treatment_id"],
+                    quantity=float(raw["quantity"]),
+                    unit=raw["unit"],
+                    timestamp=timestamp,
+                    recommendation_id=raw.get("recommendation_id"),
+                    product_id=raw.get("product_id"),
+                    duration=duration,
+                )
+            except (KeyError, TypeError, ValueError):
+                _LOGGER.warning(
+                    "Dropping malformed action entry: %s",
+                    raw,
+                    exc_info=True,
+                )
+                continue
+            log.actions.append(action)
+        return log

@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import logging
+
 from dataclasses import FrozenInstanceError
 from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from custom_components.poolman.domain.action import Action, ActionSource, ActionType
+from custom_components.poolman.domain.action import (
+    Action,
+    ActionLog,
+    ActionSource,
+    ActionType,
+)
 
 
 class TestActionType:
@@ -142,3 +149,168 @@ class TestAction:
         )
         assert action.type == ActionType.CLEANING
         assert action.product_id is None
+
+
+class TestActionLog:
+    """Tests for :class:`ActionLog` container."""
+
+    _BASE = datetime(2026, 4, 19, 10, 0, tzinfo=UTC)
+
+    def _action(
+        self,
+        action_id: str,
+        *,
+        offset_minutes: float = 0.0,
+        source: ActionSource = ActionSource.USER,
+        recommendation_id: str | None = None,
+        duration: timedelta | None = None,
+    ) -> Action:
+        return Action(
+            id=action_id,
+            type=ActionType.CHEMICAL,
+            source=source,
+            treatment_id="ph_minus_300g",
+            quantity=300.0,
+            unit="g",
+            timestamp=self._BASE + timedelta(minutes=offset_minutes),
+            recommendation_id=recommendation_id,
+            duration=duration,
+        )
+
+    def test_record_and_get(self) -> None:
+        log = ActionLog()
+        action = self._action("a1")
+        log.record(action)
+        assert log.get("a1") is action
+        assert log.get("missing") is None
+
+    def test_record_rejects_duplicate_id(self) -> None:
+        log = ActionLog()
+        log.record(self._action("a1"))
+        with pytest.raises(ValueError, match="Duplicate action id"):
+            log.record(self._action("a1", offset_minutes=10))
+
+    def test_record_requires_recommendation_id_for_recommendation_source(self) -> None:
+        log = ActionLog()
+        with pytest.raises(ValueError, match="recommendation_id is required"):
+            log.record(self._action("a1", source=ActionSource.RECOMMENDATION))
+
+    def test_record_accepts_recommendation_source_with_id(self) -> None:
+        log = ActionLog()
+        log.record(
+            self._action(
+                "a1",
+                source=ActionSource.RECOMMENDATION,
+                recommendation_id="rec_ph_too_high",
+            )
+        )
+        assert log.actions[0].recommendation_id == "rec_ph_too_high"
+
+    def test_history_newest_first_with_limit(self) -> None:
+        log = ActionLog()
+        for i in range(5):
+            log.record(self._action(f"a{i}", offset_minutes=i))
+        history = log.history(limit=3)
+        assert [a.id for a in history] == ["a4", "a3", "a2"]
+
+    def test_history_default_limit(self) -> None:
+        log = ActionLog()
+        log.record(self._action("a1"))
+        assert log.history() == [log.actions[0]]
+
+    def test_active_filters_by_duration_window(self) -> None:
+        log = ActionLog()
+        log.record(self._action("no_dur"))  # no duration -> not active
+        log.record(
+            self._action("expired", offset_minutes=0, duration=timedelta(minutes=10))
+        )  # ends at +10
+        log.record(
+            self._action("ongoing", offset_minutes=20, duration=timedelta(minutes=30))
+        )  # ends at +50
+
+        now = self._BASE + timedelta(minutes=30)
+        active = log.active(now)
+        assert [a.id for a in active] == ["ongoing"]
+
+    def test_since(self) -> None:
+        log = ActionLog()
+        log.record(self._action("a0", offset_minutes=0))
+        log.record(self._action("a1", offset_minutes=30))
+        log.record(self._action("a2", offset_minutes=60))
+        result = log.since(self._BASE + timedelta(minutes=30))
+        assert [a.id for a in result] == ["a1", "a2"]
+
+    def test_by_recommendation(self) -> None:
+        log = ActionLog()
+        log.record(self._action("a0"))
+        log.record(
+            self._action(
+                "a1",
+                source=ActionSource.RECOMMENDATION,
+                recommendation_id="rec_x",
+            )
+        )
+        log.record(
+            self._action(
+                "a2",
+                offset_minutes=5,
+                source=ActionSource.RECOMMENDATION,
+                recommendation_id="rec_y",
+            )
+        )
+        assert [a.id for a in log.by_recommendation("rec_x")] == ["a1"]
+
+    def test_to_dict_from_dict_round_trip(self) -> None:
+        log = ActionLog()
+        log.record(self._action("a0", duration=timedelta(minutes=30)))
+        log.record(
+            self._action(
+                "a1",
+                offset_minutes=15,
+                source=ActionSource.RECOMMENDATION,
+                recommendation_id="rec_x",
+            )
+        )
+        rebuilt = ActionLog.from_dict(log.to_dict())
+        assert rebuilt.actions == log.actions
+
+    def test_from_dict_drops_malformed_entries(
+        self,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        payload = {
+            "actions": [
+                # Valid
+                {
+                    "id": "good",
+                    "type": "chemical",
+                    "source": "user",
+                    "treatment_id": "t",
+                    "quantity": 100.0,
+                    "unit": "g",
+                    "timestamp": self._BASE.isoformat(),
+                    "recommendation_id": None,
+                    "product_id": None,
+                    "duration": None,
+                },
+                # Unknown enum value
+                {
+                    "id": "future",
+                    "type": "unknown_type",
+                    "source": "user",
+                    "treatment_id": "t",
+                    "quantity": 1.0,
+                    "unit": "g",
+                    "timestamp": self._BASE.isoformat(),
+                },
+                # Missing required field
+                {"id": "broken"},
+            ],
+        }
+        with caplog.at_level(logging.WARNING):
+            log = ActionLog.from_dict(payload)
+        assert [a.id for a in log.actions] == ["good"]
+        assert sum(1 for r in caplog.records if "malformed action entry" in r.message) >= 2
+
+    def test_from_dict_empty(self) -> None:
+        assert ActionLog.from_dict({}).actions == []
