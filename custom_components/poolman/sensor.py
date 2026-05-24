@@ -31,6 +31,7 @@ from .domain.model import (
     Severity,
     format_treatment_spoon,
 )
+from .domain.problem import Problem, Severity
 from .entity import PoolmanEntity
 
 
@@ -125,6 +126,61 @@ def _chemistry_actions_attrs(state: PoolState) -> dict[str, Any]:
         "requirement_count": sum(
             1 for r in state.chemistry_actions if r.kind == ActionKind.REQUIREMENT
         ),
+    }
+
+
+_SEVERITY_ORDER: dict[Severity, int] = {
+    Severity.CRITICAL: 3,
+    Severity.MEDIUM: 2,
+    Severity.LOW: 1,
+}
+
+
+def _problem_to_dict(problem: Problem) -> dict[str, Any]:
+    """Serialize a :class:`Problem` to a JSON-safe dictionary for HA attributes.
+
+    Args:
+        problem: The problem to serialize.
+
+    Returns:
+        Dictionary with primitive types only, suitable for the Home Assistant
+        state machine. Enum values are emitted as plain strings.
+    """
+    return {
+        "code": problem.code,
+        "severity": problem.severity.value,
+        "metric": problem.metric.value if problem.metric is not None else None,
+        "value": problem.value,
+        "expected_range": (
+            list(problem.expected_range) if problem.expected_range is not None else None
+        ),
+        "message": problem.message,
+    }
+
+
+def _problems_attrs(state: PoolState) -> dict[str, Any]:
+    """Build attributes for the ``problems`` sensor.
+
+    Problems are sorted by severity (highest first); ties keep the order
+    produced by the analysis pipeline. ``worst_severity`` is ``"ok"`` when
+    no problems are present, otherwise the severity of the first item.
+
+    Args:
+        state: The current pool state.
+
+    Returns:
+        Dictionary with ``problems`` (list of serialized problems) and
+        ``worst_severity`` (``"ok" | "low" | "medium" | "critical"``).
+    """
+    problems = sorted(
+        state.analysis_result.problems,
+        key=lambda p: _SEVERITY_ORDER.get(p.severity, 0),
+        reverse=True,
+    )
+    worst = problems[0].severity.value if problems else "ok"
+    return {
+        "problems": [_problem_to_dict(p) for p in problems],
+        "worst_severity": worst,
     }
 
 
@@ -224,6 +280,13 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
             "recommendations": [r.to_dict() for r in state.recommendations],
             "critical_count": len(state.critical_recommendations),
         },
+    ),
+    PoolmanSensorEntityDescription(
+        key="problems",
+        translation_key="problems",
+        icon="mdi:alert-circle-outline",
+        value_fn=lambda state: len(state.analysis_result.problems),
+        extra_attrs_fn=_problems_attrs,
     ),
     PoolmanSensorEntityDescription(
         key="chemistry_actions",

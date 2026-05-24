@@ -257,6 +257,9 @@
       "recommendations": {
         "name": "Recommandations"
       },
+      "problems": {
+        "name": "Problèmes"
+      },
       "chemistry_actions": {
         "name": "Actions chimie"
       },
