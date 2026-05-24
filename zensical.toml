@@ -63,6 +63,7 @@ nav = [
   { "Pool Overview Card" = "pool-overview-card.md" },
   { "Recommendations Card" = "recommendations-card.md" },
   { "Action History Card" = "action-history-card.md" },
+  { "Quick Actions Card" = "quick-actions-card.md" },
   { "FAQ" = "faq.md" },
   { "Contributing" = "contributing.md" },
 ]

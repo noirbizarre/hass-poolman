@@ -37,6 +37,27 @@ export interface HomeAssistant {
   locale?: { language: string };
 }
 
+export interface QuickActionsCardConfig {
+  type: string;
+  device_id?: string;
+  name?: string;
+  /** Show the "Analyze now" button. Default: true. */
+  analyze?: boolean;
+  /** Show the filtration boost (+2h / +4h) buttons. Default: true. */
+  boost?: boolean;
+  /** Show the "Record treatment" button. Default: true. */
+  record?: boolean;
+}
+
+export type RecordActionType = "chemical" | "cleaning" | "maintenance";
+
+/**
+ * Inventory unit codes accepted by the `poolman.record_action` service.
+ * Mirrors `INVENTORY_UNITS` in `custom_components/poolman/const.py`.
+ */
+export const INVENTORY_UNITS = ["g", "kg", "mL", "L", "tablet"] as const;
+export type InventoryUnit = (typeof INVENTORY_UNITS)[number];
+
 export interface PoolOverviewCardConfig {
   type: string;
   device_id?: string;

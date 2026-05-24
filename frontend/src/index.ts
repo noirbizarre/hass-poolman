@@ -2,11 +2,13 @@ import "./poolman-pool-overview-card.js";
 import "./poolman-problem-card.js";
 import "./poolman-recommendations-card.js";
 import "./poolman-action-history-card.js";
+import "./poolman-quick-actions-card.js";
 
 const OVERVIEW_TAG = "poolman-pool-overview-card";
 const PROBLEM_TAG = "poolman-problem-card";
 const RECOMMENDATIONS_TAG = "poolman-recommendations-card";
 const ACTION_HISTORY_TAG = "poolman-action-history-card";
+const QUICK_ACTIONS_TAG = "poolman-quick-actions-card";
 const VERSION = "0.1.0";
 
 window.customCards = window.customCards ?? [];
@@ -49,6 +51,16 @@ if (!window.customCards.some((c) => c.type === ACTION_HISTORY_TAG)) {
       "Chronological timeline of recorded pool actions (chemical treatments, cleaning, maintenance) with source badges.",
     preview: true,
     documentationURL: "https://noirbizarre.github.io/hass-poolman/action-history-card/",
+  });
+}
+if (!window.customCards.some((c) => c.type === QUICK_ACTIONS_TAG)) {
+  window.customCards.push({
+    type: QUICK_ACTIONS_TAG,
+    name: "Pool Quick Actions",
+    description:
+      "One-tap access to common pool operations: trigger analysis, boost filtration and record a treatment.",
+    preview: true,
+    documentationURL: "https://noirbizarre.github.io/hass-poolman/quick-actions-card/",
   });
 }
 
