@@ -47,7 +47,7 @@ jobs:
       - run: uv sync --frozen --group docs
       - name: Build documentation
         run: uv run poe doc:build
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
