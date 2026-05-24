@@ -1,4 +1,5 @@
 import type {
+  ActionHistoryCardConfig,
   EntityKey,
   GlobalStatus,
   HassEntity,
@@ -35,14 +36,17 @@ export function isUnavailable(entity: HassEntity | undefined): boolean {
  */
 export function resolveEntities(
   hass: HomeAssistant,
-  config: PoolOverviewCardConfig,
+  config: PoolOverviewCardConfig | ActionHistoryCardConfig,
 ): Partial<Record<EntityKey, string>> {
-  const out: Partial<Record<EntityKey, string>> = { ...(config.entities ?? {}) };
+  const out: Partial<Record<EntityKey, string>> = {
+    ...((config.entities as Partial<Record<EntityKey, string>> | undefined) ?? {}),
+  };
   const suffixes: Record<EntityKey, string> = {
     status: "_status",
     water_quality_score: "_water_quality_score",
     recommendations: "_recommendations",
     problems: "_problems",
+    action_history: "_action_history",
     temperature: "_temperature",
     ph: "_ph",
     free_chlorine: "_free_chlorine",

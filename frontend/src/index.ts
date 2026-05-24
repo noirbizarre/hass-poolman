@@ -1,10 +1,12 @@
 import "./poolman-pool-overview-card.js";
 import "./poolman-problem-card.js";
 import "./poolman-recommendations-card.js";
+import "./poolman-action-history-card.js";
 
 const OVERVIEW_TAG = "poolman-pool-overview-card";
 const PROBLEM_TAG = "poolman-problem-card";
 const RECOMMENDATIONS_TAG = "poolman-recommendations-card";
+const ACTION_HISTORY_TAG = "poolman-action-history-card";
 const VERSION = "0.1.0";
 
 window.customCards = window.customCards ?? [];
@@ -37,6 +39,16 @@ if (!window.customCards.some((c) => c.type === RECOMMENDATIONS_TAG)) {
     preview: true,
     documentationURL:
       "https://noirbizarre.github.io/hass-poolman/recommendations-card/",
+  });
+}
+if (!window.customCards.some((c) => c.type === ACTION_HISTORY_TAG)) {
+  window.customCards.push({
+    type: ACTION_HISTORY_TAG,
+    name: "Pool Action History",
+    description:
+      "Chronological timeline of recorded pool actions (chemical treatments, cleaning, maintenance) with source badges.",
+    preview: true,
+    documentationURL: "https://noirbizarre.github.io/hass-poolman/action-history-card/",
   });
 }
 

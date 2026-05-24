@@ -15,6 +15,13 @@ views:
           free_chlorine: sensor.demo_pool_free_chlorine
           orp: sensor.demo_pool_orp
 
+      # ── Action history (first-party custom card) ────────────────
+      - type: custom:poolman-action-history-card
+        name: Demo Pool
+        limit: 20
+        entities:
+          action_history: sensor.demo_pool_action_history
+
       # ── Header ──────────────────────────────────────────────────
       - type: custom:bubble-card
         card_type: separator

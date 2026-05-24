@@ -20,6 +20,7 @@ from homeassistant.helpers.typing import StateType
 
 from . import PoolmanConfigEntry
 from .coordinator import PoolmanCoordinator
+from .domain.action import Action
 from .domain.activation import ActivationStep
 from .domain.inventory import Product
 from .domain.model import (
@@ -462,6 +463,7 @@ async def async_setup_entry(
         PoolmanSensor(coordinator, description) for description in descriptions
     ]
     entities.append(PoolmanActivationStepSensor(coordinator))
+    entities.append(PoolmanActionHistorySensor(coordinator))
 
     # Inventory: one quantity sensor per configured product, with
     # dynamic discovery of products added later via services.
@@ -567,6 +569,77 @@ class PoolmanActivationStepSensor(PoolmanEntity, SensorEntity):
             "pending_steps": [s.value for s in activation.pending_steps],
             "progress": f"{completed}/{total}",
             "started_at": activation.started_at.isoformat(),
+        }
+
+
+# Default cap for the action history exposed via the sensor's attributes.
+_ACTION_HISTORY_LIMIT = 50
+
+
+def _serialize_action(action: Action) -> dict[str, Any]:
+    """Serialize an :class:`Action` for transport to the frontend.
+
+    Mirrors :meth:`ActionLog.to_dict` for a single entry: timestamps as
+    ISO-8601 strings and durations as a number of seconds, both natively
+    JSON-serializable by Home Assistant.
+
+    Args:
+        action: The action to serialize.
+
+    Returns:
+        A JSON-friendly dictionary describing the action.
+    """
+    return {
+        "id": action.id,
+        "type": action.type.value,
+        "source": action.source.value,
+        "treatment_id": action.treatment_id,
+        "quantity": action.quantity,
+        "unit": action.unit,
+        "timestamp": action.timestamp.isoformat(),
+        "recommendation_id": action.recommendation_id,
+        "product_id": action.product_id,
+        "duration": (action.duration.total_seconds() if action.duration is not None else None),
+    }
+
+
+class PoolmanActionHistorySensor(PoolmanEntity, SensorEntity):
+    """Sensor exposing the recorded action history to the frontend.
+
+    The state holds the timestamp of the most recently recorded action,
+    while ``extra_state_attributes`` carries a JSON-friendly list of the
+    last :data:`_ACTION_HISTORY_LIMIT` actions for the action history
+    Lovelace card. The coordinator persists the underlying
+    :class:`~.domain.action.ActionLog` and notifies its update listeners
+    whenever a new action is recorded, so the entity is refreshed
+    automatically via :class:`CoordinatorEntity`.
+    """
+
+    _attr_translation_key = "action_history"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:history"
+
+    def __init__(self, coordinator: PoolmanCoordinator) -> None:
+        """Initialize the action history sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_action_history"
+
+    @property
+    def native_value(self) -> datetime | None:
+        """Return the timestamp of the most recently recorded action."""
+        history = self.coordinator.action_log.history(1)
+        if not history:
+            return None
+        return history[0].timestamp
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the last 50 actions plus the total count for the card."""
+        actions = self.coordinator.action_log.history(_ACTION_HISTORY_LIMIT)
+        return {
+            "actions": [_serialize_action(action) for action in actions],
+            "limit": _ACTION_HISTORY_LIMIT,
+            "total": len(self.coordinator.action_log.actions),
         }
 
 

@@ -614,6 +614,78 @@ def seed_inventory(token: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _resolve_poolman_device(token: str) -> str | None:
+    """Return the Pool Manager device id, or ``None`` if not found.
+
+    Uses the WebSocket ``config/device_registry/list`` command because
+    the HA REST API does not expose the device registry.
+    """
+    ws_url = HA_URL.replace("http://", "ws://") + "/api/websocket"
+    with niquests.Session() as session:
+        resp = session.get(ws_url, timeout=10)
+        if resp.status_code != 101 or resp.extension is None:
+            log.warning("WebSocket connection failed for device lookup")
+            return None
+        ws = resp.extension
+        try:
+            ws.next_payload()  # auth_required
+            ws.send_payload(json.dumps({"type": "auth", "access_token": token}))
+            raw = ws.next_payload()
+            if not raw or json.loads(raw).get("type") != "auth_ok":
+                return None
+            ws.send_payload(json.dumps({"id": 1, "type": "config/device_registry/list"}))
+            raw = ws.next_payload()
+            if not raw:
+                return None
+            payload = json.loads(raw)
+            for device in payload.get("result", []):
+                if any(item[0] == "poolman" for item in device.get("identifiers", [])):
+                    return device.get("id")
+        finally:
+            ws.close()
+    return None
+
+
+# Sample actions to seed in the Pool Manager action history.  Times are
+# expressed as offsets in hours from ``now`` so the demo always shows a
+# fresh "Today / Yesterday" timeline regardless of when it is launched.
+DEMO_ACTIONS: list[dict] = [
+    {"type": "chemical", "product_id": "demo_ph_minus_1_5kg", "quantity": 150, "unit": "g"},
+    {"type": "cleaning"},
+    {"type": "maintenance"},
+    {"type": "chemical", "product_id": "demo_chlore_choc_400g", "quantity": 100, "unit": "g"},
+    {"type": "cleaning"},
+]
+
+
+def seed_actions(token: str) -> None:
+    """Seed sample actions on the Pool Manager device.
+
+    Calls the ``poolman.record_action`` service for each entry in
+    :data:`DEMO_ACTIONS`. The service is append-only on the backend so
+    this function is **not** idempotent: it appends a new batch on every
+    call. To avoid noisy demos, callers should invoke it only on first
+    container start (Docker volume reset clears the action log).
+    """
+    device_id = _resolve_poolman_device(token)
+    if device_id is None:
+        log.warning("Pool Manager device not found, skipping action seeding.")
+        return
+
+    log.info("Seeding action history on device %s...", device_id)
+    for action in DEMO_ACTIONS:
+        payload = {"device_id": device_id, **action}
+        try:
+            post(
+                f"{HA_URL}/api/services/poolman/record_action",
+                token=token,
+                json_data=payload,
+            )
+            log.info("  + %s", action.get("type"))
+        except niquests.RequestException as exc:
+            log.warning("Failed to record action %s: %s", action.get("type"), exc)
+
+
 def main() -> None:
     """Run the automated HA setup."""
     # Download custom card JS bundles (runs while HA is still booting)
@@ -677,6 +749,11 @@ def main() -> None:
     # Seed a couple of inventory products so the demo shows stock sensors
     # and the low-stock binary sensor in action.
     seed_inventory(token)
+
+    # Seed action history so the action history card has visible content.
+    # Append-only on the backend: re-runs will accumulate entries until
+    # the HA volume is reset.
+    seed_actions(token)
 
     # Create storage-mode dashboards (editable from the HA UI)
     log.info("Seeding dashboards...")

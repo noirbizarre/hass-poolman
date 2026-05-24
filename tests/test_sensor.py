@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.poolman.coordinator import PoolmanCoordinator
+from custom_components.poolman.domain.action import Action, ActionSource, ActionType
 from custom_components.poolman.domain.model import PoolStatus
 from custom_components.poolman.domain.problem import Severity
 from tests.conftest import setup_mock_states
 
 RECOMMENDATIONS_ENTITY_ID = "sensor.test_pool_recommendations"
 STATUS_ENTITY_ID = "sensor.test_pool_status"
+ACTION_HISTORY_ENTITY_ID = "sensor.test_pool_action_history"
 
 # Keys expected in every serialized recommendation. Aligned with the contract
 # documented in issue #98 (extended to include all domain fields).
@@ -213,3 +217,84 @@ class TestPoolStatusSensor:
             PoolStatus.CRITICAL.value: 2,
         }
         assert order[new_state.state] >= order[initial_state]
+
+
+class TestActionHistorySensor:
+    """Tests for ``sensor.<pool>_action_history`` (issue #106)."""
+
+    @staticmethod
+    def _action(
+        action_id: str,
+        *,
+        timestamp: datetime,
+        action_type: ActionType = ActionType.CHEMICAL,
+        source: ActionSource = ActionSource.USER,
+    ) -> Action:
+        return Action(
+            id=action_id,
+            type=action_type,
+            source=source,
+            treatment_id="ph_minus_300g",
+            quantity=150.0,
+            unit="g",
+            timestamp=timestamp,
+            product_id=None,
+        )
+
+    async def test_entity_created_with_empty_state(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """The action history sensor exists and starts with no actions."""
+        await _setup_integration(hass, mock_config_entry)
+        state = hass.states.get(ACTION_HISTORY_ENTITY_ID)
+        assert state is not None
+        # No actions yet → unknown timestamp, empty attribute list.
+        assert state.state in {"unknown", "unavailable"}
+        assert state.attributes["actions"] == []
+        assert state.attributes["limit"] == 50
+        assert state.attributes["total"] == 0
+        assert state.attributes["device_class"] == "timestamp"
+
+    async def test_state_reflects_latest_action(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """The state mirrors the timestamp of the most recently recorded action."""
+        coordinator = await _setup_integration(hass, mock_config_entry)
+        earlier = datetime(2026, 4, 18, 9, 0, tzinfo=UTC)
+        latest = datetime(2026, 4, 19, 14, 30, tzinfo=UTC)
+
+        await coordinator.async_record_action(self._action("act_a", timestamp=earlier))
+        await coordinator.async_record_action(self._action("act_b", timestamp=latest))
+        await hass.async_block_till_done()
+
+        state = hass.states.get(ACTION_HISTORY_ENTITY_ID)
+        assert state is not None
+        # HA serializes timestamps as ISO-8601 strings.
+        assert state.state == latest.isoformat()
+
+    async def test_attributes_list_actions_newest_first(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """``actions`` are ordered newest-first and JSON-serializable."""
+        coordinator = await _setup_integration(hass, mock_config_entry)
+        earlier = datetime(2026, 4, 18, 9, 0, tzinfo=UTC)
+        latest = datetime(2026, 4, 19, 14, 30, tzinfo=UTC)
+
+        await coordinator.async_record_action(
+            self._action("act_a", timestamp=earlier, action_type=ActionType.CLEANING)
+        )
+        await coordinator.async_record_action(self._action("act_b", timestamp=latest))
+        await hass.async_block_till_done()
+
+        state = hass.states.get(ACTION_HISTORY_ENTITY_ID)
+        assert state is not None
+        actions = state.attributes["actions"]
+        assert [a["id"] for a in actions] == ["act_b", "act_a"]
+        first = actions[0]
+        assert first["type"] == "chemical"
+        assert first["source"] == "user"
+        assert first["quantity"] == 150.0
+        assert first["unit"] == "g"
+        assert first["timestamp"] == latest.isoformat()
+        assert first["duration"] is None
+        assert state.attributes["total"] == 2
