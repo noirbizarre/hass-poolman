@@ -1,4 +1,4 @@
-"""Tests for the Pool Manager sensor platform — recommendations entity."""
+"""Tests for the Pool Manager sensor platform."""
 
 from __future__ import annotations
 
@@ -6,9 +6,12 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.poolman.coordinator import PoolmanCoordinator
+from custom_components.poolman.domain.model import PoolStatus
+from custom_components.poolman.domain.problem import Severity
 from tests.conftest import setup_mock_states
 
 RECOMMENDATIONS_ENTITY_ID = "sensor.test_pool_recommendations"
+STATUS_ENTITY_ID = "sensor.test_pool_status"
 
 # Keys expected in every serialized recommendation. Aligned with the contract
 # documented in issue #98 (extended to include all domain fields).
@@ -134,3 +137,79 @@ class TestRecommendationsSensor:
         assert updated.attributes["recommendations"] == [
             r.to_dict() for r in coordinator.data.recommendations
         ]
+
+
+class TestPoolStatusSensor:
+    """Tests for ``sensor.<pool>_status`` global status sensor (issue #102)."""
+
+    async def test_entity_registered_with_enum_metadata(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """The status entity exposes ``device_class=enum`` and the three options."""
+        await _setup_integration(hass, mock_config_entry)
+        state = hass.states.get(STATUS_ENTITY_ID)
+        assert state is not None
+        assert state.attributes["device_class"] == "enum"
+        assert state.attributes["options"] == [
+            PoolStatus.OK.value,
+            PoolStatus.WARNING.value,
+            PoolStatus.CRITICAL.value,
+        ]
+
+    async def test_state_matches_pool_state_status(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """The entity state mirrors the computed ``PoolState.status``."""
+        coordinator = await _setup_integration(hass, mock_config_entry)
+        state = hass.states.get(STATUS_ENTITY_ID)
+        assert state is not None
+        assert state.state == coordinator.data.status.value
+
+    async def test_attributes_reflect_problems(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """``problem_count``/``critical_count``/``worst_severity`` reflect analysis output."""
+        coordinator = await _setup_integration(hass, mock_config_entry)
+        problems = coordinator.data.analysis_result.problems
+
+        state = hass.states.get(STATUS_ENTITY_ID)
+        assert state is not None
+        assert state.attributes["problem_count"] == len(problems)
+        assert state.attributes["critical_count"] == sum(
+            1 for p in problems if p.severity is Severity.CRITICAL
+        )
+        if problems:
+            assert state.attributes["worst_severity"] == problems[0].severity
+        else:
+            assert state.attributes["worst_severity"] is None
+
+    async def test_escalates_when_ph_goes_critical(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """A strongly out-of-range pH escalates the global status."""
+        coordinator = await _setup_integration(hass, mock_config_entry)
+        initial = hass.states.get(STATUS_ENTITY_ID)
+        assert initial is not None
+        initial_state = initial.state
+
+        hass.states.async_set("sensor.pool_ph", "5.5")
+        await coordinator.async_request_refresh()
+        await hass.async_block_till_done()
+
+        new_state = hass.states.get(STATUS_ENTITY_ID)
+        assert new_state is not None
+        # State must be at least as severe as the initial one and remain a valid enum value.
+        assert new_state.state in {
+            PoolStatus.OK.value,
+            PoolStatus.WARNING.value,
+            PoolStatus.CRITICAL.value,
+        }
+        # Worst severity present in the problem list.
+        assert new_state.state == coordinator.data.status.value
+        # The bad pH should not lower the severity.
+        order = {
+            PoolStatus.OK.value: 0,
+            PoolStatus.WARNING.value: 1,
+            PoolStatus.CRITICAL.value: 2,
+        }
+        assert order[new_state.state] >= order[initial_state]

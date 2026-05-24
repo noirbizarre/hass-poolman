@@ -1,0 +1,14 @@
+{
+  "entity": {
+    "sensor": {
+      "status": {
+        "default": "mdi:pool",
+        "state": {
+          "ok": "mdi:check-circle",
+          "warning": "mdi:alert",
+          "critical": "mdi:alert-octagon"
+        }
+      }
+    }
+  }
+}

@@ -31,6 +31,18 @@ from .recommendation import (
 )
 
 
+class PoolStatus(StrEnum):
+    """Global pool status aggregating worst problem severity.
+
+    Used by ``sensor.pool_<name>_status`` to provide a single,
+    traffic-light-style indicator of overall pool health.
+    """
+
+    OK = "ok"
+    WARNING = "warning"
+    CRITICAL = "critical"
+
+
 class PoolShape(StrEnum):
     """Pool shape types."""
 
@@ -455,6 +467,26 @@ class PoolState(BaseModel):
         safety periods (e.g., recent shock treatment).
         """
         return len(self.critical_recommendations) == 0 and self.swimming_safe
+
+    @property
+    def status(self) -> PoolStatus:
+        """Return the global pool status based on the worst problem severity.
+
+        Maps the latest :attr:`AnalysisResult.problems` to a three-state
+        traffic-light value:
+
+        - :attr:`PoolStatus.CRITICAL` if any problem has
+          :attr:`Severity.CRITICAL`.
+        - :attr:`PoolStatus.WARNING` if any problem has
+          :attr:`Severity.MEDIUM` or :attr:`Severity.LOW`.
+        - :attr:`PoolStatus.OK` if no problems are detected.
+        """
+        problems = self.analysis_result.problems
+        if any(p.severity is Severity.CRITICAL for p in problems):
+            return PoolStatus.CRITICAL
+        if problems:
+            return PoolStatus.WARNING
+        return PoolStatus.OK
 
     @property
     def action_required(self) -> bool:
