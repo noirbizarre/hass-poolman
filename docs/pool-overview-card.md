@@ -86,3 +86,9 @@ recommendations_path: /lovelace/pool-recommendations
   states change.
 - **Empty recommendations**: when the recommendation count is zero, the
   row shows "Your pool is in good condition" and tap is disabled.
+
+## See also
+
+- [Recommendations Card](recommendations-card.md) -- the actionable list
+  view paired with this overview card. Set `recommendations_path` here
+  to navigate users straight to the dashboard view that hosts it.

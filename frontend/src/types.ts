@@ -1,4 +1,4 @@
-// Minimal subset of the Home Assistant frontend types used by the card.
+// Minimal subset of the Home Assistant frontend types used by the cards.
 // We intentionally avoid pulling the upstream `home-assistant-js-websocket`
 // types to keep the bundle self-contained and the build hermetic.
 
@@ -98,21 +98,54 @@ export interface PoolProblemCardConfig {
   max?: number;
 }
 
-export interface RecommendationAction {
+/** When to prompt the user before calling `poolman.apply_recommendation`. */
+export type ConfirmApplyMode = "never" | "always" | "critical_high";
+
+export interface PoolRecommendationsCardConfig {
+  type: string;
+  /** Pool Manager device id. Used to resolve the recommendations sensor and
+   *  passed to `poolman.apply_recommendation`. Required unless `entity` is set. */
+  device_id?: string;
+  /** Optional override for the recommendations sensor entity id. */
+  entity?: string;
+  /** Card title override. Defaults to the device name. */
+  name?: string;
+  /** Show the priority text in the badge in addition to the color. Default true. */
+  show_severity?: boolean;
+  /** Confirmation policy for the Apply button. Default `critical_high`. */
+  confirm_apply?: ConfirmApplyMode;
+}
+
+export interface RecommendationTreatment {
+  id?: string;
   product_id: string;
   name: string;
   quantity: number;
   unit: string;
+  /** Optional wait duration in seconds. */
+  duration?: number | null;
 }
+
+/** Legacy alias kept for backwards compat with consumers of the overview card. */
+export type RecommendationAction = RecommendationTreatment;
+
+export type RecommendationSeverity = "low" | "medium" | "critical";
+export type RecommendationPriority = "low" | "medium" | "high" | "critical";
+export type RecommendationKind = "suggestion" | "requirement";
 
 export interface RecommendationDTO {
   id: string;
   type: string;
-  severity: "info" | "warning" | "critical";
+  severity: RecommendationSeverity;
+  priority?: RecommendationPriority;
+  kind?: RecommendationKind;
   title: string;
   description?: string;
   reason?: string;
-  actions?: RecommendationAction[];
+  /** Modern contract emitted by the backend. */
+  treatments?: RecommendationTreatment[];
+  /** Legacy field name retained for older payloads. */
+  actions?: RecommendationTreatment[];
   related_metrics?: string[];
 }
 
