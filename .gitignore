@@ -208,3 +208,7 @@ __marimo__/
 
 # Test/coverage reports
 reports/
+
+# Frontend (Lovelace card) build artifacts
+frontend/node_modules/
+frontend/dist/

@@ -13,6 +13,13 @@ slug (e.g. `my_pool`).
 Both dashboards are included in the [demo environment](../README.md) and
 can be tested with `docker compose up`.
 
+!!! tip "Pool Overview card"
+
+    For a single-card glanceable summary (status badge, key metrics,
+    quality score, recommendations) see the dedicated
+    [Pool Overview card](pool-overview-card.md). It is shipped with the
+    integration and requires no additional setup.
+
 ## Built-in Cards Dashboard
 
 This dashboard uses **only standard Home Assistant cards** -- no custom

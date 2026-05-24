@@ -3,6 +3,18 @@ views:
   - title: Pool
     icon: mdi:pool
     cards:
+      # ── Pool Overview (first-party custom card) ─────────────────
+      - type: custom:poolman-pool-overview-card
+        name: Demo Pool
+        entities:
+          status: sensor.demo_pool_status
+          water_quality_score: sensor.demo_pool_water_quality_score
+          recommendations: sensor.demo_pool_recommendations
+          temperature: sensor.demo_pool_water_temperature
+          ph: sensor.demo_pool_ph
+          free_chlorine: sensor.demo_pool_free_chlorine
+          orp: sensor.demo_pool_orp
+
       # ── Header ──────────────────────────────────────────────────
       - type: custom:bubble-card
         card_type: separator

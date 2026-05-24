@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import logging
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 import voluptuous as vol
 
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
@@ -24,6 +28,9 @@ from .const import (
     DEFAULT_TREATMENT,
     DOMAIN,
     EVENT_POOLMAN_ACTION_RECORDED,
+    FRONTEND_DIR,
+    FRONTEND_FILENAME,
+    FRONTEND_URL_PATH,
     INVENTORY_UNITS,
     PLATFORMS,
     SERVICE_ADD_TREATMENT,
@@ -145,8 +152,55 @@ SERVICE_ANALYZE_SCHEMA = vol.Schema(
 )
 
 
+_FRONTEND_REGISTERED_KEY = "frontend_registered"
+
+
+def _integration_version() -> str:
+    """Return the integration version from manifest.json for cache busting."""
+    try:
+        manifest = json.loads((Path(__file__).parent / "manifest.json").read_text())
+        return str(manifest.get("version", "0"))
+    except (OSError, ValueError):  # pragma: no cover - defensive
+        return "0"
+
+
+async def _async_register_frontend(hass: HomeAssistant) -> None:
+    """Register the pool overview Lovelace card as a frontend resource.
+
+    Serves the bundled JS file from the integration package and adds it to
+    the Lovelace extra JS URL list so the custom card type is available on
+    every dashboard without manual resource setup.
+
+    Idempotent: only the first call per HA instance performs the work.
+    """
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    if domain_data.get(_FRONTEND_REGISTERED_KEY):
+        return
+
+    bundle = Path(__file__).parent / FRONTEND_DIR / FRONTEND_FILENAME
+    if not bundle.is_file():
+        _LOGGER.warning(
+            "Pool overview card bundle missing at %s; the custom card will not be available",
+            bundle,
+        )
+        return
+
+    http = getattr(hass, "http", None)
+    if http is None or not hasattr(http, "async_register_static_paths"):
+        # http component is not (yet) available — typically only in unit tests.
+        _LOGGER.debug("HTTP component unavailable; skipping pool overview card registration")
+        return
+
+    await http.async_register_static_paths(
+        [StaticPathConfig(FRONTEND_URL_PATH, str(bundle), cache_headers=False)]
+    )
+    add_extra_js_url(hass, f"{FRONTEND_URL_PATH}?v={_integration_version()}")
+    domain_data[_FRONTEND_REGISTERED_KEY] = True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) -> bool:
     """Set up Pool Manager from a config entry."""
+    await _async_register_frontend(hass)
     coordinator = PoolmanCoordinator(hass, entry)
 
     # Restore HIBERNATING mode from any in-progress hibernation subentry

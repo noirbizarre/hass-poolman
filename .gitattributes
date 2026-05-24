@@ -1,0 +1,4 @@
+# Mark the generated Lovelace card bundle as machine-generated so review
+# tools collapse the diff and contributors edit the TypeScript source instead.
+custom_components/poolman/frontend/poolman-pool-overview-card.js linguist-generated=true
+custom_components/poolman/frontend/poolman-pool-overview-card.js.map linguist-generated=true

@@ -36,6 +36,8 @@ cloud service or specific hardware required.
 - **5 operational modes**: Active, Activating, Hibernating, Active Wintering, Passive Wintering
 - **Hardware agnostic**: works with any pool sensor source (Flipr, iopool, Sutro, ESPHome, manual input)
 - **Multi-language**: English and French translations included
+- **Lovelace card**: built-in [Pool Overview card](docs/pool-overview-card.md)
+  (`custom:poolman-pool-overview-card`) auto-registered on install
 
 ## Installation
 
