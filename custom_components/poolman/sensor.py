@@ -100,6 +100,31 @@ def _status_with_source(
 _CHEMISTRY_STATUS_OPTIONS: list[str] = list(ChemistryStatus)
 
 
+def _chemistry_actions_attrs(state: PoolState) -> dict[str, Any]:
+    """Build attributes for the ``chemistry_actions`` sensor.
+
+    Reuses :meth:`Recommendation.to_dict` for the base serialization and
+    enriches each treatment with a chemistry-specific ``spoon`` hint when
+    pool spoon sizes are configured.
+    """
+    spoons = state.pool.spoon_sizes if state.pool else None
+    actions: list[dict[str, Any]] = []
+    for rec in state.chemistry_actions:
+        data = rec.to_dict()
+        for treatment_dict, treatment in zip(data["treatments"], rec.treatments, strict=True):
+            treatment_dict["spoon"] = format_treatment_spoon(treatment, spoons) if spoons else None
+        actions.append(data)
+    return {
+        "actions": actions,
+        "suggestion_count": sum(
+            1 for r in state.chemistry_actions if r.kind == ActionKind.SUGGESTION
+        ),
+        "requirement_count": sum(
+            1 for r in state.chemistry_actions if r.kind == ActionKind.REQUIREMENT
+        ),
+    }
+
+
 SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
     PoolmanSensorEntityDescription(
         key="temperature",
@@ -193,7 +218,7 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         icon="mdi:clipboard-list",
         value_fn=lambda state: len(state.recommendations),
         extra_attrs_fn=lambda state: {
-            "actions": [r.title for r in state.recommendations],
+            "recommendations": [r.to_dict() for r in state.recommendations],
             "critical_count": len(state.critical_recommendations),
         },
     ),
@@ -202,34 +227,7 @@ SENSOR_DESCRIPTIONS: tuple[PoolmanSensorEntityDescription, ...] = (
         translation_key="chemistry_actions",
         icon="mdi:flask-outline",
         value_fn=lambda state: len(state.chemistry_actions),
-        extra_attrs_fn=lambda state: {
-            "actions": [
-                {
-                    "kind": r.kind,
-                    "title": r.title,
-                    "description": r.description,
-                    "treatments": [
-                        {
-                            "product_id": t.product_id,
-                            "name": t.name,
-                            "quantity": t.quantity,
-                            "unit": t.unit,
-                            "spoon": format_treatment_spoon(t, state.pool.spoon_sizes)
-                            if state.pool
-                            else None,
-                        }
-                        for t in r.treatments
-                    ],
-                }
-                for r in state.chemistry_actions
-            ],
-            "suggestion_count": len(
-                [r for r in state.chemistry_actions if r.kind == ActionKind.SUGGESTION]
-            ),
-            "requirement_count": len(
-                [r for r in state.chemistry_actions if r.kind == ActionKind.REQUIREMENT]
-            ),
-        },
+        extra_attrs_fn=lambda state: _chemistry_actions_attrs(state),
     ),
     PoolmanSensorEntityDescription(
         key="ph_status",

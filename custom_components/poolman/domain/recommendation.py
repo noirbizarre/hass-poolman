@@ -58,6 +58,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import StrEnum
+from typing import Any
 
 from .problem import MetricName, Severity
 
@@ -145,6 +146,23 @@ class Treatment:
     unit: str  # HA-compatible unit: "g", "mL", "tablet", …
     duration: timedelta | None = None
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize this treatment to a JSON/HA-attribute-safe dict.
+
+        Returns plain Python types only (``str``, ``float``, ``None``).
+        ``duration`` is exposed as a number of seconds (``float``) to keep
+        a stable, machine-friendly contract for downstream consumers such
+        as the Lovelace card.
+        """
+        return {
+            "id": self.id,
+            "product_id": self.product_id,
+            "name": self.name,
+            "quantity": self.quantity,
+            "unit": self.unit,
+            "duration": self.duration.total_seconds() if self.duration else None,
+        }
+
 
 @dataclass(frozen=True)
 class Recommendation:
@@ -189,3 +207,24 @@ class Recommendation:
     reason: str
     treatments: list[Treatment] = field(default_factory=list)
     related_metrics: list[MetricName] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize this recommendation to a JSON/HA-attribute-safe dict.
+
+        All :class:`enum.StrEnum` values are converted to plain strings via
+        explicit ``str(...)`` casts so the output stays portable and free
+        of enum instances.  Nested :class:`Treatment` objects are
+        serialized via :meth:`Treatment.to_dict`.
+        """
+        return {
+            "id": self.id,
+            "type": str(self.type),
+            "severity": str(self.severity),
+            "priority": str(self.priority),
+            "kind": str(self.kind),
+            "title": self.title,
+            "description": self.description,
+            "reason": self.reason,
+            "treatments": [t.to_dict() for t in self.treatments],
+            "related_metrics": [str(m) for m in self.related_metrics],
+        }

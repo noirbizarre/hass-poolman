@@ -199,3 +199,103 @@ class TestRecommendation:
         rec = self._make_rec()
         assert isinstance(rec.priority, str)
         assert rec.priority == "high"
+
+
+class TestTreatmentToDict:
+    """Tests for :meth:`Treatment.to_dict`."""
+
+    def test_full(self) -> None:
+        t = Treatment(
+            id="chlorine_shock",
+            product_id="chlore_choc",
+            name="Chlore Choc",
+            quantity=500.0,
+            unit="g",
+            duration=timedelta(hours=2),
+        )
+        assert t.to_dict() == {
+            "id": "chlorine_shock",
+            "product_id": "chlore_choc",
+            "name": "Chlore Choc",
+            "quantity": 500.0,
+            "unit": "g",
+            "duration": 7200.0,
+        }
+
+    def test_no_duration(self) -> None:
+        t = Treatment(
+            id="ph_minus_300g",
+            product_id="ph_minus",
+            name="pH-",
+            quantity=300.0,
+            unit="g",
+        )
+        data = t.to_dict()
+        assert data["duration"] is None
+        # Only plain JSON-safe types
+        for value in data.values():
+            assert value is None or isinstance(value, (str, int, float))
+
+
+class TestRecommendationToDict:
+    """Tests for :meth:`Recommendation.to_dict`."""
+
+    def _make_rec(self, **overrides: object) -> Recommendation:
+        defaults: dict[str, object] = {
+            "id": "lower_ph",
+            "type": RecommendationType.CHEMISTRY,
+            "severity": Severity.MEDIUM,
+            "priority": RecommendationPriority.HIGH,
+            "kind": ActionKind.REQUIREMENT,
+            "title": "Lower pH",
+            "description": "pH is too high.",
+            "reason": "ph_too_high",
+            "treatments": [],
+            "related_metrics": [],
+        }
+        defaults.update(overrides)
+        return Recommendation(**defaults)  # type: ignore[arg-type]
+
+    def test_full(self) -> None:
+        treatment = Treatment(
+            id="ph_minus_300g",
+            product_id="ph_minus",
+            name="pH-",
+            quantity=300.0,
+            unit="g",
+            duration=timedelta(minutes=30),
+        )
+        rec = self._make_rec(
+            treatments=[treatment],
+            related_metrics=[MetricName.PH, MetricName.ORP],
+        )
+
+        data = rec.to_dict()
+
+        assert data == {
+            "id": "lower_ph",
+            "type": "chemistry",
+            "severity": "medium",
+            "priority": "high",
+            "kind": "requirement",
+            "title": "Lower pH",
+            "description": "pH is too high.",
+            "reason": "ph_too_high",
+            "treatments": [treatment.to_dict()],
+            "related_metrics": ["ph", "orp"],
+        }
+
+    def test_empty(self) -> None:
+        rec = self._make_rec()
+        data = rec.to_dict()
+        assert data["treatments"] == []
+        assert data["related_metrics"] == []
+
+    def test_enums_serialized_as_plain_strings(self) -> None:
+        rec = self._make_rec(related_metrics=[MetricName.CHLORINE])
+        data = rec.to_dict()
+        for key in ("type", "severity", "priority", "kind"):
+            value = data[key]
+            assert type(value) is str, f"{key} should be plain str, got {type(value)!r}"
+        for metric in data["related_metrics"]:
+            assert type(metric) is str
