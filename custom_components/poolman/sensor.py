@@ -31,7 +31,7 @@ from .domain.model import (
     Severity,
     format_treatment_spoon,
 )
-from .domain.problem import Problem, Severity
+from .domain.problem import Problem
 from .entity import PoolmanEntity
 
 
