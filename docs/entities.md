@@ -36,6 +36,7 @@ These sensors are calculated by Pool Manager from your readings.
 | `sensor.{pool}_filtration_duration` | Recommended filtration | h | Recommended daily filtration hours, computed from water temperature, filter type efficiency, outdoor temperature, and pump capacity. See [Pool Modes](pool-modes.md#filtration) for the full algorithm. |
 | `sensor.{pool}_water_quality_score` | Water quality | % | Overall water quality score from 0 (poor) to 100 (perfect). See [Water Chemistry](water-chemistry.md#water-quality-score) for scoring details. |
 | `sensor.{pool}_recommendations` | Recommendations | -- | Number of active recommendations. See details below. |
+| `sensor.{pool}_problems` | Problems | -- | Number of detected water-quality problems. See details below. |
 | `sensor.{pool}_chemistry_actions` | Chemistry actions | -- | Number of chemistry-related actions (excludes filtration). See details below. |
 | `sensor.{pool}_active_treatments` | Active treatments | -- | Number of currently active chemical treatments. See [Chemistry Tracking](chemistry-tracking.md) for details. |
 | `sensor.{pool}_safe_at` | Safe to swim at | -- | Timestamp (`timestamp` device class) indicating when the pool will be safe for swimming after treatments. `None` if already safe. |
@@ -50,6 +51,28 @@ The `recommendations` sensor exposes additional detail through its state attribu
 | `critical_count` | integer | Number of high or critical priority recommendations |
 
 These attributes can be used in automations, templates, or Lovelace cards to display detailed recommendation information.
+
+### Problems sensor attributes
+
+The `problems` sensor exposes the raw, severity-ordered list of detected
+water-quality problems through its state attributes. The state itself is the
+problem count (`0` when the pool is healthy).
+
+| Attribute | Type | Description |
+| --- | --- | --- |
+| `problems` | list of objects | One entry per detected problem, ordered by severity (most severe first). |
+| `worst_severity` | string | Highest severity present, one of `ok`, `low`, `medium`, `critical`. `ok` when the list is empty. |
+
+Each entry in `problems` has the following shape:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `code` | string | Machine-readable identifier, e.g. `"ph_too_high"`. |
+| `severity` | string | One of `low`, `medium`, `critical`. |
+| `metric` | string or null | The chemistry metric affected (`ph`, `orp`, `chlorine`, ...) or `null`. |
+| `value` | float or null | The measured value that triggered the problem. |
+| `expected_range` | list of two floats or null | `[minimum, maximum]` acceptable range. |
+| `message` | string | Human-readable description of the problem. |
 
 ### Chemistry actions sensor attributes
 
