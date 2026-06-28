@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, ClassVar
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -536,12 +536,15 @@ class PoolmanActivationStepSensor(PoolmanEntity, SensorEntity):
 
     _attr_translation_key = "activation_step"
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options: ClassVar[list[str]] = [step.value for step in ActivationStep]
     _attr_icon = "mdi:wizard-hat"
 
     def __init__(self, coordinator: PoolmanCoordinator) -> None:
         """Initialize the activation step sensor."""
         super().__init__(coordinator)
+        # Assigned per-instance: HA's SensorEntity declares ``_attr_options`` as
+        # an instance attribute, so a class-level default would both violate LSP
+        # and create a shared mutable default.
+        self._attr_options = [step.value for step in ActivationStep]
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_activation_step"
 
     @property

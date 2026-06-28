@@ -341,6 +341,7 @@ describe("apply", () => {
 
   it("prompts before applying a critical recommendation", async () => {
     const callService = vi.fn().mockResolvedValue(undefined);
+    window.confirm = () => true;
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const hass = makeHass(
       {
@@ -374,6 +375,7 @@ describe("apply", () => {
 
   it("does not call the service when the user cancels the prompt", async () => {
     const callService = vi.fn().mockResolvedValue(undefined);
+    window.confirm = () => false;
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
     const hass = makeHass(
       {
@@ -407,6 +409,7 @@ describe("apply", () => {
 
   it("never prompts when confirm_apply is `never`", async () => {
     const callService = vi.fn().mockResolvedValue(undefined);
+    window.confirm = () => true;
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const hass = makeHass(
       {

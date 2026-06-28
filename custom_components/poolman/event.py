@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Any
 
 from homeassistant.components.event import EventEntity, EventEntityDescription
 from homeassistant.core import HomeAssistant, callback
@@ -302,17 +302,20 @@ class PoolmanFiltrationEvent(PoolmanEntity, EventEntity):
 
     _attr_translation_key = "filtration"
     _attr_icon = "mdi:pump"
-    _attr_event_types: ClassVar[list[str]] = [
-        EVENT_FILTRATION_STARTED,
-        EVENT_FILTRATION_STOPPED,
-        EVENT_BOOST_STARTED,
-        EVENT_BOOST_CONSUMED,
-        EVENT_BOOST_CANCELLED,
-    ]
 
     def __init__(self, coordinator: PoolmanCoordinator) -> None:
         """Initialize the filtration event entity."""
         super().__init__(coordinator)
+        # Assigned per-instance: HA's EventEntity declares ``_attr_event_types``
+        # as an instance attribute, so a class-level default would both violate
+        # LSP and create a shared mutable default.
+        self._attr_event_types = [
+            EVENT_FILTRATION_STARTED,
+            EVENT_FILTRATION_STOPPED,
+            EVENT_BOOST_STARTED,
+            EVENT_BOOST_CONSUMED,
+            EVENT_BOOST_CANCELLED,
+        ]
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_filtration"
         self._unsub_scheduler: Callable[[], None] | None = None
 

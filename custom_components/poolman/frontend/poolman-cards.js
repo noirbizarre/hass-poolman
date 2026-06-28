@@ -1,9 +1,4 @@
-/**
- * @license
- * Copyright 2019 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
-const ee = globalThis, Ee = ee.ShadowRoot && (ee.ShadyCSS === void 0 || ee.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, Ae = Symbol(), qe = /* @__PURE__ */ new WeakMap();
+const ee = globalThis, Ee = ee.ShadowRoot && (ee.ShadyCSS === void 0 || ee.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, Ae = /* @__PURE__ */ Symbol(), qe = /* @__PURE__ */ new WeakMap();
 let et = class {
   constructor(e, t, i) {
     if (this._$cssResult$ = !0, i !== Ae) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
@@ -40,11 +35,6 @@ const yt = (o) => new et(typeof o == "string" ? o : o + "", void 0, Ae), W = (o,
   for (const i of e.cssRules) t += i.cssText;
   return yt(t);
 })(o) : o;
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
 const { is: $t, defineProperty: xt, getOwnPropertyDescriptor: wt, getOwnPropertyNames: Et, getOwnPropertySymbols: At, getPrototypeOf: St } = Object, w = globalThis, De = w.trustedTypes, Ct = De ? De.emptyScript : "", kt = w.reactiveElementPolyfillSupport, M = (o, e) => o, ie = { toAttribute(o, e) {
   switch (e) {
     case Boolean:
@@ -74,7 +64,7 @@ const { is: $t, defineProperty: xt, getOwnPropertyDescriptor: wt, getOwnProperty
   }
   return t;
 } }, Se = (o, e) => !$t(o, e), Ie = { attribute: !0, type: String, converter: ie, reflect: !1, useDefault: !1, hasChanged: Se };
-Symbol.metadata ?? (Symbol.metadata = Symbol("metadata")), w.litPropertyMetadata ?? (w.litPropertyMetadata = /* @__PURE__ */ new WeakMap());
+Symbol.metadata ?? (Symbol.metadata = /* @__PURE__ */ Symbol("metadata")), w.litPropertyMetadata ?? (w.litPropertyMetadata = /* @__PURE__ */ new WeakMap());
 let R = class extends HTMLElement {
   static addInitializer(e) {
     this._$Ei(), (this.l ?? (this.l = [])).push(e);
@@ -84,7 +74,7 @@ let R = class extends HTMLElement {
   }
   static createProperty(e, t = Ie) {
     if (t.state && (t.attribute = !1), this._$Ei(), this.prototype.hasOwnProperty(e) && ((t = Object.create(t)).wrapped = !0), this.elementProperties.set(e, t), !t.noAccessor) {
-      const i = Symbol(), r = this.getPropertyDescriptor(e, i, t);
+      const i = /* @__PURE__ */ Symbol(), r = this.getPropertyDescriptor(e, i, t);
       r !== void 0 && xt(this.prototype, e, r);
     }
   }
@@ -257,14 +247,9 @@ let R = class extends HTMLElement {
   }
 };
 R.elementStyles = [], R.shadowRootOptions = { mode: "open" }, R[M("elementProperties")] = /* @__PURE__ */ new Map(), R[M("finalized")] = /* @__PURE__ */ new Map(), kt?.({ ReactiveElement: R }), (w.reactiveElementVersions ?? (w.reactiveElementVersions = [])).push("2.1.2");
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
 const L = globalThis, Me = (o) => o, re = L.trustedTypes, Le = re ? re.createPolicy("lit-html", { createHTML: (o) => o }) : void 0, tt = "$lit$", x = `lit$${Math.random().toFixed(9).slice(2)}$`, it = "?" + x, Tt = `<${it}>`, k = document, j = () => k.createComment(""), H = (o) => o === null || typeof o != "object" && typeof o != "function", Ce = Array.isArray, Ot = (o) => Ce(o) || typeof o?.[Symbol.iterator] == "function", ue = `[ 	
 \f\r]`, D = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ue = /-->/g, je = />/g, A = RegExp(`>|${ue}(?:([^\\s"'>=/]+)(${ue}*=${ue}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), He = /'/g, Be = /"/g, rt = /^(?:script|style|textarea|title)$/i, Pt = (o) => (e, ...t) => ({ _$litType$: o, strings: e, values: t }), l = Pt(1), N = Symbol.for("lit-noChange"), c = Symbol.for("lit-nothing"), Fe = /* @__PURE__ */ new WeakMap(), S = k.createTreeWalker(k, 129);
+\f\r"'\`<>=]|("|')|))|$)`, "g"), He = /'/g, Be = /"/g, rt = /^(?:script|style|textarea|title)$/i, Pt = (o) => (e, ...t) => ({ _$litType$: o, strings: e, values: t }), l = Pt(1), N = /* @__PURE__ */ Symbol.for("lit-noChange"), c = /* @__PURE__ */ Symbol.for("lit-nothing"), Fe = /* @__PURE__ */ new WeakMap(), S = k.createTreeWalker(k, 129);
 function ot(o, e) {
   if (!Ce(o) || !o.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return Le !== void 0 ? Le.createHTML(e) : e;
@@ -487,11 +472,6 @@ const Lt = (o, e, t) => {
   }
   return r._$AI(o), r;
 };
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
 const U = globalThis;
 class _ extends R {
   constructor() {
@@ -520,11 +500,6 @@ _._$litElement$ = !0, _.finalized = !0, U.litElementHydrateSupport?.({ LitElemen
 const Ut = U.litElementPolyfillSupport;
 Ut?.({ LitElement: _ });
 (U.litElementVersions ?? (U.litElementVersions = [])).push("4.2.2");
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
 const jt = { attribute: !0, type: String, converter: ie, reflect: !1, hasChanged: Se }, Ht = (o = jt, e, t) => {
   const { kind: i, metadata: r } = t;
   let s = globalThis.litPropertyMetadata.get(r);
@@ -552,11 +527,6 @@ function g(o) {
     return r.constructor.createProperty(s, i), n ? Object.getOwnPropertyDescriptor(r, s) : void 0;
   })(o, e, t);
 }
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
 function m(o) {
   return g({ ...o, state: !0, attribute: !1 });
 }
@@ -2205,7 +2175,7 @@ const _e = "poolman-recommendations-card", Pe = class Pe extends _ {
       return;
     }
     const i = globalThis.confirm;
-    (i ? i(`Apply "${e.title}"?`) : !0) && await this._callApply(t, e.id);
+    (!i || i(`Apply "${e.title}"?`)) && await this._callApply(t, e.id);
   }
   async _callApply(e, t) {
     try {
