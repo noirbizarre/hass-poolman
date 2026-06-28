@@ -3,6 +3,7 @@ import { property, state } from "lit/decorators.js";
 
 import { actionHistoryStyles } from "./styles.js";
 import { MISSING, getEntity, resolveEntities } from "./helpers.js";
+import { firstPoolmanDeviceId } from "./editor/base.js";
 import type {
   ActionDTO,
   ActionHistoryCardConfig,
@@ -63,8 +64,19 @@ export class PoolmanActionHistoryCard extends LitElement {
     return 4;
   }
 
-  public static getStubConfig(): Partial<ActionHistoryCardConfig> {
-    return { type: `custom:${CARD_TAG}` };
+  public static getStubConfig(
+    hass?: HomeAssistant,
+  ): Partial<ActionHistoryCardConfig> {
+    const deviceId = firstPoolmanDeviceId(hass);
+    return {
+      type: `custom:${CARD_TAG}`,
+      ...(deviceId ? { device_id: deviceId } : {}),
+    };
+  }
+
+  public static async getConfigElement(): Promise<HTMLElement> {
+    await import("./editor/poolman-action-history-card-editor.js");
+    return document.createElement("poolman-action-history-card-editor");
   }
 
   public setConfig(config: ActionHistoryCardConfig): void {

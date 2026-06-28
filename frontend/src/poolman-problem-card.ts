@@ -2,6 +2,7 @@ import { LitElement, html, nothing, type TemplateResult } from "lit";
 import { property, state } from "lit/decorators.js";
 
 import { problemCardStyles } from "./styles-problem.js";
+import { firstPoolmanDeviceId } from "./editor/base.js";
 import {
   formatExpectedRange,
   formatProblemValue,
@@ -53,8 +54,17 @@ export class PoolmanProblemCard extends LitElement {
     return 1 + Math.min(count, max);
   }
 
-  public static getStubConfig(): Partial<PoolProblemCardConfig> {
-    return { type: `custom:${CARD_TAG}` };
+  public static getStubConfig(hass?: HomeAssistant): Partial<PoolProblemCardConfig> {
+    const deviceId = firstPoolmanDeviceId(hass);
+    return {
+      type: `custom:${CARD_TAG}`,
+      ...(deviceId ? { device_id: deviceId } : {}),
+    };
+  }
+
+  public static async getConfigElement(): Promise<HTMLElement> {
+    await import("./editor/poolman-problem-card-editor.js");
+    return document.createElement("poolman-problem-card-editor");
   }
 
   public setConfig(config: PoolProblemCardConfig): void {

@@ -2,6 +2,7 @@ import { LitElement, html, nothing, type TemplateResult } from "lit";
 import { property, state } from "lit/decorators.js";
 
 import { cardStyles } from "./styles.js";
+import { firstPoolmanDeviceId } from "./editor/base.js";
 import {
   MISSING,
   effectiveMetrics,
@@ -35,8 +36,17 @@ export class PoolmanPoolOverviewCard extends LitElement {
     return 3;
   }
 
-  public static getStubConfig(): Partial<PoolOverviewCardConfig> {
-    return { type: `custom:${CARD_TAG}` };
+  public static getStubConfig(hass?: HomeAssistant): Partial<PoolOverviewCardConfig> {
+    const deviceId = firstPoolmanDeviceId(hass);
+    return {
+      type: `custom:${CARD_TAG}`,
+      ...(deviceId ? { device_id: deviceId } : {}),
+    };
+  }
+
+  public static async getConfigElement(): Promise<HTMLElement> {
+    await import("./editor/poolman-pool-overview-card-editor.js");
+    return document.createElement("poolman-pool-overview-card-editor");
   }
 
   public setConfig(config: PoolOverviewCardConfig): void {

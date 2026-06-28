@@ -2,6 +2,7 @@ import { LitElement, html, nothing, type PropertyValues, type TemplateResult } f
 import { property, state } from "lit/decorators.js";
 
 import { recommendationsCardStyles } from "./styles.js";
+import { firstPoolmanDeviceId } from "./editor/base.js";
 import {
   getEntity,
   isUnavailable,
@@ -47,8 +48,19 @@ export class PoolmanRecommendationsCard extends LitElement {
     return 4;
   }
 
-  public static getStubConfig(): Partial<PoolRecommendationsCardConfig> {
-    return { type: `custom:${CARD_TAG}` };
+  public static getStubConfig(
+    hass?: HomeAssistant,
+  ): Partial<PoolRecommendationsCardConfig> {
+    const deviceId = firstPoolmanDeviceId(hass);
+    return {
+      type: `custom:${CARD_TAG}`,
+      ...(deviceId ? { device_id: deviceId } : {}),
+    };
+  }
+
+  public static async getConfigElement(): Promise<HTMLElement> {
+    await import("./editor/poolman-recommendations-card-editor.js");
+    return document.createElement("poolman-recommendations-card-editor");
   }
 
   public setConfig(config: PoolRecommendationsCardConfig): void {

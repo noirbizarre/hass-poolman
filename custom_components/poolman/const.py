@@ -10,8 +10,8 @@ EVENT_POOLMAN_ACTION_RECORDED: Final = "poolman_action_recorded"
 # Frontend (Lovelace custom card) resources
 # A single bundle ships all Poolman custom cards (overview, action history, …).
 FRONTEND_DIR: Final = "frontend"
-FRONTEND_FILENAME: Final = "poolman-pool-overview-card.js"
-FRONTEND_URL_PATH: Final = "/poolman_frontend/poolman-pool-overview-card.js"
+FRONTEND_FILENAME: Final = "poolman-cards.js"
+FRONTEND_URL_PATH: Final = "/poolman_frontend/poolman-cards.js"
 
 PLATFORMS: Final = ["sensor", "binary_sensor", "select", "switch", "time", "number", "event"]
 

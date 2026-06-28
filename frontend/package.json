@@ -1,7 +1,7 @@
 {
-  "name": "poolman-pool-overview-card",
+  "name": "poolman-cards",
   "version": "0.1.0",
-  "description": "Pool overview Lovelace card for the Pool Manager Home Assistant integration.",
+  "description": "Pool Manager Lovelace cards bundle (overview, problems, recommendations, action history, quick actions) for the Pool Manager Home Assistant integration.",
   "private": true,
   "type": "module",
   "scripts": {

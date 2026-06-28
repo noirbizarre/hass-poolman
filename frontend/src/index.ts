@@ -4,6 +4,14 @@ import "./poolman-recommendations-card.js";
 import "./poolman-action-history-card.js";
 import "./poolman-quick-actions-card.js";
 
+// Visual editors — registered eagerly so getConfigElement() resolves
+// immediately and Lovelace surfaces the "edit" affordance for each card.
+import "./editor/poolman-pool-overview-card-editor.js";
+import "./editor/poolman-problem-card-editor.js";
+import "./editor/poolman-recommendations-card-editor.js";
+import "./editor/poolman-action-history-card-editor.js";
+import "./editor/poolman-quick-actions-card-editor.js";
+
 const OVERVIEW_TAG = "poolman-pool-overview-card";
 const PROBLEM_TAG = "poolman-problem-card";
 const RECOMMENDATIONS_TAG = "poolman-recommendations-card";
