@@ -33,7 +33,32 @@ export type TranslationKey =
   | "dialog_note"
   | "dialog_submit"
   | "dialog_cancel"
-  | "dialog_validation_quantity";
+  | "dialog_validation_quantity"
+  // Card editor (visual Lovelace editor)
+  | "editor_device"
+  | "editor_entity"
+  | "editor_name"
+  | "editor_metrics"
+  | "editor_metric_temperature"
+  | "editor_metric_ph"
+  | "editor_metric_free_chlorine"
+  | "editor_metric_orp"
+  | "editor_show_score"
+  | "editor_recommendations_path"
+  | "editor_max"
+  | "editor_show_severity"
+  | "editor_confirm_apply"
+  | "editor_confirm_apply_never"
+  | "editor_confirm_apply_always"
+  | "editor_confirm_apply_critical_high"
+  | "editor_limit"
+  | "editor_show_source"
+  | "editor_group_by_day"
+  | "editor_analyze"
+  | "editor_boost"
+  | "editor_record"
+  | "editor_device_required"
+  | "editor_device_or_entity_required";
 
 type StringTable = Record<TranslationKey, string>;
 
@@ -65,6 +90,30 @@ const EN: StringTable = {
   dialog_submit: "Record",
   dialog_cancel: "Cancel",
   dialog_validation_quantity: "Quantity must be a positive number",
+  editor_device: "Pool device",
+  editor_entity: "Entity",
+  editor_name: "Name",
+  editor_metrics: "Metrics",
+  editor_metric_temperature: "Temperature",
+  editor_metric_ph: "pH",
+  editor_metric_free_chlorine: "Free chlorine",
+  editor_metric_orp: "ORP",
+  editor_show_score: "Show water quality score",
+  editor_recommendations_path: "Recommendations navigation path",
+  editor_max: "Maximum rows",
+  editor_show_severity: "Show severity label",
+  editor_confirm_apply: "Confirm before applying",
+  editor_confirm_apply_never: "Never",
+  editor_confirm_apply_always: "Always",
+  editor_confirm_apply_critical_high: "Critical and high priority",
+  editor_limit: "Maximum actions",
+  editor_show_source: "Show source badge",
+  editor_group_by_day: "Group by day",
+  editor_analyze: "Show Analyze button",
+  editor_boost: "Show filtration boost buttons",
+  editor_record: "Show Record treatment button",
+  editor_device_required: "Pool device is required",
+  editor_device_or_entity_required: "A pool device or an entity is required",
 };
 
 const FR: StringTable = {
@@ -95,6 +144,30 @@ const FR: StringTable = {
   dialog_submit: "Enregistrer",
   dialog_cancel: "Annuler",
   dialog_validation_quantity: "La quantité doit être un nombre positif",
+  editor_device: "Bassin",
+  editor_entity: "Entité",
+  editor_name: "Nom",
+  editor_metrics: "Mesures",
+  editor_metric_temperature: "Température",
+  editor_metric_ph: "pH",
+  editor_metric_free_chlorine: "Chlore libre",
+  editor_metric_orp: "ORP",
+  editor_show_score: "Afficher le score de qualité",
+  editor_recommendations_path: "Chemin de navigation des recommandations",
+  editor_max: "Nombre maximum de lignes",
+  editor_show_severity: "Afficher le libellé de sévérité",
+  editor_confirm_apply: "Confirmer avant application",
+  editor_confirm_apply_never: "Jamais",
+  editor_confirm_apply_always: "Toujours",
+  editor_confirm_apply_critical_high: "Priorité critique et haute",
+  editor_limit: "Nombre maximum d'actions",
+  editor_show_source: "Afficher la source",
+  editor_group_by_day: "Grouper par jour",
+  editor_analyze: "Afficher le bouton Analyser",
+  editor_boost: "Afficher les boutons Booster",
+  editor_record: "Afficher le bouton Enregistrer",
+  editor_device_required: "Le bassin est requis",
+  editor_device_or_entity_required: "Un bassin ou une entité est requis",
 };
 
 const STRINGS: Record<Lang, StringTable> = { en: EN, fr: FR };

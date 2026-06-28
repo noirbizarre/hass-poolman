@@ -10,9 +10,9 @@ export default defineConfig({
     minify: "esbuild",
     lib: {
       entry: resolve(__dirname, "src/index.ts"),
-      name: "PoolmanPoolOverviewCard",
+      name: "PoolmanCards",
       formats: ["es"],
-      fileName: () => "poolman-pool-overview-card.js",
+      fileName: () => "poolman-cards.js",
     },
     rollupOptions: {
       // Self-contained: bundle Lit so HA serves a single file with no externals.

@@ -3,6 +3,7 @@ import { property, state } from "lit/decorators.js";
 
 import { quickActionsStyles } from "./quick-actions-styles.js";
 import { t, type TranslationKey } from "./i18n.js";
+import { firstPoolmanDeviceId } from "./editor/base.js";
 import {
   INVENTORY_UNITS,
   type HomeAssistant,
@@ -71,13 +72,16 @@ export class PoolmanQuickActionsCard extends LitElement {
   public static getStubConfig(
     hass?: HomeAssistant,
   ): Partial<QuickActionsCardConfig> {
-    const deviceId = hass?.devices
-      ? Object.keys(hass.devices)[0]
-      : undefined;
+    const deviceId = firstPoolmanDeviceId(hass);
     return {
       type: `custom:${QUICK_ACTIONS_CARD_TAG}`,
       device_id: deviceId ?? "",
     };
+  }
+
+  public static async getConfigElement(): Promise<HTMLElement> {
+    await import("./editor/poolman-quick-actions-card-editor.js");
+    return document.createElement("poolman-quick-actions-card-editor");
   }
 
   public setConfig(config: QuickActionsCardConfig): void {
