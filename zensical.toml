@@ -57,6 +57,7 @@ nav = [
   { "Pool Modes" = "pool-modes.md" },
   { "Filtration Control" = "filtration-control.md" },
   { "Chemistry Tracking" = "chemistry-tracking.md" },
+  { "Inventory" = "inventory.md" },
   { "Water Chemistry" = "water-chemistry.md" },
   { "Rules & Recommendations" = "rules-and-recommendations.md" },
   { "Sample Dashboards" = "sample-dashboards.md" },
@@ -64,6 +65,7 @@ nav = [
   { "Recommendations Card" = "recommendations-card.md" },
   { "Action History Card" = "action-history-card.md" },
   { "Quick Actions Card" = "quick-actions-card.md" },
+  { "Pool Problems Card" = "problem-card.md" },
   { "FAQ" = "faq.md" },
   { "Contributing" = "contributing.md" },
 ]
