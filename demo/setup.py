@@ -716,7 +716,7 @@ def main() -> None:
     wait_for_entities(token, "sensor.fake_pool_sensor_", expected_count=10)
     wait_for_entities(token, "switch.fake_pool_sensor_", expected_count=1)
 
-    # Set up Pool Manager (three-step flow: pool basics, chemistry, filtration)
+    # Set up Pool Manager (four-step flow: pool basics, chemistry, spoons, filtration)
     if has_integration(entries, "poolman"):
         log.info("Pool Manager already configured, skipping.")
     else:
@@ -736,7 +736,9 @@ def main() -> None:
                     "treatment": "chlorine",
                     **FAKE_CHEMISTRY_SENSORS,
                 },
-                # Step 3: Filtration settings
+                # Step 3: Measuring spoons (optional) -- submit empty to skip
+                {},
+                # Step 4: Filtration settings
                 {
                     "filtration_kind": "sand",
                     "pump_flow_m3h": 10.0,

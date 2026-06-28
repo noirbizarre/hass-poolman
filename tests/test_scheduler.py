@@ -257,6 +257,36 @@ class TestEnableDisable:
         assert len(scheduler._unsub_triggers) == 0
 
 
+class TestShutdown:
+    """Tests for the synchronous shutdown used on config entry unload."""
+
+    def test_shutdown_cancels_triggers(self, scheduler: FiltrationScheduler) -> None:
+        """Shutdown should cancel and clear all registered time triggers."""
+        unsub1 = MagicMock()
+        unsub2 = MagicMock()
+        scheduler._unsub_triggers = [unsub1, unsub2]
+        scheduler.shutdown()
+        unsub1.assert_called_once()
+        unsub2.assert_called_once()
+        assert len(scheduler._unsub_triggers) == 0
+
+    def test_shutdown_cancels_boost_timer(self, scheduler: FiltrationScheduler) -> None:
+        """Shutdown should cancel a pending boost stop timer."""
+        unsub_boost = MagicMock()
+        scheduler._unsub_boost_stop = unsub_boost
+        scheduler.shutdown()
+        unsub_boost.assert_called_once()
+        assert scheduler._unsub_boost_stop is None
+
+    def test_shutdown_does_not_touch_pump(
+        self, scheduler: FiltrationScheduler, hass: MagicMock
+    ) -> None:
+        """Shutdown must not change the pump state when unloading."""
+        scheduler._unsub_triggers = [MagicMock()]
+        scheduler.shutdown()
+        hass.services.async_call.assert_not_called()
+
+
 class TestUpdateSchedule:
     """Tests for async_update_schedule mid-cycle recalculation."""
 

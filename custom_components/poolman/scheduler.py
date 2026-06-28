@@ -328,6 +328,18 @@ class FiltrationScheduler:
         await self._async_stop_pump()
         _LOGGER.debug("Filtration control disabled (pump: %s)", self._pump_entity_id)
 
+    @callback
+    def shutdown(self) -> None:
+        """Cancel all scheduled timers without changing the pump state.
+
+        Intended to be registered via ``ConfigEntry.async_on_unload`` so the
+        scheduler releases its Home Assistant time listeners when the entry is
+        unloaded or reloaded. Unlike :meth:`async_disable`, this does not touch
+        the pump, since unloading the integration must not alter hardware state.
+        """
+        self._cancel_triggers()
+        self._cancel_boost_timer()
+
     async def async_pause(self) -> None:
         """Pause the scheduler due to pool mode (e.g. passive wintering).
 

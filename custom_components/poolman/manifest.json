@@ -1,7 +1,7 @@
 {
   "domain": "poolman",
   "name": "Pool Manager",
-  "after_dependencies": ["http", "frontend"],
+  "after_dependencies": ["http", "frontend", "lovelace"],
   "codeowners": ["@noirbizarre"],
   "config_flow": true,
   "documentation": "https://noirbizarre.github.io/hass-poolman/",

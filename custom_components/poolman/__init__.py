@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 
 from datetime import UTC, datetime
@@ -12,10 +11,13 @@ import voluptuous as vol
 
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.lovelace import LOVELACE_DATA
+from homeassistant.components.lovelace.resources import ResourceStorageCollection
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import device_registry as dr
+from homeassistant.loader import IntegrationNotFound, async_get_integration
 
 from .const import (
     CONF_COMPLETED_AT,
@@ -155,21 +157,39 @@ SERVICE_ANALYZE_SCHEMA = vol.Schema(
 _FRONTEND_REGISTERED_KEY = "frontend_registered"
 
 
-def _integration_version() -> str:
-    """Return the integration version from manifest.json for cache busting."""
+async def _integration_version(hass: HomeAssistant) -> str:
+    """Return the integration version for cache busting.
+
+    Reads the version from the already-loaded integration manifest via the
+    Home Assistant loader, avoiding blocking file I/O on the event loop.
+
+    Args:
+        hass: The Home Assistant instance.
+
+    Returns:
+        The integration version string, or ``"0"`` if it cannot be resolved.
+    """
     try:
-        manifest = json.loads((Path(__file__).parent / "manifest.json").read_text())
-        return str(manifest.get("version", "0"))
-    except (OSError, ValueError):  # pragma: no cover - defensive
+        integration = await async_get_integration(hass, DOMAIN)
+    except IntegrationNotFound:  # pragma: no cover - defensive
         return "0"
+    version = integration.version
+    return str(version) if version is not None else "0"
 
 
 async def _async_register_frontend(hass: HomeAssistant) -> None:
-    """Register the pool overview Lovelace card as a frontend resource.
+    """Register the Pool Manager Lovelace cards bundle as a frontend resource.
 
-    Serves the bundled JS file from the integration package and adds it to
-    the Lovelace extra JS URL list so the custom card type is available on
-    every dashboard without manual resource setup.
+    Serves the bundled JS file from the integration package and makes the
+    custom card types available on every dashboard without manual resource
+    setup. Registration happens through two complementary mechanisms:
+
+    * ``add_extra_js_url`` injects the module on every served frontend page
+      (covers YAML-mode Lovelace and is the documented integration API).
+    * a storage-mode Lovelace resource is registered as well, so the Lovelace
+      app *awaits* the module while resolving dashboard resources. This avoids
+      a race where a dashboard renders ``custom:poolman-*`` cards before the
+      fire-and-forget ``import()`` from ``add_extra_js_url`` has resolved.
 
     Idempotent: only the first call per HA instance performs the work.
     """
@@ -178,7 +198,7 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
         return
 
     bundle = Path(__file__).parent / FRONTEND_DIR / FRONTEND_FILENAME
-    if not bundle.is_file():
+    if not await hass.async_add_executor_job(bundle.is_file):
         _LOGGER.warning(
             "Pool overview card bundle missing at %s; the custom card will not be available",
             bundle,
@@ -191,11 +211,61 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
         _LOGGER.debug("HTTP component unavailable; skipping pool overview card registration")
         return
 
-    await http.async_register_static_paths(
-        [StaticPathConfig(FRONTEND_URL_PATH, str(bundle), cache_headers=False)]
-    )
-    add_extra_js_url(hass, f"{FRONTEND_URL_PATH}?v={_integration_version()}")
+    static_paths = [StaticPathConfig(FRONTEND_URL_PATH, str(bundle), cache_headers=False)]
+
+    # Serve the source map alongside the bundle so browsers don't log a 404 for
+    # the ``//# sourceMappingURL`` reference baked into the built bundle.
+    source_map = bundle.with_name(f"{bundle.name}.map")
+    if await hass.async_add_executor_job(source_map.is_file):
+        static_paths.append(
+            StaticPathConfig(f"{FRONTEND_URL_PATH}.map", str(source_map), cache_headers=False)
+        )
+
+    await http.async_register_static_paths(static_paths)
+    resource_url = f"{FRONTEND_URL_PATH}?v={await _integration_version(hass)}"
+    add_extra_js_url(hass, resource_url)
+    await _async_register_lovelace_resource(hass, resource_url)
     domain_data[_FRONTEND_REGISTERED_KEY] = True
+
+
+async def _async_register_lovelace_resource(hass: HomeAssistant, url: str) -> None:
+    """Register the cards bundle as a storage-mode Lovelace resource.
+
+    Ensures the Lovelace frontend loads (and awaits) the bundle as part of its
+    resource resolution, so ``custom:poolman-*`` cards are defined before any
+    dashboard renders them. No-op when Lovelace runs in YAML resource mode
+    (resources are user-managed there) or when the same module is already
+    registered (ignoring the cache-busting query string).
+
+    Args:
+        hass: The Home Assistant instance.
+        url: The module URL to register (may include a ``?v=`` suffix).
+    """
+    lovelace_data = hass.data.get(LOVELACE_DATA)
+    if lovelace_data is None:
+        return
+
+    # Only storage-mode resources can be created programmatically; YAML-mode
+    # resources are user-managed and lack the mutation API.
+    resources = lovelace_data.resources
+    if not isinstance(resources, ResourceStorageCollection):
+        return
+
+    try:
+        if not resources.loaded:
+            await resources.async_load()
+            resources.loaded = True
+
+        base_url = url.split("?", 1)[0]
+        for item in resources.async_items():
+            if item.get("url", "").split("?", 1)[0] == base_url:
+                return
+
+        await resources.async_create_item({"res_type": "module", "url": url})
+    except Exception:
+        # Never block setup on resource registration; add_extra_js_url already
+        # provides a working (if race-prone) fallback.
+        _LOGGER.debug("Could not register Lovelace resource for %s", url, exc_info=True)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) -> bool:
@@ -244,6 +314,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: PoolmanConfigEntry) -> b
 
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
+    if coordinator.scheduler is not None:
+        entry.async_on_unload(coordinator.scheduler.shutdown)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _async_register_services(hass)

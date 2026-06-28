@@ -1070,13 +1070,14 @@ Install the following custom cards via [HACS](https://hacs.xyz/):
           # ── Popups ──────────────────────────────────────────────
 
           # Record Measure popup
-          - type: vertical-stack
+          # Bubble Card v3.2.0+ standalone pop-up: content lives in the
+          # pop-up's own `cards:` list (no more wrapping vertical-stack).
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: "#record-measure"
+            name: Record Measure
+            icon: mdi:test-tube
             cards:
-              - type: custom:bubble-card
-                card_type: pop-up
-                hash: "#record-measure"
-                name: Record Measure
-                icon: mdi:test-tube
               - type: grid
                 columns: 2
                 square: false
@@ -1197,13 +1198,14 @@ Install the following custom cards via [HACS](https://hacs.xyz/):
                         - font-size: 14px
 
           # Add Treatment popup
-          - type: vertical-stack
+          # Bubble Card v3.2.0+ standalone pop-up: content lives in the
+          # pop-up's own `cards:` list (no more wrapping vertical-stack).
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: "#add-treatment"
+            name: Add Treatment
+            icon: mdi:bottle-tonic-plus
             cards:
-              - type: custom:bubble-card
-                card_type: pop-up
-                hash: "#add-treatment"
-                name: Add Treatment
-                icon: mdi:bottle-tonic-plus
               - type: grid
                 columns: 2
                 square: false

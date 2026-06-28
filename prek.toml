@@ -19,14 +19,14 @@ hooks = [
 
 [[repos]]
 repo = "https://github.com/commitizen-tools/commitizen"
-rev = "v4.13.9"
+rev = "v4.16.4"
 hooks = [
-  { id = "commitizen", additional_dependencies = ["emotional==0.5.1"] },
+  { id = "commitizen", additional_dependencies = ["emotional==0.6.1"] },
 ]
 
 [[repos]]
 repo = "https://github.com/python-jsonschema/check-jsonschema"
-rev = "0.37.1"
+rev = "0.37.3"
 hooks = [
   { id = "check-github-workflows" },
   { id = "check-dependabot" },
@@ -39,7 +39,7 @@ hooks = [{ id = "docker-compose-check" }]
 
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "v0.15.8"
+rev = "v0.15.20"
 hooks = [
   { id = "ruff", args = ["--fix"] },
   { id = "ruff-format" },
