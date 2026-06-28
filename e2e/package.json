@@ -1,0 +1,16 @@
+{
+  "name": "poolman-e2e",
+  "version": "0.1.0",
+  "description": "Playwright end-to-end tests for the Pool Manager Home Assistant integration, driving the docker-compose demo instance and its custom Lovelace cards.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "install-browsers": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

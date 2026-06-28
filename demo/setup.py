@@ -444,7 +444,33 @@ DASHBOARDS = [
 ]
 
 
-def seed_dashboards(token: str, yaml_dir: str = "/demo/dashboards") -> None:
+# Placeholder used in dashboard YAML for the Pool Manager device id, which is
+# only known at runtime.  ``seed_dashboards`` substitutes it with the resolved
+# device id so that first-party custom cards configured by ``device_id`` (such
+# as the quick-actions and problem cards) work without manual editing.
+POOLMAN_DEVICE_PLACEHOLDER = "__POOLMAN_DEVICE_ID__"
+
+
+def _substitute_placeholder(config: object, device_id: str) -> object:
+    """Recursively replace :data:`POOLMAN_DEVICE_PLACEHOLDER` in a config tree.
+
+    Walks dicts and lists and swaps any string equal to the placeholder for
+    *device_id*.  Returns the (possibly new) value so callers can reassign.
+    """
+    if isinstance(config, dict):
+        return {k: _substitute_placeholder(v, device_id) for k, v in config.items()}
+    if isinstance(config, list):
+        return [_substitute_placeholder(v, device_id) for v in config]
+    if config == POOLMAN_DEVICE_PLACEHOLDER:
+        return device_id
+    return config
+
+
+def seed_dashboards(
+    token: str,
+    yaml_dir: str = "/demo/dashboards",
+    device_id: str | None = None,
+) -> None:
     """Create storage-mode dashboards via the HA WebSocket API.
 
     For each entry in :data:`DASHBOARDS`, creates a new dashboard and
@@ -452,6 +478,10 @@ def seed_dashboards(token: str, yaml_dir: str = "/demo/dashboards") -> None:
 
     Also registers custom card JS bundles as Lovelace resources so that
     storage-mode dashboards can load them.
+
+    When *device_id* is provided, occurrences of
+    :data:`POOLMAN_DEVICE_PLACEHOLDER` in the YAML are replaced with it so
+    that first-party custom cards keyed by ``device_id`` are functional.
 
     Idempotent: dashboards and resources that already exist are skipped
     so that edits made via the HA UI survive container restarts.  Reset
@@ -538,6 +568,9 @@ def seed_dashboards(token: str, yaml_dir: str = "/demo/dashboards") -> None:
 
                 with open(yaml_path) as fh:
                     config = yaml.safe_load(fh)
+
+                if device_id:
+                    config = _substitute_placeholder(config, device_id)
 
                 result = ws_command(
                     "lovelace/config/save",
@@ -757,9 +790,11 @@ def main() -> None:
     # the HA volume is reset.
     seed_actions(token)
 
-    # Create storage-mode dashboards (editable from the HA UI)
+    # Create storage-mode dashboards (editable from the HA UI).  Resolve the
+    # Pool Manager device id so first-party cards keyed by ``device_id`` work.
     log.info("Seeding dashboards...")
-    seed_dashboards(token)
+    device_id = _resolve_poolman_device(token)
+    seed_dashboards(token, device_id=device_id)
 
     log.info("All done! HA is ready at http://localhost:8123 (admin/admin)")
     log.info("  Built-in dashboard: http://localhost:8123/pool-builtin/0")

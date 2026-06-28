@@ -254,9 +254,19 @@ views:
             icon: mdi:water-opacity
             show_state: true
 
+      # ── Problems (first-party custom card) ───────────────────────
+      - type: custom:poolman-problem-card
+        device_id: __POOLMAN_DEVICE_ID__
+        name: Demo Pool — Problems
+
+      # ── Quick actions (first-party custom card) ──────────────────
+      - type: custom:poolman-quick-actions-card
+        device_id: __POOLMAN_DEVICE_ID__
+        name: Demo Pool — Quick Actions
+
       # ── Recommendations ──────────────────────────────────────────
       - type: custom:poolman-recommendations-card
-        device_id: this
+        device_id: __POOLMAN_DEVICE_ID__
         name: Demo Pool — Recommendations
         entity: sensor.demo_pool_recommendations
 
