@@ -24,6 +24,14 @@ and dosage calculations.
 Values within the minimum--maximum range are considered acceptable. The target
 value represents the ideal level for each parameter.
 
+!!! note "ORP minimum vs sanitizer threshold"
+
+    For ORP, the **650 mV** minimum above is the scoring floor (readings at or
+    below it score 0). The [Sanitizer Rule](rules-and-recommendations.md#sanitizer-rule-orp)
+    uses a higher **720 mV** "minimum acceptable" threshold: readings between
+    650 and 720 mV still score above 0 but trigger a recommendation to add a
+    regular sanitizer dose.
+
 ## Chemistry Status
 
 Each parameter is evaluated individually and assigned one of three statuses:
@@ -94,8 +102,8 @@ The overall water quality score is the **average** of all individual parameter s
 
 Only parameters for which a sensor is configured and currently reporting a
 valid value are included in the score. If you only have pH and ORP sensors,
-the score is computed from those two. Adding free chlorine, salt, TAC, CYA, or
-hardness sensors increases the accuracy of the score.
+the score is computed from those two. Adding free chlorine, salt, TAC, CYA,
+hardness, or TDS sensors increases the accuracy of the score.
 
 If no parameter has a valid reading, the score is unavailable.
 
@@ -126,7 +134,7 @@ universal.
 | Treatment | Regular product | Shock product | Excess product |
 | --- | --- | --- | --- |
 | Chlorine | Chlorine tablet | Shock chlorine | Neutralizer |
-| Salt electrolysis | Salt | Salt (increased dose) | Neutralizer |
+| Salt electrolysis | Salt | Shock chlorine | Neutralizer |
 | Bromine | Bromine tablet | Bromine shock | Neutralizer |
 | Active oxygen | Active oxygen tablet | Active oxygen activator | Neutralizer |
 

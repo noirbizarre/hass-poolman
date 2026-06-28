@@ -21,6 +21,13 @@ Each recommendation has a priority level that determines its urgency and affects
 | Medium | Attention recommended | Yes | No |
 | Low | Informational | Yes | No |
 
+!!! note
+
+    The `High` priority level is defined but not currently emitted by any
+    built-in rule. The analysis pipeline maps problem severities directly to
+    `Critical`, `Medium`, or `Low` (see [Analysis Pipeline](#analysis-pipeline)),
+    so today's recommendations only use those three levels.
+
 Recommendations are sorted by priority (critical first) when displayed.
 
 ## Action Kind
@@ -44,7 +51,7 @@ and dashboards.
 | Chemical | Add a specific chemical product (includes product name and dosage) |
 | Filtration | Run the filtration system for a specified duration |
 | Alert | Warning about a risky condition (e.g., algae risk) |
-| Maintenance | General maintenance action (reserved for future use) |
+| Maintenance | General maintenance action (e.g., sensor calibration, TDS too low) |
 
 ## Built-in Rules
 
@@ -55,7 +62,7 @@ target (7.2).
 
 | Condition | Priority | Kind | Recommendation |
 | --- | --- | --- | --- |
-| pH outside acceptable range (< 6.8 or > 7.8) | High | Requirement | Add pH+ or pH- with calculated dosage |
+| pH outside acceptable range (< 6.8 or > 7.8) | Critical | Requirement | Add pH+ or pH- with calculated dosage |
 | pH deviation > 0.3 from target | Medium | Suggestion | Add pH+ or pH- with calculated dosage |
 | pH deviation > 0.1 from target | Low | Suggestion | Add pH+ or pH- with calculated dosage |
 
@@ -85,7 +92,7 @@ readings. The recommended products depend on the configured
 | Treatment | Regular | Shock | Excess |
 | --- | --- | --- | --- |
 | Chlorine | Chlorine tablet | Shock chlorine | Neutralizer |
-| Salt electrolysis | Salt | Salt (increased dose) | Neutralizer |
+| Salt electrolysis | Salt | Shock chlorine | Neutralizer |
 | Bromine | Bromine tablet | Bromine shock | Neutralizer |
 | Active oxygen | Active oxygen tablet | Active oxygen activator | Neutralizer |
 
@@ -103,7 +110,7 @@ sanitizer. When free chlorine is configured, this rule operates alongside
 
 | Condition | Priority | Kind | Recommendation |
 | --- | --- | --- | --- |
-| Free chlorine < 1.0 ppm | High | Requirement | Add chlorine (shock chlorine product) |
+| Free chlorine < 1.0 ppm | Critical | Requirement | Add chlorine (shock chlorine product) |
 | Free chlorine > 3.0 ppm | Low | Suggestion | Reduce chlorine dosage (neutralizer product) |
 
 No specific dosage is calculated because the required amount depends on
@@ -122,7 +129,12 @@ Recommends daily filtration duration based on the current [pool mode](pool-modes
 | --- | --- |
 | Active/Activating mode, recommended duration >= 12h | Medium |
 | Active/Activating mode, recommended duration < 12h | Low |
-| Wintering modes | Low |
+| Active/Hibernating Wintering, recommended duration computed | Low |
+
+!!! note
+
+    This rule is disabled in [Passive Wintering](pool-modes.md#passive-wintering)
+    mode, where filtration is stopped (0 hours).
 
 ### TAC Rule (Total Alkalinity)
 
@@ -146,7 +158,7 @@ Detects conditions favorable to algae growth by combining temperature and ORP re
 
 | Condition | Priority | Kind | Recommendation |
 | --- | --- | --- | --- |
-| Water temperature > 28°C **and** ORP < 720 mV | High | Requirement | High algae risk alert |
+| Water temperature > 28°C **and** ORP < 720 mV | Critical | Requirement | High algae risk alert |
 
 Both conditions must be met simultaneously. This rule is disabled in
 [Passive Wintering](pool-modes.md#passive-wintering) and
@@ -159,7 +171,7 @@ Monitors cyanuric acid (stabilizer) levels and recommends adjustments.
 | Condition | Priority | Kind | Recommendation |
 | --- | --- | --- | --- |
 | CYA < 20 ppm | Medium | Requirement | Add stabilizer with calculated dosage |
-| CYA > 75 ppm | Low | Requirement | Consider partial water drain (no chemical fix) |
+| CYA > 75 ppm | Low | Suggestion | Consider partial water drain (no chemical fix) |
 
 See [CYA Dosage Calculation](water-chemistry.md#cya-dosage-calculation) for dosage details.
 
@@ -175,7 +187,7 @@ Monitors calcium hardness levels and recommends adjustments.
 | Condition | Priority | Kind | Recommendation |
 | --- | --- | --- | --- |
 | Hardness < 150 ppm | Medium | Requirement | Add calcium hardness increaser with calculated dosage |
-| Hardness > 400 ppm | Low | Requirement | Consider partial water drain (no chemical fix) |
+| Hardness > 400 ppm | Low | Suggestion | Consider partial water drain (no chemical fix) |
 
 See [Hardness Dosage Calculation](water-chemistry.md#hardness-dosage-calculation) for dosage details.
 
@@ -193,7 +205,7 @@ electrolysis; for other treatment types it is silently skipped.
 | Condition | Priority | Kind | Recommendation |
 | --- | --- | --- | --- |
 | Salt < 2700 ppm | Medium | Requirement | Add salt with calculated dosage |
-| Salt > 3400 ppm | Low | Requirement | Consider partial water drain (no chemical fix) |
+| Salt > 3400 ppm | Low | Suggestion | Consider partial water drain (no chemical fix) |
 
 See [Salt Dosage Calculation](water-chemistry.md#salt-dosage-calculation) for dosage details.
 
@@ -238,7 +250,7 @@ this rule suggests sensor recalibration or a new manual measurement.
 | Hardness | 50 ppm |
 | Temperature | 2 °C |
 
-All calibration recommendations have **Medium** priority and are classified
+All calibration recommendations have **Low** priority and are classified
 as **Suggestions** of type **Maintenance**.
 
 !!! note

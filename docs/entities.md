@@ -11,7 +11,9 @@ name you set during configuration.
 
 ## Sensors
 
-The integration creates 22 sensor entities:
+The integration always creates the following sensors. Additional sensors are
+created conditionally: `filtration_boost_remaining` when a pump entity is
+configured, and one `inventory_product` sensor per tracked inventory product.
 
 ### Reading sensors
 
@@ -40,6 +42,8 @@ These sensors are calculated by Pool Manager from your readings.
 | `sensor.{pool}_chemistry_actions` | Chemistry actions | -- | Number of chemistry-related actions (excludes filtration). See details below. |
 | `sensor.{pool}_active_treatments` | Active treatments | -- | Number of currently active chemical treatments. See [Chemistry Tracking](chemistry-tracking.md) for details. |
 | `sensor.{pool}_safe_at` | Safe to swim at | -- | Timestamp (`timestamp` device class) indicating when the pool will be safe for swimming after treatments. `None` if already safe. |
+| `sensor.{pool}_status` | Pool status | -- | Overall pool status (`enum` device class), one of `ok`, `warning`, `critical`, derived from detected problems. See details below. |
+| `sensor.{pool}_action_history` | Last action | -- | Timestamp (`timestamp` device class) of the most recently recorded action. See [Action History Card](action-history-card.md) for the exposed history. |
 
 ### Recommendations sensor attributes
 
@@ -48,7 +52,7 @@ The `recommendations` sensor exposes additional detail through its state attribu
 | Attribute | Type | Description |
 | --- | --- | --- |
 | `actions` | list of strings | Human-readable description of each active recommendation (e.g., `"Add 450g of ph_minus"`) |
-| `critical_count` | integer | Number of high or critical priority recommendations |
+| `critical_count` | integer | Number of critical priority recommendations |
 
 These attributes can be used in automations, templates, or Lovelace cards to display detailed recommendation information.
 
@@ -73,6 +77,18 @@ Each entry in `problems` has the following shape:
 | `value` | float or null | The measured value that triggered the problem. |
 | `expected_range` | list of two floats or null | `[minimum, maximum]` acceptable range. |
 | `message` | string | Human-readable description of the problem. |
+
+### Pool status sensor attributes
+
+The `status` sensor summarizes the overall pool health as a single
+`ok` / `warning` / `critical` value, derived from the detected problems.
+Its state attributes are:
+
+| Attribute | Type | Description |
+| --- | --- | --- |
+| `problem_count` | integer | Total number of detected problems |
+| `critical_count` | integer | Number of problems with `critical` severity |
+| `worst_severity` | string | Highest severity present, one of `ok`, `low`, `medium`, `critical` |
 
 ### Chemistry actions sensor attributes
 
@@ -168,13 +184,16 @@ The checklist state persists across Home Assistant restarts via the
 
 ## Binary Sensors
 
-The integration creates 3 binary sensor entities for quick status checks:
+The integration always creates 3 binary sensor entities for quick status checks,
+plus one `inventory_low_stock` binary sensor per inventory product that has a
+low-stock threshold configured:
 
 | Entity | Name | Device Class | ON when... |
 | --- | --- | --- | --- |
 | `binary_sensor.{pool}_water_ok` | Water quality | `safety` | No high or critical priority recommendations exist **and** no active treatment safety period is in effect |
 | `binary_sensor.{pool}_action_required` | Action required | `problem` | At least one recommendation is active (any priority) |
 | `binary_sensor.{pool}_swimming_safe` | Swimming safe | `safety` | No active treatment safety period is in effect (all swim wait times have elapsed) |
+| `binary_sensor.{pool}_{product}_low_stock` | `{product}` low stock | `problem` | The tracked product's stock falls at or below its configured low-stock threshold. See [Inventory](inventory.md). |
 
 !!! tip "Automation ideas"
 
@@ -182,7 +201,7 @@ The integration creates 3 binary sensor entities for quick status checks:
 
 ## Event Entities
 
-The integration creates 18 event entities, one per chemical product,
+The integration creates one event entity per chemical product (18 total)
 to track treatment applications. Each entity fires an `applied` event
 when a treatment is recorded via the `poolman.add_treatment` service.
 
@@ -191,6 +210,26 @@ default when the pool's configured treatment type doesn't match.
 Universal products (e.g., `ph_minus`, `flocculant`) are always enabled.
 
 See [Chemistry Tracking](chemistry-tracking.md) for the full list of products, safety profiles, and usage details.
+
+In addition, the integration creates 10 measurement event entities, one per
+measurable parameter, that fire a `measured` event when a manual measurement is
+recorded via the `poolman.record_measure` service:
+
+| Entity | Name | Event types |
+| --- | --- | --- |
+| `event.{pool}_measure_ph` | pH measured | `measured` |
+| `event.{pool}_measure_orp` | ORP measured | `measured` |
+| `event.{pool}_measure_free_chlorine` | Free chlorine measured | `measured` |
+| `event.{pool}_measure_ec` | EC measured | `measured` |
+| `event.{pool}_measure_tds` | TDS measured | `measured` |
+| `event.{pool}_measure_tac` | TAC measured | `measured` |
+| `event.{pool}_measure_cya` | CYA measured | `measured` |
+| `event.{pool}_measure_hardness` | Hardness measured | `measured` |
+| `event.{pool}_measure_salt` | Salt measured | `measured` |
+| `event.{pool}_measure_temperature` | Temperature measured | `measured` |
+
+A `filtration` event entity is also created when a pump entity is configured
+(see [Filtration Control Entities](#filtration-control-entities) below).
 
 ## Select
 

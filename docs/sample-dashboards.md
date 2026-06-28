@@ -325,16 +325,16 @@ cards or HACS installations required.
           - type: logbook
             hours_to_show: 48
             entities:
-              - event.{pool}_ph_measurement
-              - event.{pool}_orp_measurement
-              - event.{pool}_tac_measurement
-              - event.{pool}_cya_measurement
-              - event.{pool}_hardness_measurement
-              - event.{pool}_temperature_measurement
-              - event.{pool}_ph_minus_treatment
-              - event.{pool}_ph_plus_treatment
-              - event.{pool}_shock_chlorine_treatment
-              - event.{pool}_chlorine_tablet_treatment
+              - event.{pool}_measure_ph
+              - event.{pool}_measure_orp
+              - event.{pool}_measure_tac
+              - event.{pool}_measure_cya
+              - event.{pool}_measure_hardness
+              - event.{pool}_measure_temperature
+              - event.{pool}_ph_minus
+              - event.{pool}_ph_plus
+              - event.{pool}_chlore_choc
+              - event.{pool}_galet_chlore
               - event.{pool}_filtration
 
           # ── Activation Wizard (visible only in activating mode) ─
@@ -935,16 +935,16 @@ Install the following custom cards via [HACS](https://hacs.xyz/):
           - type: logbook
             hours_to_show: 48
             entities:
-              - event.{pool}_ph_measurement
-              - event.{pool}_orp_measurement
-              - event.{pool}_tac_measurement
-              - event.{pool}_cya_measurement
-              - event.{pool}_hardness_measurement
-              - event.{pool}_temperature_measurement
-              - event.{pool}_ph_minus_treatment
-              - event.{pool}_ph_plus_treatment
-              - event.{pool}_shock_chlorine_treatment
-              - event.{pool}_chlorine_tablet_treatment
+              - event.{pool}_measure_ph
+              - event.{pool}_measure_orp
+              - event.{pool}_measure_tac
+              - event.{pool}_measure_cya
+              - event.{pool}_measure_hardness
+              - event.{pool}_measure_temperature
+              - event.{pool}_ph_minus
+              - event.{pool}_ph_plus
+              - event.{pool}_chlore_choc
+              - event.{pool}_galet_chlore
               - event.{pool}_filtration
 
           # ── Activation Wizard (visible only in activating mode) ─
