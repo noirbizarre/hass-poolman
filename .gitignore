@@ -212,3 +212,10 @@ reports/
 # Frontend (Lovelace card) build artifacts
 frontend/node_modules/
 frontend/dist/
+
+# Playwright E2E artifacts
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
+e2e/storage-state.json
+e2e/.playwright/

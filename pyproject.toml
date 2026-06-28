@@ -146,6 +146,9 @@ test
     --junitxml=reports/junit.xml
 """
 
+e2e.help = "Run the Playwright end-to-end tests"
+e2e.cmd = "npm --prefix e2e test"
+
 brand.help = "Render the brand logo and icon from the SVGs"
 brand.cmd = "uv run scripts/brand.py"
 
