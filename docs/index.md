@@ -23,8 +23,9 @@ with no cloud service or specific hardware required.
 - **Computed analytics** -- Recommended daily filtration duration
   and a 0--100% water quality score, computed from your sensor data
 - **Rule engine** -- Actionable recommendations with chemical product
-  names and dosage in grams, covering pH, sanitizer/ORP, alkalinity,
-  and algae risk
+  names and dosage in grams, covering pH, sanitizer/ORP, free chlorine,
+  alkalinity, CYA, hardness, salt, TDS, algae risk, filtration, and
+  sensor calibration
 - **Chemistry tracking** -- Record chemical treatments, track active
   products and safety wait times, with automatic swimming safety
   determination
@@ -36,8 +37,9 @@ with no cloud service or specific hardware required.
   pump and temperature sensor settings
 - **Automatic pump control** -- Daily pump scheduling with configurable
   start time and duration when a pump switch entity is configured
-- **3 operational modes** -- Running, Active Wintering, and Passive
-  Wintering, each with adapted filtration logic and rule behavior
+- **5 operational modes** -- Active, Activating, Hibernating, Active
+  Wintering, and Passive Wintering, each with adapted filtration logic
+  and rule behavior
 - **Hardware agnostic** -- Works with any sensor source: dedicated pool
   probes (Flipr, iopool, Sutro), ESPHome DIY sensors, or manual input helpers
 - **Reconfigurable** -- Chemistry and filtration settings can be updated at any time
@@ -62,7 +64,7 @@ All computations happen locally. No cloud API, no account, no internet connectio
 - [Chemistry Tracking](chemistry-tracking.md) -- Treatment recording, safety profiles, and swimming safety
 - [Inventory](inventory.md) -- Track chemical product stock with low-stock warnings
 - [Filtration Control](filtration-control.md) -- Automatic pump scheduling, events, and automation examples
-- [Pool Modes](pool-modes.md) -- Running, Active Wintering, and Passive Wintering explained
+- [Pool Modes](pool-modes.md) -- Active, Activating, Hibernating, Active Wintering, and Passive Wintering explained
 - [Water Chemistry](water-chemistry.md) -- Target ranges, scoring, and parameter details
 - [Rules & Recommendations](rules-and-recommendations.md) -- The rule engine, priority system, and chemical dosages
 - [Sample Dashboards](sample-dashboards.md) -- Ready-to-use Lovelace dashboard examples
